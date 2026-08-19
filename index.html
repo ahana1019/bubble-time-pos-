@@ -18,21 +18,20 @@
             --theme-text: #713f12;
         }
 
-        /* Use dynamic viewport height (dvh) so mobile browser toolbars don't clip the app */
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 0;
-            height: 100dvh;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            -webkit-text-size-adjust: 100%;
-        }
+       html, body {
+      height: 100dvh; /* Solves mobile browser address bar cut-offs */
+      margin: 0;
+      padding: 0;
+      -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    }
 
+    /* Responsive Mobile Stacking Fix */
+    @media (max-width: 900px) {
+      .pos-container, .register-layout, .recon-panel, .main-content {
+        display: flex;
+        flex-direction: column !important;
+        width: 100% !important;
+      }
         /* Login Overlay */
         #loginOverlay {
             position: fixed;
