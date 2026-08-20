@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mercury Distribution Ltd POS Portal</title>
+    <!-- Include Chart.js for Donut Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #1e293b;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --theme-color: #eab308;
+            --theme-text: #713f12;
+        }
+
+        html, body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* Login Overlay */
+        #loginOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .login-card {
+            background: var(--surface);
+            padding: 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .login-card h2 { margin-bottom: 5px; color: var(--primary); }
+        .login-card p { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
+        .login-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        /* App Layout */
+        #mainApp {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background: #f1f5f9;
+            width: 100%;
+            box-sizing: border-box;
+            padding-bottom: 75px;
+        }
+
+        .top-header {
+            background: var(--theme-color);
+            color: var(--theme-text);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: 500;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 99;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .view-container {
+            flex: 1;
+            width: 100%;
+            background: #f8fafc;
+            box-sizing: border-box;
+        }
+
+        .view-pane {
+            display: none;
+            width: 100%;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .view-pane.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Bottom Navigation Bar */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 65px;
+            background: var(--theme-color);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid #ca8a04;
+            box-sizing: border-box;
+            z-index: 1000;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+        }
+
+        .nav-item {
+            color: var(--theme-text);
+            background: transparent;
+            border: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.75rem;
+            flex: 1;
+            padding: 6px 0;
+            opacity: 0.85;
+            transition: opacity 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .nav-item svg {
+            width: 22px;
+            height: 22px;
+            margin-bottom: 3px;
+            fill: currentColor;
+        }
+
+        .nav-item.active, .nav-item:hover {
+            opacity: 1;
+            font-weight: bold;
+        }
+
+        /* Home User / Dashboard Grid */
+        .home-dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 15px;
+            padding: 10px;
+            box-sizing: border-box;
+            max-width: 1100px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .dashboard-tile {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px 15px;
+            text-align: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 180px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard-tile:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.08);
+            border-color: #cbd5e1;
+        }
+
+        .tile-icon-art {
+            width: 75px;
+            height: 75px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .art-phone { width: 48px; height: 72px; background: #1e293b; border-radius: 8px; position: relative; border: 2px solid #334155; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 6px; }
+        .art-phone-screen { width: 38px; height: 54px; background: #fffbeb; border-radius: 4px; display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+        .art-cup-mini { width: 20px; height: 24px; background: #d97706; border-radius: 2px 2px 6px 6px; position: relative; }
+        .art-cup-mini::before { content: ''; position: absolute; top: -4px; left: 5px; width: 10px; height: 4px; background: #f59e0b; border-radius: 2px; }
+        .art-cup-mini::after { content: ''; position: absolute; top: -10px; left: 12px; width: 2px; height: 12px; background: #475569; transform: rotate(20deg); }
+        .art-phone-text { font-size: 8px; font-weight: bold; color: #b45309; margin-top: 2px; }
+        .art-hand { position: absolute; bottom: -2px; right: -6px; width: 32px; height: 38px; background: #fcd34d; border-radius: 12px 4px 4px 12px; border: 2px solid #f59e0b; }
+
+        .art-clipboard { width: 52px; height: 66px; background: #e0f2fe; border: 2px solid #0284c7; border-radius: 6px; position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 10px; }
+        .art-clip-top { position: absolute; top: -4px; width: 22px; height: 8px; background: #0284c7; border-radius: 3px; }
+        .art-lines { width: 34px; height: 4px; background: #bae6fd; margin-bottom: 5px; border-radius: 2px; }
+        .art-coin { position: absolute; bottom: -4px; right: -8px; width: 30px; height: 30px; background: #fde047; border: 2px solid #ca8a04; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; color: #854d0e; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+        .art-chart-ring { width: 68px; height: 68px; border-radius: 50%; border: 7px solid #fde047; border-top-color: #22c55e; border-right-color: #ef4444; position: relative; display: flex; align-items: center; justify-content: center; }
+        .art-chart-bars { display: flex; align-items: flex-end; gap: 3px; height: 24px; }
+        .art-bar { width: 6px; background: #0284c7; border-radius: 2px 2px 0 0; }
+
+        .art-sales-board { width: 52px; height: 64px; background: #fef3c7; border: 2px solid #d97706; border-radius: 6px; position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 8px; }
+        .art-check-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; width: 38px; }
+        .art-checkbox { width: 10px; height: 10px; background: #10b981; border-radius: 2px; display: flex; align-items: center; justify-content: center; color: white; font-size: 7px; }
+        .art-check-line { flex: 1; height: 3px; background: #fcd34d; border-radius: 2px; }
+        .art-mini-cart { position: absolute; bottom: -6px; left: -8px; background: #ef4444; color: white; padding: 4px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+
+        .dashboard-tile span { font-weight: 700; font-size: 0.85rem; color: #334155; letter-spacing: 0.5px; }
+
+        /* POS Register Layout */
+        .pos-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 900px) {
+            .pos-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+        }
+
+        h2 { margin-top: 0; font-size: 1.1rem; color: #1e293b; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+
+        .catalog-scroll {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-right: 5px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .category-dropdown {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .category-header {
+            background: #f1f5f9;
+            padding: 10px 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            font-size: 0.9rem;
+        }
+
+        .category-header:hover { background: #e2e8f0; }
+
+        .category-content {
+            display: none;
+            padding: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 8px;
+            background: #fafafa;
+            border-top: 1px solid var(--border);
+        }
+
+        .category-dropdown.active .category-content {
+            display: grid;
+        }
+
+        .product-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .product-btn:hover {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+
+        .product-name { font-weight: 600; display: block; margin-bottom: 3px; font-size: 0.8rem; }
+        .product-price { color: #64748b; font-size: 0.75rem; }
+
+        .cart-items {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 5px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+
+        .cart-item-controls button {
+            background: var(--border);
+            border: none;
+            padding: 2px 6px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .totals-box {
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            background: #f1f5f9;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .totals-row.grand {
+            font-weight: bold;
+            font-size: 1rem;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 4px;
+            margin-top: 4px;
+        }
+
+        .btn {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .btn:hover { background: var(--primary-hover); }
+        .btn-secondary { background: #64748b; }
+        .btn-secondary:hover { background: #475569; }
+        .btn-danger { background: #dc2626; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-success { background: #059669; color: white; }
+        .btn-success:hover { background: #047857; }
+
+        /* Placed Orders Layout */
+        .placed-orders-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr 300px;
+            gap: 15px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 900px) {
+            .placed-orders-layout {
+                grid-template-columns: 1fr;
+            }
+            .placed-orders-layout > div {
+                min-height: 350px;
+            }
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        th, td { border: 1px solid var(--border); padding: 6px; text-align: left; }
+        th { background: #f1f5f9; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Staff Login Screen Overlay -->
+    <div id="loginOverlay">
+        <div class="login-card">
+            <h2>Mercury Distribution Ltd</h2>
+            <p>Please log in to start shift</p>
+            <input type="text" id="loginUser" class="login-input" placeholder="Username (e.g. alex, admin)">
+            <input type="password" id="loginPin" class="login-input" placeholder="PIN Code">
+            <button class="btn" onclick="handleLogin()">Login & Open Register</button>
+            <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 15px;">Admin: admin / 0000 | Staff: alex / 1234</p>
+        </div>
+    </div>
+
+    <!-- Main App UI Container -->
+    <div id="mainApp" class="hidden">
+        <div class="top-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="currentViewTitle" style="font-weight: bold;">HOME USER</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span id="loggedInUserDisplay" style="font-size: 0.9rem; color: var(--theme-text);"></span>
+                <button class="btn btn-danger" style="width: auto; padding: 4px 10px; font-size: 0.8rem; margin:0;" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content Area with Panes -->
+        <div class="view-container">
+            
+            <!-- VIEW 0: HOME USER / DASHBOARD -->
+            <div id="paneHome" class="view-pane active">
+                <div style="margin-bottom: 15px;">
+                    <h2 style="border: none; margin-bottom: 2px;">Home User</h2>
+                </div>
+                <div class="home-dashboard-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); max-width: 900px;">
+                    
+                    <!-- Tile 1: Place Order -->
+                    <div class="dashboard-tile" onclick="switchView('paneRegister', document.querySelectorAll('.bottom-nav .nav-item')[1], 'POS REGISTER')">
+                        <div class="tile-icon-art">
+                            <div class="art-phone">
+                                <div class="art-phone-screen">
+                                    <div class="art-cup-mini"></div>
+                                    <span class="art-phone-text">-1+</span>
+                                </div>
+                            </div>
+                            <div class="art-hand"></div>
+                        </div>
+                        <span>PLACE ORDER</span>
+                    </div>
+
+                    <!-- Tile 2: Orders by Cashier -->
+                    <div class="dashboard-tile" onclick="switchView('panePlacedOrders', document.querySelectorAll('.bottom-nav .nav-item')[2], 'PLACED ORDERS')">
+                        <div class="tile-icon-art">
+                            <div class="art-clipboard">
+                                <div class="art-clip-top"></div>
+                                <div class="art-lines"></div>
+                                <div class="art-lines"></div>
+                                <div class="art-lines"></div>
+                            </div>
+                            <div class="art-coin">$</div>
+                        </div>
+                        <span>ORDERS BY CASHIER</span>
+                    </div>
+
+                    <!-- Tile 3: Chart Today Sales -->
+                    <div class="dashboard-tile" onclick="switchView('paneDashboard', null, 'SALES CHART & ANALYTICS')">
+                        <div class="tile-icon-art">
+                            <div class="art-chart-ring">
+                                <div class="art-chart-bars">
+                                    <div class="art-bar" style="height: 12px;"></div>
+                                    <div class="art-bar" style="height: 18px; background: #22c55e;"></div>
+                                    <div class="art-bar" style="height: 10px; background: #eab308;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <span>CHART TODAY SALES</span>
+                    </div>
+
+                    <!-- Tile 4: Sales Qty -->
+                    <div class="dashboard-tile" onclick="switchView('paneDailySales', document.querySelectorAll('.bottom-nav .nav-item')[3], 'DAILY SALES REPORT (ALL ITEMS)')">
+                        <div class="tile-icon-art">
+                            <div class="art-sales-board">
+                                <div class="art-check-row"><div class="art-checkbox">✓</div><div class="art-check-line"></div></div>
+                                <div class="art-check-row"><div class="art-checkbox">✓</div><div class="art-check-line"></div></div>
+                                <div class="art-check-row"><div class="art-checkbox">✓</div><div class="art-check-line"></div></div>
+                            </div>
+                            <div class="art-mini-cart">🛒</div>
+                        </div>
+                        <span>SALES QTY</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- VIEW 1: POS REGISTER -->
+            <div id="paneRegister" class="view-pane">
+                <div style="margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                        <button id="connectPrinterBtn" class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin:0;" onclick="connectPrinter()">🔗 Connect Printer</button>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin:0;" onclick="openCashDrawerExplicit()">🔓 Open Drawer</button>
+                        <span id="printerStatus" style="font-size: 0.8rem; color: #dc2626;">Printer Disconnected</span>
+                    </div>
+                    <!-- On-Screen Receipt Toggle Switch -->
+                    <div style="display: flex; align-items: center; gap: 8px; background: #e2e8f0; padding: 4px 10px; border-radius: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 600;">Receipt on Screen:</span>
+                        <button id="receiptToggleBtn" class="btn btn-success" style="width: auto; padding: 2px 8px; font-size: 0.75rem; margin:0;" onclick="toggleScreenReceipt()">ON</button>
+                    </div>
+                </div>
+
+                <div class="pos-grid">
+                    <!-- Left: Menu Catalog -->
+                    <div class="card">
+                        <h2>Menu Catalog</h2>
+                        <div id="accordionContainer" class="catalog-scroll"></div>
+                    </div>
+
+                    <!-- Right: Cart & Checkout -->
+                    <div class="card">
+                        <h2>Current Order</h2>
+                        <div id="cartItems" class="cart-items">
+                            <p style="color: #94a3b8; text-align: center;">Cart is empty</p>
+                        </div>
+
+                        <!-- On-Screen Receipt Preview Container -->
+                        <div id="screenReceiptBox" style="background: #fffbeb; border: 1px dashed #d97706; padding: 8px; border-radius: 6px; margin-bottom: 10px; font-family: monospace; font-size: 0.75rem; max-height: 140px; overflow-y: auto;">
+                            <div style="text-align: center; font-weight: bold;">Mercury Distribution Ltd</div>
+                            <div style="text-align: center; font-size: 0.7rem;">Louis Pasteur St, Manhattan Mall, Curepipe</div>
+                            <div style="text-align: center; font-size: 0.7rem;">Tel: 52573727 | VAT: 28237334 | BRN: C24206010</div>
+                            <div style="text-align: center; font-weight: bold; margin-top: 2px;">VAT INVOICE</div>
+                            <div id="screenReceiptContent">No items in receipt preview</div>
+                        </div>
+
+                        <div class="totals-box">
+                            <div class="totals-row">
+                                <span>Subtotal:</span>
+                                <span id="cartSubtotal">Rs 0.00</span>
+                            </div>
+                            <div class="totals-row">
+                                <span>VAT (15%):</span>
+                                <span id="cartVat">Rs 0.00</span>
+                            </div>
+                            <div class="totals-row grand">
+                                <span>Total:</span>
+                                <span id="cartTotal">Rs 0.00</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 10px;">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Payment Method:</label>
+                            <select id="paymentMethod" style="width: 100%; padding: 6px; margin-top: 4px; border-radius: 6px; border: 1px solid var(--border);">
+                                <option value="Cash">Cash</option>
+                                <option value="Card">Card</option>
+                                <option value="Blinks">Blinks</option>
+                                <option value="Delivoo">Delivoo</option>
+                                <option value="Hungry Dodo">Hungry Dodo</option>
+                            </select>
+                        </div>
+
+                        <button class="btn" onclick="completeSaleAndPlaceOrder()">Complete Sale & Place Order</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: PLACED ORDERS -->
+            <div id="panePlacedOrders" class="view-pane">
+                <div class="placed-orders-layout">
+                    <div class="orders-list-panel" style="background: white; border: 1px solid var(--border); border-radius: 8px; max-height: 70vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <div style="padding: 12px 15px; font-weight: bold; border-bottom: 1px solid var(--border); background: #f1f5f9; position: sticky; top:0;">Placed Orders</div>
+                        <div id="placedOrdersListContainer">
+                            <p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.85rem;">No placed orders</p>
+                        </div>
+                    </div>
+                    <div class="order-details-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; max-height: 70vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <div id="selectedOrderDetailsHeader" style="margin-bottom: 15px;">
+                            <p style="color: #94a3b8; font-size: 0.9rem;">Select an order from the left to view details and settlement status.</p>
+                        </div>
+                        <div id="selectedOrderItemsTable" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
+                    </div>
+                    <div class="order-settlement-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; box-sizing: border-box;">
+                        <h2>Settlement</h2>
+                        <div style="margin-top: 15px;">
+                            <label style="font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Payment Status</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <button id="btnStatusPaid" class="btn btn-success" style="flex: 1; padding: 10px; font-size: 0.85rem; margin:0;" onclick="setPaymentStatus('PAID')">PAID</button>
+                                <button id="btnStatusUnpaid" class="btn btn-secondary" style="flex: 1; padding: 10px; font-size: 0.85rem; margin:0; background:#64748b;" onclick="setPaymentStatus('UNPAID')">UNPAID</button>
+                            </div>
+                            <label style="font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Payment Type</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px;">
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Cash')">💵 CASH</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Card')">💳 CARD</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Blinks')">📱 BLINKS</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Delivoo')">🛵 DELIVOO</button>
+                            </div>
+                            <button class="btn btn-success" style="margin-bottom: 8px; background-color: #0284c7;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
+                            <button class="btn btn-danger" style="margin-top: 10px;" onclick="deleteSelectedPlacedOrder()">Discard / Delete Order</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 3: DAILY SALES REPORT (ALL ITEMS) -->
+            <div id="paneDailySales" class="view-pane">
+                <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <h2 style="margin: 0; border: none;">Daily Sales Report (All Items Sold Today)</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" style="width: auto; padding: 8px 15px; margin: 0; font-size: 0.85rem;" onclick="printDailySalesReport()">🖨️ PRINT REPORT</button>
+                        <button class="btn btn-danger" style="width: auto; padding: 8px 15px; margin: 0; font-size: 0.85rem;" onclick="resetDailySalesItems()">Reset Daily Sales</button>
+                    </div>
+                </div>
+                <div class="card" style="width: 100%; box-sizing: border-box;">
+                    <div style="max-height: 500px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <table id="dailySalesTable">
+                            <tr><th>Item Name</th><th>Category</th><th>Quantity Sold Today</th><th>Total Revenue (Rs)</th></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 4: DASHBOARD / CHARTS -->
+            <div id="paneDashboard" class="view-pane">
+                <div class="card" style="width: 100%; padding: 20px; box-sizing: border-box;">
+                    <h2>📊 Dashboard & Analytics</h2>
+                    <p style="color: #64748b;">Shift metrics, staff performance, and quick metrics for Mercury Distribution Ltd.</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                        <div style="background: #eef2ff; padding: 15px; border-radius: 8px; border: 1px solid #c7d2fe;">
+                            <h4 style="margin: 0 0 10px 0; color: #4f46e5; font-size: 0.9rem;">Active Shift Staff</h4>
+                            <p id="dashStaffName" style="font-size: 1.1rem; font-weight: bold; margin: 0;">-</p>
+                        </div>
+                        <div style="background: #ecfdf5; padding: 15px; border-radius: 8px; border: 1px solid #a7f3d0;">
+                            <h4 style="margin: 0 0 10px 0; color: #059669; font-size: 0.9rem;">Pending Placed Orders</h4>
+                            <p id="dashPendingCount" style="font-size: 1.1rem; font-weight: bold; margin: 0;">0</p>
+                        </div>
+                        <div style="background: #fffbeb; padding: 15px; border-radius: 8px; border: 1px solid #fde68a;">
+                            <h4 style="margin: 0 0 10px 0; color: #d97706; font-size: 0.9rem;">Today's Revenue</h4>
+                            <p id="dashRevenue" style="font-size: 1.1rem; font-weight: bold; margin: 0;">Rs 0.00</p>
+                        </div>
+                    </div>
+
+                    <!-- Donut Chart Container -->
+                    <div style="margin-top: 25px; background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center;">
+                        <h3 style="margin-top: 0; font-size: 1rem; color: #334155; width: 100%; text-align: left; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Sales Distribution by Category (Today)</h3>
+                        <div style="width: 100%; max-width: 380px; height: 300px; position: relative; margin-top: 15px;">
+                            <canvas id="salesDonutChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 5: INVENTORY / STOCK CONTROL -->
+            <div id="paneInventory" class="view-pane">
+                <div class="card" style="width: 100%; box-sizing: border-box;">
+                    <h2>🔒 In-Store Inventory Stock Control</h2>
+                    
+                    <!-- Daily Shift Prep Input -->
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
+                        <h3 style="margin-top:0; color:var(--primary); font-size:1rem;">☕ Daily Shift Prep & Additions (Staff & Admin)</h3>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <div style="flex: 1; min-width: 180px;">
+                                <label style="font-size:0.75rem; font-weight:bold;">Green Tea (grams):</label>
+                                <input type="number" id="prepGreenTea" placeholder="e.g. 500" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; box-sizing:border-box;">
+                            </div>
+                            <div style="flex: 1; min-width: 180px;">
+                                <label style="font-size:0.75rem; font-weight:bold;">Black Tea (grams):</label>
+                                <input type="number" id="prepBlackTea" placeholder="e.g. 500" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; box-sizing:border-box;">
+                            </div>
+                            <div style="flex: 1; min-width: 180px;">
+                                <label style="font-size:0.75rem; font-weight:bold;">Tapioca Pearls (grams):</label>
+                                <input type="number" id="prepTapioca" placeholder="e.g. 3000" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; box-sizing:border-box;">
+                            </div>
+                            <div style="align-self: flex-end; margin-top: auto;">
+                                <button class="btn-success" style="padding: 9px 15px; border:none; border-radius:6px; color:white; cursor:pointer; font-weight:bold;" onclick="submitDailyPrep()">Add Prep</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Receive Stock / Add Product -->
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
+                        <h3 style="margin-top:0; color:var(--primary); font-size:1rem;">📦 Receive Stock / Add Product</h3>
+                        <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+                            <input type="text" id="stockName" placeholder="Item / Ingredient Name" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; flex: 2; min-width: 120px;">
+                            <select id="stockCategory" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; flex: 1;">
+                                <option value="SYRUPS">SYRUPS</option>
+                                <option value="POWDER">POWDER</option>
+                                <option value="POPPING BOBA">POPPING BOBA</option>
+                                <option value="JELLY">JELLY</option>
+                                <option value="OTHERS">OTHERS</option>
+                                <option value="ICE CREAM">ICE CREAM</option>
+                            </select>
+                            <input type="number" id="stockQty" placeholder="Stock Qty" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; width: 90px;" step="0.01">
+                            <input type="text" id="stockUnit" placeholder="Unit (ml/g/pcs)" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; width: 90px;">
+                            <button class="btn-success" style="padding: 8px 15px; border: none; border-radius: 6
