@@ -1,0 +1,2253 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Time POS & Management Portal</title>
+    <!-- Include Chart.js for Donut Chart with fallback -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #f59e0b;
+            --primary-hover: #d97706;
+            --bg: #1e293b;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --theme-color: #f59e0b;
+            --theme-text: #713f12;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            height: 100dvh;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* Login Overlay */
+        #loginOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .login-card {
+            background: var(--surface);
+            padding: 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .login-card h2 { margin-bottom: 5px; color: var(--primary); }
+        .login-card p { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
+        .login-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            background: #fff;
+        }
+
+        /* App Layout */
+        #mainApp {
+            display: flex;
+            flex-direction: column;
+            height: 100dvh;
+            min-height: 100vh;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+
+        .top-header {
+            background: #fbbf24;
+            color: #713f12;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            flex-shrink: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .view-container {
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+            background: #f8fafc;
+            -webkit-overflow-scrolling: touch;
+            padding: 20px;
+        }
+
+        .view-pane {
+            display: none;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .view-pane.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Bottom Navigation Bar */
+        .bottom-nav {
+            height: 65px;
+            background: #fbbf24;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid #f59e0b;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        .nav-item {
+            color: #713f12;
+            background: transparent;
+            border: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.75rem;
+            flex: 1;
+            padding: 6px 0;
+            opacity: 0.85;
+            transition: opacity 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .nav-item svg {
+            width: 22px;
+            height: 22px;
+            margin-bottom: 3px;
+            fill: currentColor;
+        }
+
+        .nav-item.active, .nav-item:hover {
+            opacity: 1;
+            font-weight: bold;
+        }
+
+        /* Centered Stack Layout for Home Dashboard */
+        .home-dashboard-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+            padding-bottom: 30px;
+        }
+
+        .dashboard-tile {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 20px 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 80px;
+            position: relative;
+            box-sizing: border-box;
+            gap: 20px;
+        }
+
+        .dashboard-tile:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
+            border-color: #cbd5e1;
+        }
+
+        .tile-icon-box {
+            width: 54px;
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+
+        .tile-icon-box svg {
+            width: 26px;
+            height: 26px;
+        }
+
+        .dashboard-tile span.tile-label { 
+            font-weight: 700; 
+            font-size: 0.95rem; 
+            letter-spacing: 0.2px; 
+            text-align: left;
+            flex: 1;
+        }
+
+        /* POS Register Layout */
+        .pos-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 900px) {
+            .pos-grid {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+            }
+            .pos-grid .card {
+                min-height: 400px;
+            }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        h2 { margin-top: 0; font-size: 1.1rem; color: #1e293b; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+
+        .catalog-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .category-dropdown {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .category-header {
+            background: #f1f5f9;
+            padding: 10px 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            font-size: 0.9rem;
+        }
+
+        .category-header:hover { background: #e2e8f0; }
+
+        .category-content {
+            display: none;
+            padding: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 8px;
+            background: #fafafa;
+            border-top: 1px solid var(--border);
+        }
+
+        .category-dropdown.active .category-content {
+            display: grid;
+        }
+
+        .product-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .product-btn:hover {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+
+        .product-name { font-weight: 600; display: block; margin-bottom: 3px; font-size: 0.8rem; }
+        .product-price { color: #64748b; font-size: 0.75rem; }
+        .product-stock { color: #059669; font-size: 0.65rem; font-weight: bold; display: block; margin-top: 2px; }
+
+        .cart-items {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 5px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+
+        .cart-item-controls button {
+            background: var(--border);
+            border: none;
+            padding: 2px 6px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .totals-box {
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            background: #f1f5f9;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .totals-row.grand {
+            font-weight: bold;
+            font-size: 1rem;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 4px;
+            margin-top: 4px;
+        }
+
+        .btn {
+            width: 100%;
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .btn:hover { background: #d97706; }
+        .btn-secondary { background: #64748b; }
+        .btn-secondary:hover { background: #475569; }
+        .btn-danger { background: #dc2626; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-success { background: #059669; color: white; }
+        .btn-success:hover { background: #047857; }
+
+        /* Placed Orders Layout */
+        .placed-orders-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr 300px;
+            gap: 15px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 900px) {
+            .placed-orders-layout {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+            }
+            .placed-orders-layout > div {
+                min-height: 350px;
+            }
+        }
+
+        /* Daily Recon Layout */
+        .recon-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 900px) {
+            .recon-layout {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+            }
+        }
+
+        .recon-panel {
+            background: #ffffff;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        th, td { border: 1px solid var(--border); padding: 6px; text-align: left; }
+        th { background: #f1f5f9; }
+
+        .hidden { display: none !important; }
+
+        /* Hidden Print Receipt Styling */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printableReceiptArea, #printableReceiptArea * {
+                visibility: visible;
+            }
+            #printableReceiptArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                font-family: monospace;
+                font-size: 13px;
+                background: white;
+                color: black;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Hidden Printable Area for Direct Customer & Report Printing -->
+    <div id="printableReceiptArea" style="display: none;"></div>
+
+    <!-- Staff Login Screen Overlay -->
+    <div id="loginOverlay">
+        <div class="login-card">
+            <h2>Bubble Time POS</h2>
+            <p>Please log in to start shift</p>
+            <select id="loginUser" class="login-input">
+                <option value="" disabled selected>Select Staff Name...</option>
+            </select>
+            <input type="password" id="loginPin" class="login-input" placeholder="PIN Code">
+            <button class="btn" onclick="handleLogin()">Login & Open Register</button>
+        </div>
+    </div>
+
+    <!-- Main App UI Container -->
+    <div id="mainApp" class="hidden">
+        <div class="top-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="currentViewTitle" style="font-weight: bold;">HOME USER</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span id="loggedInUserDisplay" style="font-size: 0.9rem; color: #713f12;"></span>
+                <button class="btn btn-danger" style="width: auto; padding: 4px 10px; font-size: 0.8rem; margin:0;" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content Area with Panes -->
+        <div class="view-container">
+            
+            <!-- VIEW 0: HOME USER / DASHBOARD -->
+            <div id="paneHome" class="view-pane active">
+                <div class="home-dashboard-container">
+                    <div style="text-align: center; margin-bottom: 4px;">
+                        <h2 style="border: none; margin-bottom: 4px; color: #1e293b;">Home User & Settings</h2>
+                    </div>
+
+                    <!-- ADMIN ONLY: GROSS SALES ANALYTICS TILE (GREEN) -->
+                    <div id="adminGrossSalesAnalyticsCard" class="dashboard-tile" style="display: none; background: #f0fdf4; border-color: #bbf7d0;" onclick="switchView('paneAdminSales', null, 'GROSS SALES ANALYTICS')">
+                        <div class="tile-icon-box" style="background: #dcfce7; border-color: #86efac;">
+                            <svg viewBox="0 0 24 24" style="fill: #16a34a;"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #15803d;">Gross Sales Analytics (Monthly & Yearly)</span>
+                    </div>
+
+                    <!-- ADMIN ONLY: ADMIN SETTINGS & STAFF MANAGEMENT TILE (PURPLE) -->
+                    <div id="adminHomeSettingsSection" class="dashboard-tile" style="display: none; background: #fdf4ff; border-color: #f5d0fe;" onclick="switchView('paneAdminStaff', null, 'ADMIN SETTINGS & STAFF MANAGEMENT')">
+                        <div class="tile-icon-box" style="background: #fae8ff; border-color: #e879f9;">
+                            <svg viewBox="0 0 24 24" style="fill: #9333ea;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.02-.42 1.95-1.07 2.65z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #7c3aed;">Admin Settings & Staff Management</span>
+                    </div>
+                    
+                    <!-- Tile 1: Place Order (BLUE) -->
+                    <div class="dashboard-tile" style="background: #eff6ff; border-color: #bfdbfe;" onclick="switchView('paneRegister', document.querySelectorAll('.bottom-nav .nav-item')[1], 'POS REGISTER')">
+                        <div class="tile-icon-box" style="background: #dbeafe; border-color: #93c5fd;">
+                            <svg viewBox="0 0 24 24" style="fill: #2563eb;"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h2v2H6zm4-4h2v2h-2zm0 4h2v2H6zm4-4h2v2H6zm0 4h2v2H6z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #1d4ed8;">PLACE ORDER</span>
+                    </div>
+
+                    <!-- Tile 2: Orders by Cashier (GREEN) -->
+                    <div class="dashboard-tile" style="background: #f0fdf4; border-color: #bbf7d0;" onclick="switchView('panePlacedOrders', document.querySelectorAll('.bottom-nav .nav-item')[2], 'PLACED ORDERS')">
+                        <div class="tile-icon-box" style="background: #dcfce7; border-color: #86efac;">
+                            <svg viewBox="0 0 24 24" style="fill: #16a34a;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #15803d;">ORDERS BY CASHIER</span>
+                    </div>
+
+                    <!-- Tile 3: Chart Today Sales (ORANGE) -->
+                    <div class="dashboard-tile" style="background: #fff7ed; border-color: #fed7aa;" onclick="switchView('paneDashboard', null, 'SALES CHART & ANALYTICS')">
+                        <div class="tile-icon-box" style="background: #ffedd5; border-color: #fdba74;">
+                            <svg viewBox="0 0 24 24" style="fill: #ea580c;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #c2410c;">CHART TODAY SALES</span>
+                    </div>
+
+                    <!-- Tile 4: Sales Qty (RED) -->
+                    <div class="dashboard-tile" style="background: #fef2f2; border-color: #fecaca;" onclick="switchView('paneRecon', document.querySelectorAll('.bottom-nav .nav-item')[3], 'DAILY RECON')">
+                        <div class="tile-icon-box" style="background: #fee2e2; border-color: #fca5a5;">
+                            <svg viewBox="0 0 24 24" style="fill: #dc2626;"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #b91c1c;">SALES QTY</span>
+                    </div>
+
+                    <!-- Tile 5: Inventory & Stock (YELLOW) -->
+                    <div id="homeInventoryTile" class="dashboard-tile" style="background: #fefce8; border-color: #fef08a;" onclick="switchView('paneInventory', null, 'STORE STOCK')">
+                        <div class="tile-icon-box" style="background: #fef9c3; border-color: #fde047;">
+                            <svg viewBox="0 0 24 24" style="fill: #ca8a04;"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4zm10 15H4V8h16v11z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #a16207;">INVENTORY & STOCK</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- DEDICATED VIEW: ADMIN GROSS SALES ANALYTICS -->
+            <div id="paneAdminSales" class="view-pane">
+                <div class="card" style="height: 100%; padding: 20px; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2 style="margin: 0; border: none; color: #16a34a;">📈 Gross Sales Analytics (Monthly & Yearly)</h2>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 14px; margin: 0; font-size: 0.8rem;" onclick="switchView('paneHome', null, 'HOME USER')">← Back to Home</button>
+                    </div>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 0;">Review aggregated gross revenue and transaction counts categorized by month and year.</p>
+
+                    <!-- RESET & RESTART SHIFT BUTTON -->
+                    <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h4 style="margin: 0 0 4px 0; color: #b91c1c; font-size: 0.95rem;">🔄 Reset & Restart Shift / Clear Sales Data</h4>
+                            <p style="margin: 0; font-size: 0.8rem; color: #7f1d1d;">Clear all test sales history, placed orders, and reset daily analytics back to zero.</p>
+                        </div>
+                        <button class="btn btn-danger" style="width: auto; padding: 10px 18px; margin: 0;" onclick="resetAllSalesAndShiftData()">🗑️ Reset All Sales Data</button>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button class="btn" style="width: auto; padding: 8px 16px; margin: 0; background: #0284c7;" onclick="renderAdminSalesRecords('monthly')">View Monthly Sales</button>
+                        <button class="btn" style="width: auto; padding: 8px 16px; margin: 0; background: #059669;" onclick="renderAdminSalesRecords('yearly')">View Yearly Sales</button>
+                    </div>
+
+                    <div id="adminSalesAnalyticsReportContainer" style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 15px; flex: 1; overflow-y: auto;">
+                        <p style="font-size: 0.85rem; color: #94a3b8; text-align: center; margin-top: 20px;">Select a report view above to load sales summary.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DEDICATED VIEW: ADMIN SETTINGS & STAFF MANAGEMENT -->
+            <div id="paneAdminStaff" class="view-pane">
+                <div class="card" style="height: 100%; padding: 20px; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2 style="margin: 0; border: none; color: #9333ea;">👤 Admin Settings & Staff Management</h2>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 14px; margin: 0; font-size: 0.8rem;" onclick="switchView('paneHome', null, 'HOME USER')">← Back to Home</button>
+                    </div>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 0;">Create new staff accounts, update names, usernames/PINs, and inspect private transaction history.</p>
+                    
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+                        <input type="text" id="homeNewStaffNameInput" placeholder="Staff Name" style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; flex: 2; min-width: 140px;">
+                        <input type="text" id="homeNewStaffUserInput" placeholder="Username (e.g. Ahana Lead)" style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; flex: 1.5; min-width: 110px;">
+                        <input type="password" id="homeNewStaffPinInput" placeholder="PIN" style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; width: 90px;">
+                        <button class="btn-success" style="padding: 10px 18px; border: none; border-radius: 6px; color:white; cursor:pointer; font-weight:bold; width: auto; margin:0;" onclick="createNewStaffMemberFromHome()">Add Staff</button>
+                    </div>
+
+                    <div id="homeAdminStaffDirectoryList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 15px;">
+                    </div>
+
+                    <div id="homeAdminStaffAuditBox" style="background: #fffbeb; border: 1px dashed #d97706; padding: 15px; border-radius: 8px; display: none;">
+                        <h4 style="margin:0 0 8px 0; color: #b45309; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
+                            <span id="homeAuditStaffTitleHeading">Private Audit</span>
+                            <button class="btn-secondary" style="width: auto; padding: 3px 8px; font-size: 0.75rem; margin:0;" onclick="closeHomeStaffAudit()">Close</button>
+                        </h4>
+                        <div id="homeAuditStaffTransactionsContainer" style="max-height: 150px; overflow-y: auto; font-size: 0.85rem;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 1: POS REGISTER -->
+            <div id="paneRegister" class="view-pane">
+                <div style="margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                        <button id="connectPrinterBtn" class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin:0;" onclick="connectPrinter()">🔗 Connect Printer</button>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin:0;" onclick="openCashDrawerExplicit()">🔓 Open Drawer</button>
+                        <span id="printerStatus" style="font-size: 0.8rem; color: #dc2626;">Using System Print Dialog</span>
+                    </div>
+                    <!-- On-Screen Receipt Toggle Switch -->
+                    <div style="display: flex; align-items: center; gap: 8px; background: #e2e8f0; padding: 4px 10px; border-radius: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 600;">Receipt on Screen:</span>
+                        <button id="receiptToggleBtn" class="btn btn-success" style="width: auto; padding: 2px 8px; font-size: 0.75rem; margin:0;" onclick="toggleScreenReceipt()">ON</button>
+                    </div>
+                </div>
+
+                <div class="pos-grid">
+                    <!-- Left: Menu Catalog -->
+                    <div class="card">
+                        <h2>Menu Catalog</h2>
+                        <div id="accordionContainer" class="catalog-scroll"></div>
+                    </div>
+
+                    <!-- Right: Cart & Checkout -->
+                    <div class="card">
+                        <h2>Current Order</h2>
+                        <div id="cartItems" class="cart-items">
+                            <p style="color: #94a3b8; text-align: center;">Cart is empty</p>
+                        </div>
+
+                        <!-- On-Screen Receipt Preview Container -->
+                        <div id="screenReceiptBox" style="background: #fffbeb; border: 1px dashed #d97706; padding: 8px; border-radius: 6px; margin-bottom: 10px; font-family: monospace; font-size: 0.75rem; max-height: 140px; overflow-y: auto;">
+                            <div style="text-align: center; font-weight: bold;">Mercury Distribution Ltd</div>
+                            <div style="text-align: center; font-size: 0.65rem; color: #475569;">Louis Pasteur,st<br>Manhattan Mall<br>Curepipe</div>
+                            <div style="text-align: center; font-size: 0.65rem; color: #475569;">Tel: 52573727 | VAT: 28237334<br>BRN: C24206010</div>
+                            <div style="text-align: center; font-weight: bold; margin-top: 4px;">VAT INVOICE</div>
+                            <div id="screenReceiptContent" style="margin-top: 4px;">No items in receipt preview</div>
+                        </div>
+
+                        <div class="totals-box">
+                            <div class="totals-row">
+                                <span>Subtotal:</span>
+                                <span id="cartSubtotal">Rs 0.00</span>
+                            </div>
+                            <div class="totals-row">
+                                <span>VAT (15%):</span>
+                                <span id="cartVat">Rs 0.00</span>
+                            </div>
+                            <div class="totals-row grand">
+                                <span>Total:</span>
+                                <span id="cartTotal">Rs 0.00</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 10px;">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Payment Method:</label>
+                            <select id="paymentMethod" style="width: 100%; padding: 6px; margin-top: 4px; border-radius: 6px; border: 1px solid var(--border);">
+                                <option value="Cash">Cash</option>
+                                <option value="Card">Card</option>
+                                <option value="Blinks">Blinks</option>
+                                <option value="Delivoo">Delivoo</option>
+                                <option value="Hungry Dodo">Hungry Dodo</option>
+                            </select>
+                        </div>
+
+                        <button class="btn" onclick="completeSaleAndPlaceOrder()">Complete Sale & Place Order</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: PLACED ORDERS -->
+            <div id="panePlacedOrders" class="view-pane">
+                <div class="placed-orders-layout">
+                    <div class="orders-list-panel" style="background: white; border: 1px solid var(--border); border-radius: 8px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <div style="padding: 12px 15px; font-weight: bold; border-bottom: 1px solid var(--border); background: #f1f5f9;">Placed Orders</div>
+                        <div id="placedOrdersListContainer">
+                            <p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.85rem;">No placed orders</p>
+                        </div>
+                    </div>
+                    <div class="order-details-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <div id="selectedOrderDetailsHeader" style="margin-bottom: 15px;">
+                            <p style="color: #94a3b8; font-size: 0.9rem;">Select an order from the left to view details and settlement status.</p>
+                        </div>
+                        <div id="selectedOrderItemsTable" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
+                    </div>
+                    <div class="order-settlement-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <h2>Settlement</h2>
+                        <div style="margin-top: 15px;">
+                            <label style="font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Payment Status</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <button id="btnStatusPaid" class="btn btn-success" style="flex: 1; padding: 10px; font-size: 0.85rem; margin:0;" onclick="setPaymentStatus('PAID')">PAID</button>
+                                <button id="btnStatusUnpaid" class="btn btn-secondary" style="flex: 1; padding: 10px; font-size: 0.85rem; margin:0; background:#64748b;" onclick="setPaymentStatus('UNPAID')">UNPAID</button>
+                            </div>
+                            <label style="font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Payment Type</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px;">
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Cash')">💵 CASH</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Card')">💳 CARD</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Blinks')">📱 BLINKS</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Delivoo')">🛵 DELIVOO</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0; grid-column: span 2;" onclick="settleCurrentSelectedOrder('Hungry Dodo')">🍔 HUNGRY DODO</button>
+                            </div>
+                            <button class="btn btn-success" style="margin-bottom: 8px; background-color: #0284c7;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
+                            <button class="btn btn-danger" style="margin-top: auto;" onclick="deleteSelectedPlacedOrder()">Discard / Delete Order</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 3: DAILY RECON REPORT -->
+            <div id="paneRecon" class="view-pane">
+                <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <h2 style="margin: 0; border: none;">Daily Recon Management & Breakdown</h2>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" style="width: auto; padding: 8px 15px; margin: 0; font-size: 0.85rem; background: #0284c7;" onclick="printCombinedDailySalesReport()">🖨️ PRINT DAILY SALES REPORT</button>
+                        <button class="btn btn-secondary" style="width: auto; padding: 8px 15px; margin: 0; font-size: 0.85rem; background: #d97706;" onclick="printSpecificPlatformReport('Delivoo')">🖨️ PRINT DELIVOO REPORT</button>
+                        <button class="btn btn-secondary" style="width: auto; padding: 8px 15px; margin: 0; font-size: 0.85rem; background: #e11d48;" onclick="printSpecificPlatformReport('Hungry Dodo')">🖨️ PRINT HUNGRY DODO REPORT</button>
+                        <button class="btn btn-success" style="width: auto; padding: 8px 15px; margin: 0; font-size: 0.85rem;" onclick="refreshReconData()">🔄 UPDATE RECON</button>
+                    </div>
+                </div>
+
+                <div class="recon-layout">
+                    <!-- Left Panel: Reconciliation Summary -->
+                    <div class="recon-panel">
+                        <h4 style="margin-top: 0; color: #f59e0b; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Reconciliation Summary</h4>
+                        <div style="font-size: 0.9rem; line-height: 1.6; margin-top: 10px;">
+                            <div style="color: #64748b; font-size: 0.8rem; margin-bottom: 5px;">Timestamp: <span id="reconTimestamp">-</span></div>
+                            <div style="font-weight: bold; margin-bottom: 12px;">CASHIER: <span id="reconCashierName">Administrator</span></div>
+
+                            <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>CASH RS:</span> <strong id="reconCashTotal">0</strong></div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>CARD RS:</span> <strong id="reconCardTotal">0</strong></div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>JUICE RS:</span> <strong id="reconJuiceTotal">0</strong></div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>MyT MONEY RS:</span> <strong id="reconMytTotal">0</strong></div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>BLINK RS:</span> <strong id="reconBlinkTotal">0</strong></div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>DELIVOO RS:</span> <strong id="reconDelivooTotal">0</strong></div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>HUNGRY DODO RS:</span> <strong id="reconHungryDodoTotal">0</strong></div>
+                            </div>
+
+                            <div style="font-weight: bold; background: #eef2ff; color: #4f46e5; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; border: 1px solid #c7d2fe;">
+                                <span>TOTAL OF THE DAY:</span>
+                                <span>Rs <span id="reconGrandTotal">0</span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Daily Sales & Shift Info -->
+                    <div class="recon-panel">
+                        <h4 style="margin-top: 0; color: #f59e0b; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Daily Sales Breakdown</h4>
+                        <div id="reconItemizedSalesList" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: 0.85rem; margin-top: 10px; max-height: 220px; border: 1px solid var(--border); border-radius: 6px; padding: 10px; background: #f8fafc;">
+                        </div>
+
+                        <div style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 12px;">
+                            <div style="font-size: 0.85rem; margin-bottom: 4px;"><strong>Active Cashier:</strong> <span id="adminReconCashier">Administrator</span></div>
+                            <div style="font-size: 0.85rem; margin-bottom: 10px;"><strong>Total Transactions:</strong> <span id="adminReconTransCount">0</span></div>
+                            <button class="btn btn-success" style="width: 100%; margin: 0;" onclick="alert('Recon successfully verified and shift closed.')">Approve & Close Shift</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 4: DASHBOARD / CHARTS -->
+            <div id="paneDashboard" class="view-pane">
+                <div class="card" style="height: 100%; padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                    <h2>📊 Dashboard & Analytics</h2>
+                    <p style="color: #64748b;">Shift metrics, staff performance, and quick metrics for Bubble Time Valentina.</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                        <div style="background: #eef2ff; padding: 15px; border-radius: 8px; border: 1px solid #c7d2fe;">
+                            <h4 style="margin: 0 0 10px 0; color: #4f46e5; font-size: 0.9rem;">Active Shift Staff</h4>
+                            <p id="dashStaffName" style="font-size: 1.1rem; font-weight: bold; margin: 0;">-</p>
+                        </div>
+                        <div style="background: #ecfdf5; padding: 15px; border-radius: 8px; border: 1px solid #a7f3d0;">
+                            <h4 style="margin: 0 0 10px 0; color: #059669; font-size: 0.9rem;">Pending Placed Orders</h4>
+                            <p id="dashPendingCount" style="font-size: 1.1rem; font-weight: bold; margin: 0;">0</p>
+                        </div>
+                        <div style="background: #fffbeb; padding: 15px; border-radius: 8px; border: 1px solid #fde68a;">
+                            <h4 style="margin: 0 0 10px 0; color: #d97706; font-size: 0.9rem;">Today's Revenue</h4>
+                            <p id="dashRevenue" style="font-size: 1.1rem; font-weight: bold; margin: 0;">Rs 0.00</p>
+                        </div>
+                    </div>
+
+                    <!-- Donut Chart Container -->
+                    <div style="margin-top: 25px; background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center;">
+                        <h3 style="margin-top: 0; font-size: 1rem; color: #334155; width: 100%; text-align: left; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Sales Distribution by Category (Today)</h3>
+                        <div style="width: 100%; max-width: 380px; height: 320px; position: relative; margin-top: 15px;">
+                            <canvas id="salesDonutChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 5: INVENTORY / ADMIN -->
+            <div id="paneInventory" class="view-pane">
+                <div class="card" style="height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+                        <h2 style="margin:0; border:none;">🔒 Administrator Store Stock Management</h2>
+                        <button class="btn btn-secondary" style="width: auto; padding: 8px 15px; margin: 0; font-size: 0.85rem;" onclick="printStoreStockReport()">🖨️ Print Store Stock Report</button>
+                    </div>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 0;">Manage raw inventory levels for syrups, powders, toppings, and store supplies.</p>
+                    
+                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-top: 10px;">
+                        <h3 style="margin-top: 0; font-size: 0.95rem;">📦 Add Raw Stock Item</h3>
+                        <div style="display: flex; gap: 8px; margin-bottom: 5px; flex-wrap: wrap;">
+                            <select id="stockCategory" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; flex: 1; min-width: 130px;">
+                                <option value="SYRUPS (ml)">SYRUPS (ml)</option>
+                                <option value="POWDER (g)">POWDER (g)</option>
+                                <option value="POPPING BOBA">POPPING BOBA</option>
+                                <option value="JELLY">JELLY</option>
+                                <option value="OTHERS">OTHERS</option>
+                            </select>
+                            <input type="text" id="stockName" placeholder="Item Name (e.g. MANGO)" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; flex: 2; min-width: 130px;">
+                            <input type="number" id="stockQty" placeholder="Stock Qty" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; width: 100px;">
+                            <button class="btn-success" style="padding: 8px 16px; border: none; border-radius: 6px; color:white; cursor:pointer; font-weight:bold;" onclick="addNewInventoryItem()">Add</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; flex: 1; overflow-y: auto;">
+                        <table id="inventoryTable">
+                            <tr><th>Category</th><th>Item</th><th>Stock Level</th><th>Action</th></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Navigation Bar -->
+        <div class="bottom-nav">
+            <button class="nav-item" onclick="switchView('paneHome', this, 'HOME USER')">
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                Home
+            </button>
+            <button class="nav-item active" onclick="switchView('paneRegister', this, 'POS REGISTER')">
+                <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h2v2H6zm4-4h2v2h-2zm0 4h2v2H6zm4-4h2v2H6zm0 4h2v2H6z"/></svg>
+                POS Register
+            </button>
+            <button class="nav-item" onclick="switchView('panePlacedOrders', this, 'PLACED ORDERS')">
+                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                Placed Orders
+            </button>
+            <button class="nav-item" onclick="switchView('paneRecon', this, 'DAILY RECON')">
+                <svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                Daily Recon
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const smoothieMenu = [
+          { name: "Mango Medium", price: 155 },
+          { name: "Mango Large", price: 170 },
+          { name: "Lychee Medium", price: 155 },
+          { name: "Lychee Large", price: 170 },
+          { name: "Strawberry Medium", price: 155 },
+          { name: "Strawberry Large", price: 170 },
+          { name: "Cherry Medium", price: 155 },
+          { name: "Cherry Large", price: 170 },
+          { name: "Passion Medium", price: 155 },
+          { name: "Passion Large", price: 170 },
+          { name: "Peach Medium", price: 155 },
+          { name: "Peach Large", price: 170 },
+          { name: "Blueberry Medium", price: 155 },
+          { name: "Blueberry Large", price: 170 },
+          { name: "Grape Medium", price: 155 },
+          { name: "Grape Large", price: 170 },
+          { name: "Kiwi Medium", price: 155 },
+          { name: "Kiwi Large", price: 170 },
+          { name: "Pineapple Medium", price: 155 },
+          { name: "Pineapple Large", price: 170 },
+          { name: "Green Apple Medium", price: 155 },
+          { name: "Green Apple Large", price: 170 },
+          { name: "Coffee Medium", price: 155 },
+          { name: "Coffee Large", price: 170 },
+          { name: "Almond Medium", price: 155 },
+          { name: "Almond Large", price: 170 },
+          { name: "Coconut Medium", price: 155 },
+          { name: "Coconut Large", price: 170 },
+          { name: "Honey Dew Medium", price: 155 },
+          { name: "Honey Dew Large", price: 170 },
+          { name: "Taro Medium", price: 155 },
+          { name: "Taro Large", price: 170 },
+          { name: "Chocolate Medium", price: 155 },
+          { name: "Chocolate Large", price: 170 },
+          { name: "Vanilla Medium", price: 155 },
+          { name: "Vanilla Large", price: 170 }
+        ];
+
+        let currentStaff = null;
+        let selectedPlacedOrderId = null;
+        let donutChartInstance = null;
+        let showScreenReceipt = true;
+
+        let defaultStaffList = [
+            { username: 'Admin', name: 'Administrator', pin: '0000' },
+            { username: 'Ahana Lead', name: 'Ahana Lead', pin: '1111' },
+            { username: 'Alex Valentina', name: 'Alex Valentina', pin: '1234' },
+            { username: 'Auline Plouis 1', name: 'Auline Plouis 1', pin: '2222' },
+            { username: 'Nushayhah Plouis 2', name: 'Nushayhah Plouis 2', pin: '3333' },
+            { username: 'Sharfaa Mahebourge', name: 'Sharfaa Mahebourge', pin: '4444' }
+        ];
+
+        let staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+
+        function populateLoginDropdown() {
+            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+            const selectEl = document.getElementById('loginUser');
+            if(selectEl) {
+                selectEl.innerHTML = '<option value="" disabled selected>Select Staff Name...</option>';
+                staffList.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.username;
+                    opt.innerText = `${s.name} (${s.username})`;
+                    selectEl.appendChild(opt);
+                });
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            populateLoginDropdown();
+        });
+
+        let orderSequenceNumber = parseInt(localStorage.getItem('pos_order_seq')) || 101;
+
+        const defaultProducts = [
+            { id: 1, name: 'Pearl Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 50 },
+            { id: 2, name: 'Pearl Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 40 },
+            { id: 3, name: 'Coffee Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 35 },
+            { id: 4, name: 'Coffee Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 35 },
+            { id: 5, name: 'Almond Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 35 },
+            { id: 6, name: 'Almond Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 35 },
+            { id: 7, name: 'Coconut Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 35 },
+            { id: 8, name: 'Coconut Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 35 },
+            { id: 9, name: 'Honey Dew Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 35 },
+            { id: 10, name: 'Honey Dew Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 35 },
+            { id: 11, name: 'Taro Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 35 },
+            { id: 12, name: 'Taro Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 35 },
+            { id: 13, name: 'Chocolate Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 35 },
+            { id: 14, name: 'Chocolate Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 35 },
+            { id: 15, name: 'Vanilla Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 35 },
+            { id: 16, name: 'Vanilla Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 35 },
+
+            { id: 501, name: 'Strawberry Matcha Latte (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+            { id: 502, name: 'Caramel Macchiato (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+            { id: 503, name: 'Cocoa Taro Milk (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+            { id: 504, name: 'Cocoa Strawberry Milk (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+            { id: 505, name: 'Vanilla Taro (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+            { id: 506, name: 'Honeydew (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+            { id: 507, name: 'Matcha Milk Vanilla (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+            { id: 508, name: 'Matcha Milk (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+
+            { id: 20, name: 'Mojito (M)', price: 165, cat: 'MOJITO', stock: 40 },
+            { id: 21, name: 'Green Apple', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 22, name: 'Mango', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 23, name: 'Lychee', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 24, name: 'Strawberry', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 25, name: 'Cherry', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 26, name: 'Passion', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 27, name: 'Peach', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 28, name: 'Blueberry', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 29, name: 'Grape', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 30, name: 'Kiwi', price: 25, cat: 'MOJITO', stock: 50 },
+            { id: 31, name: 'Pineapple', price: 25, cat: 'MOJITO', stock: 50 },
+
+            { id: 32, name: 'Jasmine Green Tea (M)', price: 145, cat: 'FRUIT TEA', stock: 45 },
+            { id: 33, name: 'Jasmine Green Tea (L)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+
+            { id: 101, name: 'Mango (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 102, name: 'Mango (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 103, name: 'Lychee (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 104, name: 'Lychee (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 105, name: 'Strawberry (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 106, name: 'Strawberry (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 107, name: 'Cherry (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 108, name: 'Cherry (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 109, name: 'Passion (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 110, name: 'Passion (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 111, name: 'Peach (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 112, name: 'Peach (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 113, name: 'Blueberry (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 114, name: 'Blueberry (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 115, name: 'Grape (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 116, name: 'Grape (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 117, name: 'Kiwi (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 118, name: 'Kiwi (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 119, name: 'Pineapple (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 120, name: 'Pineapple (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 121, name: 'Green Apple (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 122, name: 'Green Apple (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+            { id: 123, name: 'Fusion Fruit (M)', price: 155, cat: 'FRUIT TEA', stock: 40 },
+            { id: 124, name: 'Fusion Fruit (L)', price: 170, cat: 'FRUIT TEA', stock: 40 },
+
+            ...smoothieMenu.map((item, index) => ({
+                id: 200 + index,
+                name: item.name,
+                price: item.price,
+                cat: 'SMOOTHIE',
+                stock: 30
+            })),
+
+            { id: 701, name: 'Passion Double Q (M)', price: 170, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 702, name: 'Passion Double Q (L)', price: 185, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 703, name: 'Peach Double Q (M)', price: 170, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 704, name: 'Peach Double Q (L)', price: 185, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 705, name: 'Mango Double Q (M)', price: 170, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 706, name: 'Mango Double Q (L)', price: 185, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 707, name: 'Lychee Double Q (M)', price: 170, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 708, name: 'Lychee Double Q (L)', price: 185, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 709, name: 'Grape Double Q (M)', price: 170, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 710, name: 'Grape Double Q (L)', price: 185, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 711, name: 'Strawberry Double Q (M)', price: 170, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 712, name: 'Strawberry Double Q (L)', price: 185, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 713, name: 'Winter Melon Dew (M)', price: 170, cat: 'SIGNATURE CHEWY', stock: 40 },
+            { id: 714, name: 'Winter Melon Dew (L)', price: 185, cat: 'SIGNATURE CHEWY', stock: 40 },
+
+            { id: 301, name: 'Popping Boba Mango', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 302, name: 'Popping Boba Passion', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 303, name: 'Popping Boba Blue Raspberry', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 304, name: 'Popping Boba Peach', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 305, name: 'Popping Boba Lychee', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 306, name: 'Popping Boba Strawberry', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 307, name: 'Popping Boba Blueberry', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 308, name: 'Popping Boba Kiwi', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 309, name: 'Popping Boba Green Apple', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 310, name: 'Popping Boba Watermelon', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 311, name: 'Popping Boba Cranberry', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 312, name: 'Popping Boba Chocolate', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 313, name: 'Tapioca Pearls', price: 20, cat: 'TOPPINGS', stock: 50 },
+            { id: 314, name: 'Rainbow Jelly', price: 30, cat: 'TOPPINGS', stock: 50 },
+            { id: 315, name: 'Coconut Jelly', price: 20, cat: 'TOPPINGS', stock: 50 },
+            { id: 316, name: 'Coffee Jelly', price: 30, cat: 'TOPPINGS', stock: 50 },
+            { id: 317, name: 'Aloe Vera Pulp', price: 30, cat: 'TOPPINGS', stock: 50 },
+            { id: 318, name: 'Mango Pulp', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 319, name: 'Yellow Peach Chopped Pulp', price: 25, cat: 'TOPPINGS', stock: 50 },
+
+            { id: 401, name: 'Red Velvet', price: 295, cat: 'CAKE', stock: 20 },
+            { id: 402, name: 'Carrot Cakes', price: 295, cat: 'CAKE', stock: 20 },
+            { id: 403, name: 'Chocolate Cake', price: 295, cat: 'CAKE', stock: 20 },
+            { id: 404, name: 'Small cake Cream Cheese', price: 850, cat: 'CAKE', stock: 15 },
+            { id: 405, name: 'Small cake Lindth Choco', price: 1200, cat: 'CAKE', stock: 15 },
+            { id: 406, name: 'Small cake Add on Decoration', price: 100, cat: 'CAKE', stock: 30 },
+            { id: 407, name: 'Big cake Lindth Choco', price: 3000, cat: 'CAKE', stock: 10 },
+            { id: 408, name: 'Big cake Cream Cheese', price: 2450, cat: 'CAKE', stock: 10 },
+            { id: 409, name: 'Big cake Add on Decoration', price: 350, cat: 'CAKE', stock: 30 },
+            { id: 410, name: 'Cake Box', price: 35, cat: 'CAKE', stock: 50 },
+
+            { id: 60, name: 'Nutella Crepe', price: 100, cat: 'CREPES', stock: 25 },
+            { id: 61, name: 'Nutella + Coconut Crepe', price: 120, cat: 'CREPES', stock: 25 },
+            { id: 62, name: 'Nutella + Condensed Milk Crepe', price: 120, cat: 'CREPES', stock: 25 },
+            { id: 63, name: 'Kinder + Nutella Crepe', price: 140, cat: 'CREPES', stock: 25 },
+            { id: 64, name: 'Ferrero or Rafaello Crepe', price: 140, cat: 'CREPES', stock: 25 },
+            { id: 65, name: 'Nutella + Oreo Crepe', price: 130, cat: 'CREPES', stock: 25 },
+
+            { id: 70, name: 'Red Velvet Cookies', price: 150, cat: 'COOKIES', stock: 30 },
+            { id: 71, name: 'Choco Choc Cookies', price: 150, cat: 'COOKIES', stock: 30 },
+            { id: 72, name: 'Almond Cookies', price: 150, cat: 'COOKIES', stock: 30 },
+
+            { id: 80, name: 'Almond Milkshake (M)', price: 150, cat: 'MILKSHAKE', stock: 30 },
+            { id: 81, name: 'Chocolate Milkshake (M)', price: 150, cat: 'MILKSHAKE', stock: 30 },
+            { id: 82, name: 'Strawberry Milkshake (M)', price: 150, cat: 'MILKSHAKE', stock: 30 },
+            { id: 83, name: 'Dam Blanche Milkshake (M)', price: 150, cat: 'MILKSHAKE', stock: 30 },
+            { id: 84, name: 'Coconuts Milkshake (M)', price: 150, cat: 'MILKSHAKE', stock: 30 },
+            { id: 85, name: 'Vanille Milkshake (M)', price: 150, cat: 'MILKSHAKE', stock: 30 },
+            { id: 86, name: 'Coffee Milkshake (M)', price: 150, cat: 'MILKSHAKE', stock: 30 },
+            { id: 87, name: 'Milkshake Kulfi (M)', price: 215, cat: 'MILKSHAKE', stock: 30 },
+            { id: 88, name: 'Oreo Cheesecream', price: 240, cat: 'MILKSHAKE', stock: 25 },
+            { id: 89, name: 'Biscoff Cheesecream', price: 240, cat: 'MILKSHAKE', stock: 25 },
+            { id: 90, name: 'Triple Nutella Cheesecream', price: 240, cat: 'MILKSHAKE', stock: 25 },
+
+            { id: 91, name: 'Whipping Cream', price: 30, cat: 'OTHER', stock: 100 },
+            { id: 92, name: 'Take Away Large', price: 20, cat: 'OTHER', stock: 100 },
+            { id: 93, name: 'Take Away Medium', price: 10, cat: 'OTHER', stock: 100 },
+            { id: 94, name: 'Foam / Mousse', price: 40, cat: 'OTHER', stock: 100 }
+        ];
+
+        let products = defaultProducts;
+        try {
+            const savedStock = localStorage.getItem('pos_store_stock');
+            if (savedStock) products = JSON.parse(savedStock);
+        } catch(e) { products = defaultProducts; }
+
+        let inventoryList = JSON.parse(localStorage.getItem('pos_exact_inventory_items')) || [
+            { id: 'inv1', cat: 'SYRUPS (ml)', name: 'PASSION', stock: 1000 },
+            { id: 'inv2', cat: 'SYRUPS (ml)', name: 'PEACH', stock: 1000 },
+            { id: 'inv3', cat: 'SYRUPS (ml)', name: 'MANGO', stock: 1000 },
+            { id: 'inv4', cat: 'SYRUPS (ml)', name: 'GREEN APPLE', stock: 1000 },
+            { id: 'inv5', cat: 'SYRUPS (ml)', name: 'GRAPE', stock: 1000 },
+            { id: 'inv6', cat: 'SYRUPS (ml)', name: 'CHERRY', stock: 1000 },
+            { id: 'inv7', cat: 'SYRUPS (ml)', name: 'STRAWBERRY', stock: 1000 },
+            { id: 'inv8', cat: 'SYRUPS (ml)', name: 'LETCHI', stock: 1000 },
+            { id: 'inv9', cat: 'SYRUPS (ml)', name: 'BLUEBERRY', stock: 1000 },
+            { id: 'inv10', cat: 'SYRUPS (ml)', name: 'PINEAPPLE', stock: 1000 },
+            { id: 'inv11', cat: 'SYRUPS (ml)', name: 'HONEYDEW', stock: 1000 },
+            { id: 'inv12', cat: 'SYRUPS (ml)', name: 'WATERMELON', stock: 1000 },
+            { id: 'inv13', cat: 'SYRUPS (ml)', name: 'KIWI', stock: 1000 },
+            { id: 'inv14', cat: 'SYRUPS (ml)', name: 'BROWN SUGAR', stock: 1000 },
+            { id: 'inv15', cat: 'SYRUPS (ml)', name: 'FRUCTOSE', stock: 1000 },
+            { id: 'inv16', cat: 'POWDER (g)', name: 'THAI MILK TEA', stock: 500 },
+            { id: 'inv17', cat: 'POWDER (g)', name: 'TARO VIVID', stock: 500 },
+            { id: 'inv18', cat: 'POWDER (g)', name: 'PRIME TARO', stock: 500 },
+            { id: 'inv19', cat: 'POWDER (g)', name: 'HONEYDEW', stock: 500 },
+            { id: 'inv20', cat: 'POWDER (g)', name: 'COFFEE', stock: 500 },
+            { id: 'inv21', cat: 'POWDER (g)', name: 'SUPREM CHOCOLATE', stock: 500 },
+            { id: 'inv22', cat: 'POWDER (g)', name: 'ALMOND', stock: 500 },
+            { id: 'inv23', cat: 'POWDER (g)', name: 'PURE MATCHA', stock: 500 },
+            { id: 'inv24', cat: 'POWDER (g)', name: 'COCONUT', stock: 500 },
+            { id: 'inv25', cat: 'POWDER (g)', name: '3 IN 1 MILK TEA (La Kaffa)', stock: 500 },
+            { id: 'inv26', cat: 'POWDER (g)', name: 'MANGO MILK TEA', stock: 500 },
+            { id: 'inv27', cat: 'POWDER (g)', name: 'SMOOTHIE', stock: 500 },
+            { id: 'inv28', cat: 'POWDER (g)', name: 'STRAWBERRY MILK TEA', stock: 500 },
+            { id: 'inv29', cat: 'POWDER (g)', name: 'CARAMEL MACCHIATO', stock: 500 },
+            { id: 'inv30', cat: 'POWDER (g)', name: 'YANG ZHI GAN LU', stock: 500 },
+            { id: 'inv31', cat: 'POWDER (g)', name: 'VANILLA', stock: 500 },
+            { id: 'inv32', cat: 'POWDER (g)', name: 'CREAMER', stock: 500 },
+            { id: 'inv33', cat: 'POPPING BOBA', name: 'PASSION', stock: 50 },
+            { id: 'inv34', cat: 'POPPING BOBA', name: 'LYCHEE', stock: 50 },
+            { id: 'inv35', cat: 'POPPING BOBA', name: 'MANGO', stock: 50 },
+            { id: 'inv36', cat: 'POPPING BOBA', name: 'STRAWBERRY', stock: 50 },
+            { id: 'inv37', cat: 'POPPING BOBA', name: 'BLUEBERRY', stock: 50 },
+            { id: 'inv38', cat: 'POPPING BOBA', name: 'PEACH', stock: 50 },
+            { id: 'inv39', cat: 'POPPING BOBA', name: 'KIWI', stock: 50 },
+            { id: 'inv40', cat: 'POPPING BOBA', name: 'PINEAPPLE', stock: 50 },
+            { id: 'inv41', cat: 'POPPING BOBA', name: 'GREEN APPLE', stock: 50 },
+            { id: 'inv42', cat: 'POPPING BOBA', name: 'CRANBERRY', stock: 50 },
+            { id: 'inv43', cat: 'POPPING BOBA', name: 'WATERMELON', stock: 50 },
+            { id: 'inv44', cat: 'POPPING BOBA', name: 'BLUE RASPBERRY', stock: 50 },
+            { id: 'inv45', cat: 'JELLY', name: 'COFFEE JELLY', stock: 50 },
+            { id: 'inv46', cat: 'JELLY', name: 'COCONUT JELLY', stock: 50 },
+            { id: 'inv47', cat: 'JELLY', name: 'RAINBOW JELLY', stock: 50 },
+            { id: 'inv48', cat: 'JELLY', name: 'TAPIOCA PEARLS (g)', stock: 500 },
+            { id: 'inv49', cat: 'JELLY', name: 'ALOE VERA', stock: 50 },
+            { id: 'inv50', cat: 'OTHERS', name: 'CUPS M', stock: 200 },
+            { id: 'inv51', cat: 'OTHERS', name: 'CUPS L', stock: 200 },
+            { id: 'inv52', cat: 'OTHERS', name: 'STRAW', stock: 500 },
+            { id: 'inv53', cat: 'OTHERS', name: 'JASMIN GREEN TEA', stock: 100 },
+            { id: 'inv54', cat: 'OTHERS', name: 'ASAAM BLACK TEA', stock: 100 }
+        ];
+
+        let cart = [];
+        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+
+        let dailySalesLog = JSON.parse(localStorage.getItem('pos_daily_sales')) || {
+            totalTransactions: 0, totalQuantity: 0, totalAmount: 0, totalCost: 0,
+            paymentMethods: { Cash: { count: 0, amount: 0 }, Card: { count: 0, amount: 0 }, Juice: { count: 0, amount: 0 }, MytMoney: { count: 0, amount: 0 }, Blinks: { count: 0, amount: 0 }, Delivoo: { count: 0, amount: 0 }, 'Hungry Dodo': { count: 0, amount: 0 } }
+        };
+
+        function saveInventory() {
+            localStorage.setItem('pos_exact_inventory_items', JSON.stringify(inventoryList));
+        }
+
+        function resetAllSalesAndShiftData() {
+            if (!currentStaff || currentStaff.username.toLowerCase() !== 'admin') {
+                alert('Unauthorized: Only Admin can reset shift and sales data.');
+                return;
+            }
+
+            if (confirm('Are you sure you want to reset and clear all sales records, placed orders, and analytics? This cannot be undone.')) {
+                localStorage.removeItem('pos_placed_orders');
+                localStorage.removeItem('pos_daily_sales');
+                localStorage.removeItem('pos_order_seq');
+
+                placedOrders = [];
+                dailySalesLog = {
+                    totalTransactions: 0, totalQuantity: 0, totalAmount: 0, totalCost: 0,
+                    paymentMethods: { Cash: { count: 0, amount: 0 }, Card: { count: 0, amount: 0 }, Juice: { count: 0, amount: 0 }, MytMoney: { count: 0, amount: 0 }, Blinks: { count: 0, amount: 0 }, Delivoo: { count: 0, amount: 0 }, 'Hungry Dodo': { count: 0, amount: 0 } }
+                };
+                orderSequenceNumber = 101;
+
+                renderPlacedOrdersList();
+                refreshReconData();
+                updateAdminReports();
+                if (donutChartInstance) updateDonutChartData();
+
+                alert('All sales data and shift records have been successfully reset to zero.');
+                switchView('paneHome', null, 'HOME USER');
+            }
+        }
+
+        async function handleLogin() {
+            const userIn = document.getElementById('loginUser').value.trim();
+            const pinIn = document.getElementById('loginPin').value.trim();
+
+            if (!userIn) {
+                alert('Please select your staff name from the dropdown list.');
+                return;
+            }
+
+            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+
+            const staff = staffList.find(s => s.username.toLowerCase() === userIn.toLowerCase() && s.pin === pinIn);
+            if (staff) {
+                currentStaff = staff;
+                const cashierDisplayStr = `${staff.name} (${staff.username})`;
+                document.getElementById('loggedInUserDisplay').innerText = `Staff: ${cashierDisplayStr}`;
+                document.getElementById('dashStaffName').innerText = cashierDisplayStr;
+                document.getElementById('reconCashierName').innerText = cashierDisplayStr;
+                document.getElementById('adminReconCashier').innerText = cashierDisplayStr;
+                document.getElementById('loginOverlay').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+
+                if (staff.username.toLowerCase() !== 'admin') {
+                    document.getElementById('adminGrossSalesAnalyticsCard').style.display = 'none';
+                    document.getElementById('adminHomeSettingsSection').style.display = 'none';
+                    document.getElementById('homeInventoryTile').style.display = 'none';
+                } else {
+                    document.getElementById('adminGrossSalesAnalyticsCard').style.display = 'flex';
+                    document.getElementById('adminHomeSettingsSection').style.display = 'flex';
+                    document.getElementById('homeInventoryTile').style.display = 'flex';
+                    renderHomeAdminStaffDirectory();
+                    renderInventoryTable();
+                }
+                renderAccordionMenu();
+                renderPlacedOrdersList();
+                updateAdminReports();
+                refreshReconData();
+                initDonutChart();
+            } else {
+                alert('Invalid PIN code for the selected staff member.');
+            }
+        }
+
+        function logout() {
+            currentStaff = null;
+            document.getElementById('loginUser').value = '';
+            document.getElementById('loginPin').value = '';
+            populateLoginDropdown();
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginOverlay').classList.remove('hidden');
+        }
+
+        function switchView(paneId, btnEl, titleText) {
+            if (paneId === 'paneInventory' && currentStaff && currentStaff.username.toLowerCase() !== 'admin') {
+                alert('Access Restricted: Only Admin can access the Store Stock Inventory Portal.');
+                return;
+            }
+
+            document.querySelectorAll('.view-pane').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active'));
+
+            document.getElementById(paneId).classList.add('active');
+            if(btnEl) btnEl.classList.add('active');
+            document.getElementById('currentViewTitle').innerText = titleText || 'PORTAL';
+
+            if (paneId === 'paneHome') {
+                if (currentStaff && currentStaff.username.toLowerCase() === 'admin') {
+                    renderHomeAdminStaffDirectory();
+                }
+            } else if (paneId === 'panePlacedOrders') {
+                renderPlacedOrdersList();
+            } else if (paneId === 'paneRecon') {
+                refreshReconData();
+            } else if (paneId === 'paneDashboard') {
+                updateDonutChartData();
+            } else if (paneId === 'paneInventory') {
+                renderInventoryTable();
+            }
+        }
+
+        function renderAccordionMenu() {
+            const container = document.getElementById('accordionContainer');
+            if(!container) return;
+            container.innerHTML = '';
+
+            const categories = ['MILK TEA', 'MILK SERIES', 'SIGNATURE CHEWY', 'MOJITO', 'FRUIT TEA', 'SMOOTHIE', 'CAKE', 'CREPES', 'COOKIES', 'MILKSHAKE', 'TOPPINGS', 'OTHER'];
+
+            categories.forEach(catName => {
+                const catProducts = products.filter(p => p.cat === catName);
+                if (catProducts.length === 0) return;
+
+                const dropdown = document.createElement('div');
+                dropdown.className = 'category-dropdown';
+
+                const header = document.createElement('div');
+                header.className = 'category-header';
+                header.innerHTML = `<span>${catName}</span> <span>▼</span>`;
+                header.onclick = () => {
+                    dropdown.classList.toggle('active');
+                    header.querySelector('span:last-child').innerText = dropdown.classList.contains('active') ? '▲' : '▼';
+                };
+
+                const content = document.createElement('div');
+                content.className = 'category-content';
+
+                catProducts.forEach(p => {
+                    const btn = document.createElement('div');
+                    btn.className = 'product-btn';
+                    btn.onclick = () => addToCart(p.id);
+                    btn.innerHTML = `
+                        <span class="product-name">${p.name}</span>
+                        <span class="product-price">Rs ${p.price.toFixed(2)}</span>
+                        <span class="product-stock">Stock: ${p.stock}</span>
+                    `;
+                    content.appendChild(btn);
+                });
+
+                dropdown.appendChild(header);
+                dropdown.appendChild(content);
+                container.appendChild(dropdown);
+            });
+        }
+
+        function addToCart(id) {
+            const product = products.find(p => p.id === id);
+            if (!product) return;
+            const item = cart.find(i => i.id === id);
+            if (item) {
+                item.qty++;
+            } else {
+                cart.push({ id: product.id, name: product.name, price: product.price, cat: product.cat || 'MISC', qty: 1 });
+            }
+            renderCart();
+        }
+
+        function updateQty(id, change) {
+            const item = cart.find(i => i.id === id);
+            if (item) {
+                item.qty += change;
+                if (item.qty <= 0) {
+                    cart = cart.filter(i => i.id !== id);
+                }
+            }
+            renderCart();
+        }
+
+        function toggleScreenReceipt() {
+            showScreenReceipt = !showScreenReceipt;
+            const btn = document.getElementById('receiptToggleBtn');
+            const box = document.getElementById('screenReceiptBox');
+            if (showScreenReceipt) {
+                btn.innerText = 'ON';
+                btn.className = 'btn btn-success';
+                box.style.display = 'block';
+            } else {
+                btn.innerText = 'OFF';
+                btn.className = 'btn btn-secondary';
+                box.style.display = 'none';
+            }
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+            const subtotalEl = document.getElementById('cartSubtotal');
+            const vatEl = document.getElementById('cartVat');
+            const totalEl = document.getElementById('cartTotal');
+            const previewContent = document.getElementById('screenReceiptContent');
+
+            if (cart.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8; text-align: center;">Cart is empty</p>';
+                subtotalEl.innerText = 'Rs 0.00';
+                vatEl.innerText = 'Rs 0.00';
+                totalEl.innerText = 'Rs 0.00';
+                previewContent.innerText = 'No items in receipt preview';
+                return;
+            }
+
+            container.innerHTML = '';
+            let total = 0;
+            let previewHTML = '';
+
+            cart.forEach(item => {
+                let itemTotal = item.price * item.qty;
+                total += itemTotal;
+
+                const div = document.createElement('div');
+                div.className = 'cart-item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${item.name}</strong><br>
+                        <small>Rs ${item.price} x ${item.qty}</small>
+                    </div>
+                    <div class="cart-item-controls">
+                        <button onclick="updateQty(${item.id}, -1)">-</button>
+                        <span style="margin: 0 6px;">${item.qty}</span>
+                        <button onclick="updateQty(${item.id}, 1)">+</button>
+                    </div>
+                `;
+                container.appendChild(div);
+
+                previewHTML += `<div>${item.name} x${item.qty} - Rs ${itemTotal}</div>`;
+            });
+
+            let netSales = total / 1.15;
+            let vatAmount = total - netSales;
+
+            subtotalEl.innerText = `Rs ${total.toFixed(2)}`;
+            vatEl.innerText = `Rs ${vatAmount.toFixed(2)}`;
+            totalEl.innerText = `Rs ${total.toFixed(2)}`;
+
+            previewHTML += `<div style="margin-top:4px;">VAT (15%): Rs ${vatAmount.toFixed(2)}</div>`;
+            previewHTML += `<div style="border-top:1px dashed #d97706; margin-top:4px; padding-top:2px; font-weight:bold;">Total: Rs ${total.toFixed(2)}</div>`;
+            previewContent.innerHTML = previewHTML;
+        }
+
+        async function printReceiptToCustomer(receiptText, htmlReceiptContent) {
+            // Uses system print dialog which works inside Acode and mobile WebViews without requiring Web Bluetooth hardware bindings.
+            const printArea = document.getElementById('printableReceiptArea');
+            printArea.innerHTML = htmlReceiptContent;
+            printArea.style.display = 'block';
+            window.print();
+            printArea.style.display = 'none';
+        }
+
+        async function completeSaleAndPlaceOrder() {
+            if (cart.length === 0) {
+                alert('Cart is empty!');
+                return;
+            }
+
+            let total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let paymentMethod = document.getElementById('paymentMethod').value;
+            let now = new Date();
+            let timeStr = now.toTimeString().split(' ')[0].substring(0,5);
+            let fullDateStr = now.toISOString();
+            
+            let orderId = '#' + orderSequenceNumber++;
+            localStorage.setItem('pos_order_seq', orderSequenceNumber);
+
+            cart.forEach(item => {
+                let prod = products.find(p => p.id === item.id);
+                if (prod) {
+                    prod.stock = Math.max(0, prod.stock - item.qty);
+                }
+
+                let itemNameLower = item.name.toLowerCase();
+                if (itemNameLower.includes('(m)')) {
+                    let cupM = inventoryList.find(i => i.name === 'CUPS M');
+                    if (cupM) cupM.stock = Math.max(0, cupM.stock - item.qty);
+                } else if (itemNameLower.includes('(l)')) {
+                    let cupL = inventoryList.find(i => i.name === 'CUPS L');
+                    if (cupL) cupL.stock = Math.max(0, cupL.stock - item.qty);
+                }
+
+                if (item.cat === 'MILK TEA' || itemNameLower.includes('milk tea')) {
+                    let laKaffa = inventoryList.find(i => i.name.includes('La Kaffa') || i.name.includes('3 IN 1 MILK TEA'));
+                    if (laKaffa) laKaffa.stock = Math.max(0, laKaffa.stock - (item.qty * 30));
+                }
+
+                if (itemNameLower.includes('pearl') || itemNameLower.includes('tapioca')) {
+                    let pearls = inventoryList.find(i => i.name.includes('TAPIOCA PEARLS'));
+                    if (pearls) pearls.stock = Math.max(0, pearls.stock - (item.qty * 50));
+                }
+            });
+
+            localStorage.setItem('pos_store_stock', JSON.stringify(products));
+            saveInventory();
+            renderAccordionMenu();
+
+            const cashierFullName = currentStaff ? `${currentStaff.name} (${currentStaff.username})` : 'Administrator';
+
+            let placedOrder = {
+                id: orderId,
+                table: 'Bar Counter | PAX 1',
+                time: timeStr,
+                date: fullDateStr,
+                cashier: cashierFullName,
+                cashierUsername: currentStaff ? currentStaff.username : 'admin',
+                paymentStatus: 'PAID',
+                paymentMethod: paymentMethod,
+                total: total,
+                items: [...cart]
+            };
+
+            let netSales = total / 1.15;
+            let vatAmount = total - netSales;
+
+            let htmlReceipt = `
+                <div style="text-align: center;">
+                    <h3 style="margin:0;">Mercury Distribution Ltd</h3>
+                    <p style="margin:2px 0; font-size:11px;">Louis Pasteur,st<br>Manhattan Mall<br>Curepipe</p>
+                    <p style="margin:2px 0; font-size:11px;">Tel: 52573727 | VAT: 28237334<br>BRN: C24206010</p>
+                    <p style="margin:4px 0; font-weight:bold; font-size:12px;">VAT INVOICE</p>
+                    <p style="margin:2px 0; font-size:11px;">Order: ${orderId} | Time: ${timeStr}</p>
+                    <p style="margin:2px 0; font-size:11px;">Cashier: ${cashierFullName}</p>
+                </div>
+                <hr style="border:dashed 1px black;">
+                <table style="width:100%; font-size:12px;">
+                    ${cart.map(i => `<tr><td>${i.name} x${i.qty}</td><td style="text-align:right;">Rs ${i.price * i.qty}</td></tr>`).join('')}
+                </table>
+                <hr style="border:dashed 1px black;">
+                <div style="font-size:12px; display:flex; justify-content:space-between;">
+                    <span>VAT (15%):</span><span>Rs ${vatAmount.toFixed(2)}</span>
+                </div>
+                <div style="font-size:14px; font-weight:bold; display:flex; justify-content:space-between; margin-top:2px;">
+                    <span>TOTAL:</span><span>Rs ${total.toFixed(2)}</span>
+                </div>
+                <p style="font-size:12px; margin:5px 0;">Method: ${paymentMethod}</p>
+                <div style="text-align:center; margin-top:15px; font-size:12px;">*** THANK YOU! ***</div>
+            `;
+
+            await printReceiptToCustomer("", htmlReceipt);
+
+            dailySalesLog.totalTransactions += 1;
+            dailySalesLog.totalQuantity += cart.reduce((s, i) => s + i.qty, 0);
+            dailySalesLog.totalAmount += total;
+            
+            if (!dailySalesLog.paymentMethods[paymentMethod]) {
+                dailySalesLog.paymentMethods[paymentMethod] = { count: 0, amount: 0 };
+            }
+            dailySalesLog.paymentMethods[paymentMethod].count += 1;
+            dailySalesLog.paymentMethods[paymentMethod].amount += total;
+
+            localStorage.setItem('pos_daily_sales', JSON.stringify(dailySalesLog));
+            updateAdminReports();
+
+            placedOrders.unshift(placedOrder);
+            localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+
+            cart = [];
+            renderCart();
+            updateDonutChartData();
+
+            switchView('panePlacedOrders', document.querySelectorAll('.bottom-nav .nav-item')[2], 'PLACED ORDERS');
+            renderPlacedOrdersList();
+            selectPlacedOrder(placedOrder.id);
+        }
+
+        function connectPrinter() {
+            alert('Note: Acode editor mobile webview does not support direct Web Bluetooth device pairing.\n\nPrinting will seamlessly use your device system print dialog to connect to any local network, Wi-Fi, or Bluetooth printer paired in your Android tablet settings.');
+        }
+
+        function openCashDrawerExplicit() {
+            alert('Cash drawer pulse triggered via print queue.');
+            window.print();
+        }
+
+        function renderReconItemizedSales() {
+            const container = document.getElementById('reconItemizedSalesList');
+            if(!container) return;
+            let itemCounts = {};
+
+            placedOrders.forEach(ord => {
+                if (ord.paymentStatus === 'PAID') {
+                    ord.items.forEach(it => {
+                        itemCounts[it.name] = (itemCounts[it.name] || 0) + it.qty;
+                    });
+                }
+            });
+
+            if (Object.keys(itemCounts).length === 0) {
+                container.innerHTML = '<span style="color: #94a3b8;">No paid sales recorded today</span>';
+                return;
+            }
+
+            let html = '<ul style="padding-left: 20px; margin: 0;">';
+            for (const [name, qty] of Object.entries(itemCounts)) {
+                html += `<li>${name} [${qty}]</li>`;
+            }
+            html += '</ul>';
+            container.innerHTML = html;
+        }
+
+        function refreshReconData() {
+            let cashAmt = 0;
+            let cardAmt = 0;
+            let juiceAmt = 0;
+            let mytAmt = 0;
+            let blinkAmt = 0;
+            let delivooAmt = 0;
+            let hungryDodoAmt = 0;
+            let paidTransCount = 0;
+
+            placedOrders.forEach(ord => {
+                if (ord.paymentStatus === 'PAID') {
+                    paidTransCount++;
+                    let amt = ord.total;
+                    let m = ord.paymentMethod;
+                    if (m === 'Cash') cashAmt += amt;
+                    else if (m === 'Card') cardAmt += amt;
+                    else if (m === 'Juice') juiceAmt += amt;
+                    else if (m === 'MyT Money') mytAmt += amt;
+                    else if (m === 'Blinks') blinkAmt += amt;
+                    else if (m === 'Delivoo') delivooAmt += amt;
+                    else if (m === 'Hungry Dodo') hungryDodoAmt += amt;
+                }
+            });
+
+            let grandTotal = cashAmt + cardAmt + juiceAmt + mytAmt + blinkAmt + delivooAmt + hungryDodoAmt;
+
+            document.getElementById('reconCashTotal').innerText = cashAmt.toFixed(0);
+            document.getElementById('reconCardTotal').innerText = cardAmt.toFixed(0);
+            document.getElementById('reconJuiceTotal').innerText = juiceAmt.toFixed(0);
+            document.getElementById('reconMytTotal').innerText = mytAmt.toFixed(0);
+            document.getElementById('reconBlinkTotal').innerText = blinkAmt.toFixed(0);
+            document.getElementById('reconDelivooTotal').innerText = delivooAmt.toFixed(0);
+            document.getElementById('reconHungryDodoTotal').innerText = hungryDodoAmt.toFixed(0);
+            document.getElementById('reconGrandTotal').innerText = grandTotal.toFixed(0);
+
+            if(currentStaff) {
+                const cashierDisplayStr = `${currentStaff.name} (${currentStaff.username})`;
+                document.getElementById('reconCashierName').innerText = cashierDisplayStr;
+                document.getElementById('adminReconCashier').innerText = cashierDisplayStr;
+            }
+            document.getElementById('adminReconTransCount').innerText = paidTransCount;
+            renderReconItemizedSales();
+            
+            const now = new Date();
+            const dateStr = now.getDate() + '-' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()] + '-' + now.getFullYear() + ' ' + now.toTimeString().split(' ')[0];
+            document.getElementById('reconTimestamp').innerText = dateStr;
+        }
+
+        async function printCombinedDailySalesReport() {
+            refreshReconData();
+            let cashAmt = document.getElementById('reconCashTotal').innerText;
+            let cardAmt = document.getElementById('reconCardTotal').innerText;
+            let juiceAmt = document.getElementById('reconJuiceTotal').innerText;
+            let mytAmt = document.getElementById('reconMytTotal').innerText;
+            let blinkAmt = document.getElementById('reconBlinkTotal').innerText;
+            let delivooAmt = document.getElementById('reconDelivooTotal').innerText;
+            let hungryDodoAmt = document.getElementById('reconHungryDodoTotal').innerText;
+            let grandTotal = document.getElementById('reconGrandTotal').innerText;
+            let cashier = document.getElementById('reconCashierName').innerText;
+            let timestamp = document.getElementById('reconTimestamp').innerText;
+            let transCount = document.getElementById('adminReconTransCount').innerText;
+
+            let itemCounts = {};
+            let totalQtySold = 0;
+
+            placedOrders.forEach(ord => {
+                if (ord.paymentStatus === 'PAID') {
+                    ord.items.forEach(it => {
+                        if (!itemCounts[it.name]) {
+                            itemCounts[it.name] = { qty: 0, total: 0 };
+                        }
+                        itemCounts[it.name].qty += it.qty;
+                        itemCounts[it.name].total += (it.price * it.qty);
+                        totalQtySold += it.qty;
+                    });
+                }
+            });
+            
+            let htmlReport = `
+                <div style="text-align:center;">
+                    <h3 style="margin:0;">Mercury Distribution Ltd</h3>
+                    <p style="font-size:11px; margin:2px 0;">Louis Pasteur,st | Manhattan Mall | Curepipe</p>
+                    <p style="font-size:11px; margin:2px 0;">Tel: 52573727 | VAT: 28237334 | BRN: C24206010</p>
+                    <p style="font-size:12px; margin:4px 0; font-weight:bold;">DAILY SALES REPORT</p>
+                    <p style="font-size:11px; color:#555; margin:0;">${timestamp} | Cashier: ${cashier}</p>
+                </div>
+                <hr style="border:dashed 1px black;">
+                <div style="font-size:12px; font-weight:bold; margin-bottom:4px;">1. SALES OF THE DAY (RECON)</div>
+                <div style="font-size:11px; line-height:1.4; margin-bottom:10px;">
+                    <div>Cash: Rs ${cashAmt}</div>
+                    <div>Card: Rs ${cardAmt}</div>
+                    <div>Juice: Rs ${juiceAmt}</div>
+                    <div>MyT Money: Rs ${mytAmt}</div>
+                    <div>Blinks: Rs ${blinkAmt}</div>
+                    <div>Delivoo: Rs ${delivooAmt}</div>
+                    <div>Hungry Dodo: Rs ${hungryDodoAmt}</div>
+                    <div style="font-weight:bold; margin-top:3px;">TOTAL REVENUE: Rs ${grandTotal}</div>
+                    <div>Total Transactions: ${transCount}</div>
+                </div>
+                <hr style="border:dashed 1px black;">
+                <div style="font-size:12px; font-weight:bold; margin-bottom:4px;">2. SALES OF PRODUCTS (ITEMS)</div>
+                <table style="width:100%; font-size:11px; border-collapse:collapse;">
+                    <tr style="border-bottom:1px solid black;">
+                        <th style="text-align:left; padding:3px;">Item</th>
+                        <th style="text-align:center; padding:3px;">Qty</th>
+                        <th style="text-align:right; padding:3px;">Total (Rs)</th>
+                    </tr>
+            `;
+
+            for (const [name, data] of Object.entries(itemCounts)) {
+                htmlReport += `
+                    <tr style="border-bottom:1px solid #ddd;">
+                        <td style="padding:3px;">${name}</td>
+                        <td style="text-align:center; padding:3px;">${data.qty}</td>
+                        <td style="text-align:right; padding:3px;">Rs ${data.total}</td>
+                    </tr>
+                `;
+            }
+
+            htmlReport += `</table>
+                <hr style="border:dashed 1px black;">
+                <div style="font-size:12px; font-weight:bold; display:flex; justify-content:space-between;">
+                    <span>Total Units Sold:</span><span>${totalQtySold}</span>
+                </div>
+            `;
+
+            await printReceiptToCustomer("", htmlReport);
+        }
+
+        async function printSpecificPlatformReport(platformName) {
+            let now = new Date();
+            let timestamp = now.getDate() + '-' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()] + '-' + now.getFullYear() + ' ' + now.toTimeString().split(' ')[0];
+            let cashier = currentStaff ? `${currentStaff.name} (${currentStaff.username})` : 'Administrator';
+
+            let platformOrders = placedOrders.filter(ord => ord.paymentStatus === 'PAID' && ord.paymentMethod === platformName);
+            let platformTotal = 0;
+            let itemCounts = {};
+            let totalQty = 0;
+
+            platformOrders.forEach(ord => {
+                platformTotal += ord.total;
+                ord.items.forEach(it => {
+                    if (!itemCounts[it.name]) {
+                        itemCounts[it.name] = { qty: 0, total: 0 };
+                    }
+                    itemCounts[it.name].qty += it.qty;
+                    itemCounts[it.name].total += (it.price * it.qty);
+                    totalQty += it.qty;
+                });
+            });
+
+            let htmlReport = `
+                <div style="text-align:center;">
+                    <h3 style="margin:0;">Mercury Distribution Ltd</h3>
+                    <p style="font-size:11px; margin:2px 0;">Louis Pasteur,st | Manhattan Mall | Curepipe</p>
+                    <p style="font-size:11px; margin:2px 0;">Tel: 52573727 | VAT: 28237334 | BRN: C24206010</p>
+                    <p style="font-size:12px; margin:4px 0; font-weight:bold;">${platformName.toUpperCase()} SALES REPORT</p>
+                    <p style="font-size:11px; color:#555; margin:0;">${timestamp} | Cashier: ${cashier}</p>
+                </div>
+                <hr style="border:dashed 1px black;">
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px;">Total Orders: ${platformOrders.length} | Revenue: Rs ${platformTotal.toFixed(2)}</div>
+                <table style="width:100%; font-size:11px; border-collapse:collapse;">
+                    <tr style="border-bottom:1px solid black;">
+                        <th style="text-align:left; padding:3px;">Item</th>
+                        <th style="text-align:center; padding:3px;">Qty</th>
+                        <th style="text-align:right; padding:3px;">Total (Rs)</th>
+                    </tr>
+            `;
+
+            for (const [name, data] of Object.entries(itemCounts)) {
+                htmlReport += `
+                    <tr style="border-bottom:1px solid #ddd;">
+                        <td style="padding:3px;">${name}</td>
+                        <td style="text-align:center; padding:3px;">${data.qty}</td>
+                        <td style="text-align:right; padding:3px;">Rs ${data.total}</td>
+                    </tr>
+                `;
+            }
+
+            htmlReport += `</table>
+                <hr style="border:dashed 1px black;">
+                <div style="font-size:12px; font-weight:bold; display:flex; justify-content:space-between;">
+                    <span>Total Units Sold:</span><span>${totalQty}</span>
+                </div>
+                <div style="font-size:13px; font-weight:bold; display:flex; justify-content:space-between; margin-top:4px;">
+                    <span>Total Revenue:</span><span>Rs ${platformTotal.toFixed(2)}</span>
+                </div>
+            `;
+
+            await printReceiptToCustomer("", htmlReport);
+        }
+
+        function renderAdminSalesRecords(type) {
+            if (!currentStaff || currentStaff.username.toLowerCase() !== 'admin') {
+                alert('Unauthorized Access: Sales records and analytics are restricted to Admin.');
+                return;
+            }
+
+            const container = document.getElementById('adminSalesAnalyticsReportContainer');
+            let groupedData = {};
+
+            placedOrders.forEach(ord => {
+                if (ord.paymentStatus === 'PAID') {
+                    let ordDate = ord.date ? new Date(ord.date) : new Date();
+                    let key = '';
+                    if (type === 'monthly') {
+                        let monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                        key = `${monthNames[ordDate.getMonth()]} ${ordDate.getFullYear()}`;
+                    } else {
+                        key = `${ordDate.getFullYear()}`;
+                    }
+
+                    if (!groupedData[key]) {
+                        groupedData[key] = { revenue: 0, count: 0 };
+                    }
+                    groupedData[key].revenue += ord.total;
+                    groupedData[key].count += 1;
+                }
+            });
+
+            if (Object.keys(groupedData).length === 0) {
+                groupedData['No Sales Recorded'] = { revenue: 0, count: 0 };
+            }
+
+            let html = `<table style="width:100%; background:white; font-size:0.85rem;">
+                <tr>
+                    <th style="padding:6px;">${type === 'monthly' ? 'Month & Year' : 'Year'}</th>
+                    <th style="padding:6px; text-align:center;">Transactions</th>
+                    <th style="padding:6px; text-align:right;">Gross Revenue</th>
+                </tr>`;
+
+            let grandGross = 0;
+            let totalTrans = 0;
+
+            for (const [period, data] of Object.entries(groupedData)) {
+                grandGross += data.revenue;
+                totalTrans += data.count;
+                html += `<tr>
+                    <td style="padding:6px; font-weight:bold;">${period}</td>
+                    <td style="padding:6px; text-align:center;">${data.count}</td>
+                    <td style="padding:6px; text-align:right; font-weight:bold; color:#059669;">Rs ${data.revenue.toFixed(2)}</td>
+                </tr>`;
+            }
+
+            html += `</table>
+                <div style="margin-top: 12px; padding: 8px 12px; background: #e0f2fe; border-radius: 6px; display: flex; justify-content: space-between; font-weight: bold; font-size: 0.9rem; color: #0369a1;">
+                    <span>Total Accumulated (${type.toUpperCase()}):</span>
+                    <span>Rs ${grandGross.toFixed(2)} (${totalTrans} Orders)</span>
+                </div>`;
+
+            if (container) container.innerHTML = html;
+        }
+
+        function renderPlacedOrdersList() {
+            const container = document.getElementById('placedOrdersListContainer');
+            if(!container) return;
+            document.getElementById('dashPendingCount').innerText = placedOrders.filter(o => o.paymentStatus === 'UNPAID').length;
+
+            if (placedOrders.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.85rem;">No placed orders</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            placedOrders.forEach(order => {
+                const div = document.createElement('div');
+                div.className = `order-card-item ${order.id === selectedPlacedOrderId ? 'selected' : ''}`;
+                div.style.padding = '12px 15px';
+                div.style.borderBottom = '1px solid var(--border)';
+                div.style.cursor = 'pointer';
+                div.onclick = () => selectPlacedOrder(order.id);
+                div.innerHTML = `
+                    <div style="font-weight: bold; font-size: 0.85rem; color: #1e293b;">Order ${order.id} : Rs.${order.total.toFixed(0)}</div>
+                    <div style="font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between; margin-top: 3px;">
+                        <span>${order.cashier}</span>
+                        <span style="font-weight: bold; color: ${order.paymentStatus === 'PAID' ? '#059669' : '#dc2626'};">${order.paymentStatus} (${order.paymentMethod})</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function selectPlacedOrder(id) {
+            selectedPlacedOrderId = id;
+            renderPlacedOrdersList();
+
+            const order = placedOrders.find(o => o.id === id);
+            if (!order) return;
+
+            if (order.paymentStatus === 'PAID') {
+                document.getElementById('btnStatusPaid').style.background = '#059669';
+                document.getElementById('btnStatusUnpaid').style.background = '#64748b';
+            } else {
+                document.getElementById('btnStatusPaid').style.background = '#64748b';
+                document.getElementById('btnStatusUnpaid').style.background = '#dc2626';
+            }
+
+            const headerContainer = document.getElementById('selectedOrderDetailsHeader');
+            headerContainer.innerHTML = `
+                <div style="font-weight: bold; font-size: 1rem; color: #1e293b;">Order ID: ${order.id}</div>
+                <div style="font-size: 0.85rem; color: #64748b; margin-top: 2px;">Table / Location: ${order.table}</div>
+                <div style="font-size: 0.85rem; color: #64748b;">Time: ${order.time} | Cashier: ${order.cashier}</div>
+                <div style="font-size: 0.85rem; margin-top: 4px;">Status: <strong style="color: ${order.paymentStatus === 'PAID' ? '#059669' : '#dc2626'};">${order.paymentStatus}</strong> | Method: <strong>${order.paymentMethod}</strong></div>
+            `;
+
+            const tableContainer = document.getElementById('selectedOrderItemsTable');
+            let html = `<table><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>`;
+            order.items.forEach(it => {
+                html += `<tr><td>${it.name}</td><td>${it.qty}</td><td>Rs ${it.price}</td><td>Rs ${it.qty * it.price}</td></tr>`;
+            });
+            let orderVat = order.total - (order.total / 1.15);
+            html += `</table><div style="margin-top: 15px; text-align: right; font-size: 0.85rem; color: #475569;">VAT (15%): Rs ${orderVat.toFixed(2)}</div><div style="text-align: right; font-weight: bold; font-size: 1rem; margin-top: 2px;">Grand Total: Rs ${order.total.toFixed(2)}</div>`;
+            tableContainer.innerHTML = html;
+        }
+
+        function setPaymentStatus(status) {
+            if (!selectedPlacedOrderId) {
+                alert('Please select an order first.');
+                return;
+            }
+            const order = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if (order) {
+                order.paymentStatus = status;
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                selectPlacedOrder(order.id);
+                renderPlacedOrdersList();
+                refreshReconData();
+            }
+        }
+
+        function settleCurrentSelectedOrder(method) {
+            if (!selectedPlacedOrderId) {
+                alert('Please select an order first.');
+                return;
+            }
+            const order = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if (order) {
+                order.paymentMethod = method;
+                order.paymentStatus = 'PAID';
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                selectPlacedOrder(order.id);
+                renderPlacedOrdersList();
+                refreshReconData();
+                alert(`Order ${order.id} settled via ${method} as PAID.`);
+            }
+        }
+
+        function confirmAndFinishOrder() {
+            if (!selectedPlacedOrderId) {
+                alert('Please select an order first.');
+                return;
+            }
+            const order = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if (order) {
+                order.paymentStatus = 'PAID';
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                renderPlacedOrdersList();
+                refreshReconData();
+                alert(`Order ${order.id} confirmed and finalized!`);
+            }
+        }
+
+        function deleteSelectedPlacedOrder() {
+            if (!selectedPlacedOrderId) {
+                alert('Please select an order to delete.');
+                return;
+            }
+            if (confirm('Are you sure you want to discard/delete this order?')) {
+                placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                selectedPlacedOrderId = null;
+                document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Select an order from the left to view details and settlement status.</p>';
+                document.getElementById('selectedOrderItemsTable').innerHTML = '';
+                renderPlacedOrdersList();
+                refreshReconData();
+            }
+        }
+
+        function renderHomeAdminStaffDirectory() {
+            const container = document.getElementById('homeAdminStaffDirectoryList');
+            if (!container) return;
+
+            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+
+            container.innerHTML = '';
+            staffList.forEach(s => {
+                const card = document.createElement('div');
+                card.style.background = '#ffffff';
+                card.style.border = '1px solid var(--border)';
+                card.style.borderRadius = '8px';
+                card.style.padding = '12px';
+                card.style.display = 'flex';
+                card.style.flexDirection = 'column';
+                card.style.gap = '8px';
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; font-size: 0.9rem; cursor: pointer; color: var(--primary);" onclick="inspectHomeStaffSales('${s.username}')">👤 ${s.name} (${s.username})</span>
+                        <button class="btn-secondary" style="padding: 3px 8px; font-size: 0.75rem; width: auto; margin:0;" onclick="inspectHomeStaffSales('${s.username}')">View Sales</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
+                        <input type="text" id="homeNameEdit_${s.username}" value="${s.name}" placeholder="Name" style="padding: 6px; border: 1px solid var(--border); border-radius: 4px; width: 100px; font-size: 0.8rem;" title="Edit Name">
+                        <input type="text" id="homeUserEdit_${s.username}" value="${s.username}" placeholder="Username" style="padding: 6px; border: 1px solid var(--border); border-radius: 4px; width: 110px; font-size: 0.8rem;" title="Edit Username">
+                        <input type="password" id="homePinEdit_${s.username}" value="${s.pin}" placeholder="PIN" style="padding: 6px; border: 1px solid var(--border); border-radius: 4px; width: 55px; font-size: 0.8rem;" title="Edit PIN">
+                        <button class="btn-success" style="padding: 6px 10px; font-size: 0.75rem; width: auto; margin:0;" onclick="updateHomeStaffDetails('${s.username}')">Save</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            populateLoginDropdown();
+        }
+
+        function createNewStaffMemberFromHome() {
+            if (!currentStaff || currentStaff.username.toLowerCase() !== 'admin') {
+                alert('Unauthorized.');
+                return;
+            }
+            const name = document.getElementById('homeNewStaffNameInput').value.trim();
+            const username = document.getElementById('homeNewStaffUserInput').value.trim();
+            const pin = document.getElementById('homeNewStaffPinInput').value.trim();
+
+            if (!name || !username || !pin) {
+                alert('Please fill in Name, Username, and PIN.');
+                return;
+            }
+
+            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+
+            if (staffList.some(s => s.username.toLowerCase() === username.toLowerCase())) {
+                alert('Username already exists.');
+                return;
+            }
+
+            staffList.push({ username, name, pin });
+            localStorage.setItem('pos_staff_list', JSON.stringify(staffList));
+
+            document.getElementById('homeNewStaffNameInput').value = '';
+            document.getElementById('homeNewStaffUserInput').value = '';
+            document.getElementById('homeNewStaffPinInput').value = '';
+
+            renderHomeAdminStaffDirectory();
+            populateLoginDropdown();
+            alert(`Staff member ${name} created successfully! Username: ${username} | PIN: ${pin}`);
+        }
+
+        function updateHomeStaffDetails(oldUsername) {
+            if (!currentStaff || currentStaff.username.toLowerCase() !== 'admin') {
+                alert('Unauthorized.');
+                return;
+            }
+            const nameInput = document.getElementById(`homeNameEdit_${oldUsername}`);
+            const userEditInput = document.getElementById(`homeUserEdit_${oldUsername}`);
+            const pinInput = document.getElementById(`homePinEdit_${oldUsername}`);
+            
+            const newName = nameInput ? nameInput.value.trim() : '';
+            const newUsername = userEditInput ? userEditInput.value.trim() : '';
+            const newPin = pinInput ? pinInput.value.trim() : '';
+
+            if (!newName || !newUsername || !newPin) {
+                alert('Name, Username, and PIN cannot be empty.');
+                return;
+            }
+
+            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+
+            if (newUsername.toLowerCase() !== oldUsername.toLowerCase() && staffList.some(s => s.username.toLowerCase() === newUsername.toLowerCase())) {
+                alert('Username already taken by another staff member.');
+                return;
+            }
+
+            staffList = staffList.map(s => s.username === oldUsername ? { username: newUsername, name: newName, pin: newPin } : s);
+            localStorage.setItem('pos_staff_list', JSON.stringify(staffList));
+            renderHomeAdminStaffDirectory();
+            populateLoginDropdown();
+            alert(`Staff member details updated successfully!\nName: ${newName}\nUsername: ${newUsername}\nPIN: ${newPin}`);
+        }
+
+        function inspectHomeStaffSales(username) {
+            if (!currentStaff || currentStaff.username.toLowerCase() !== 'admin') {
+                alert('Unauthorized Access: Private staff sales can only be viewed by Administrator.');
+                return;
+            }
+
+            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+            const staff = staffList.find(s => s.username.toLowerCase() === username.toLowerCase());
+            if (!staff) return;
+
+            const auditBox = document.getElementById('homeAdminStaffAuditBox');
+            const titleHeading = document.getElementById('homeAuditStaffTitleHeading');
+            const transContainer = document.getElementById('homeAuditStaffTransactionsContainer');
+
+            titleHeading.innerText = `🔒 Strictly Private Sales Audit: ${staff.name} (${staff.username})`;
+
+            const staffOrders = placedOrders.filter(ord => ord.paymentStatus === 'PAID' && (ord.cashierUsername === username || ord.cashier.includes(username) || ord.cashier.includes(staff.name)));
+
+            if (staffOrders.length === 0) {
+                transContainer.innerHTML = '<p style="color: #64748b; margin: 5px 0;">No paid sales recorded for this staff member yet.</p>';
+            } else {
+                let html = '<table style="width:100%; background: white; font-size: 0.85rem;"><tr><th>Order ID</th><th>Time</th><th>Method</th><th style="text-align:right;">Total</th></tr>';
+                let staffTotalRevenue = 0;
+                staffOrders.forEach(ord => {
+                    staffTotalRevenue += ord.total;
+                    html += `<tr><td>${ord.id}</td><td>${ord.time}</td><td>${ord.paymentMethod}</td><td style="text-align:right; font-weight:bold;">Rs ${ord.total.toFixed(2)}</td></tr>`;
+                });
+                html += `</table><div style="margin-top: 8px; font-weight: bold; text-align: right; color: #9a3412;">Total Private Revenue for ${staff.name}: Rs ${staffTotalRevenue.toFixed(2)}</div>`;
+                transContainer.innerHTML = html;
+            }
+
+            auditBox.style.display = 'block';
+        }
+
+        function closeHomeStaffAudit() {
+            document.getElementById('homeAdminStaffAuditBox').style.display = 'none';
+        }
+
+        function renderInventoryTable() {
+            const table = document.getElementById('inventoryTable');
+            if(!table) return;
+            table.innerHTML = '<tr><th>Category</th><th>Item</th><th>Stock Level</th><th>Action</th></tr>';
+            inventoryList.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><small style="font-weight:bold; color:var(--primary);">${item.cat}</small></td>
+                    <td>${item.name}</td>
+                    <td><input type="number" value="${item.stock}" style="width: 70px; padding: 4px;" onchange="updateInventoryStock('${item.id}', this.value)"></td>
+                    <td><button class="btn-danger" style="padding: 2px 6px; font-size:0.75rem;" onclick="deleteInventoryItem('${item.id}')">Delete</button></td>
+                `;
+                table.appendChild(tr);
+            });
+        }
+
+        function addNewInventoryItem() {
+            if (!currentStaff || currentStaff.username.toLowerCase() !== 'admin') {
+                alert('Unauthorized: Only Admin can add inventory items.');
+                return;
+            }
+            const cat = document.getElementById('stockCategory').value;
+            const name = document.getElementById('stockName').value.trim();
+            const qty = parseInt(document.getElementById('stockQty').value);
+
+            if (!name || isNaN(qty)) {
+                alert('Please provide a valid item name and stock quantity.');
+                return;
+            }
+
+            const newId = 'inv' + Date.now();
+            inventoryList.push({ id: newId, cat: cat, name: name, stock: qty });
+            saveInventory();
+            renderInventoryTable();
+
+            document.getElementById('stockName').value = '';
+            document.getElementById('stockQty').value = '';
+            alert('Store stock item added successfully!');
+        }
+
+        function updateInventoryStock(id, newStockVal) {
+            if (!currentStaff || currentStaff.username.toLowerCase() !== 'admin') {
+                alert('Unauthorized: Only Admin can modify inventory.');
+                return;
+            }
+            const item = inventoryList.find(i => i.id === id);
+            if (item) {
+                item.stock = parseFloat(newStockVal) || 0;
+                saveInventory();
+            }
+        }
+
+        function deleteInventoryItem(id) {
+            if (!currentStaff || currentStaff.username.toLowerCase() !== 'admin') {
+                alert('Unauthorized: Only Admin can delete inventory items.');
+                return;
+            }
+            if (confirm('Are you sure you want to delete this inventory item?')) {
+                inventoryList = inventoryList.filter(i => i.id !== id);
+                saveInventory();
+                renderInventoryTable();
+            }
+        }
+
+        async function printStoreStockReport() {
+            let now = new Date();
+            let timestamp = now.getDate() + '-' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()] + '-' + now.getFullYear() + ' ' + now.toTimeString().split(' ')[0];
+
+            let htmlStock = `
+                <div style="text-align:center;">
+                    <h3 style="margin:0;">Mercury Distribution Ltd</h3>
+                    <p style="font-size:11px; margin:2px 0;">Louis Pasteur,st | Manhattan Mall | Curepipe</p>
+                    <p style="font-size:11px; margin:2px 0;">Tel: 52573727 | VAT: 28237334 | BRN: C24206010</p>
+                    <p style="font-size:12px; margin:4px 0;">STORE STOCK AUDIT REPORT</p>
+                    <p style="font-size:11px; color:#555; margin:0;">${timestamp}</p>
+                </div>
+                <hr style="border:dashed 1px black;">
+                <table style="width:100%; font-size:11px; border-collapse:collapse;">
+                    <tr style="border-bottom:1px solid black;">
+                        <th style="text-align:left; padding:4px;">Category</th>
+                        <th style="text-align:left; padding:4px;">Item</th>
+                        <th style="text-align:right; padding:4px;">Stock</th>
+                    </tr>
+            `;
+
+            inventoryList.forEach(item => {
+                htmlStock += `
+                    <tr style="border-bottom:1px solid #ddd;">
+                        <td style="padding:4px;">${item.cat}</td>
+                        <td style="padding:4px;">${item.name}</td>
+                        <td style="text-align:right; padding:4px; font-weight:bold;">${item.stock}</td>
+                    </tr>
+                `;
+            });
+
+            htmlStock += `</table><div style="margin-top:10px; font-size:12px; font-weight:bold;">Total Items Tracked: ${inventoryList.length}</div>`;
+
+            await printReceiptToCustomer("", htmlStock);
+        }
+
+        function updateAdminReports() {
+            const revEl = document.getElementById('dashRevenue');
+            const pendEl = document.getElementById('dashPendingCount');
+            if(revEl) revEl.innerText = `Rs ${dailySalesLog.totalAmount.toFixed(2)}`;
+            if(pendEl) pendEl.innerText = placedOrders.filter(o => o.paymentStatus === 'UNPAID').length;
+        }
+
+        function initDonutChart() {
+            const canvasEl = document.getElementById('salesDonutChart');
+            if(!canvasEl) return;
+            const ctx = canvasEl.getContext('2d');
+            
+            let categoryTotals = {};
+            products.forEach(p => { categoryTotals[p.cat] = 0; });
+
+            placedOrders.forEach(ord => {
+                if(ord.paymentStatus === 'PAID') {
+                    ord.items.forEach(it => {
+                        let cat = it.cat || 'OTHER';
+                        categoryTotals[cat] = (categoryTotals[cat] || 0) + (it.price * it.qty);
+                    });
+                }
+            });
+
+            let labels = Object.keys(categoryTotals);
+            let dataValues = Object.values(categoryTotals);
+
+            donutChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: [
+                            '#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', 
+                            '#8b5cf6', '#ec4899', '#64748b', '#14b8a6', '#f97316'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                font: { size: 11 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDonutChartData() {
+            if (!donutChartInstance) return;
+
+            let categoryTotals = {};
+            products.forEach(p => { categoryTotals[p.cat] = 0; });
+
+            placedOrders.forEach(ord => {
+                if(ord.paymentStatus === 'PAID') {
+                    ord.items.forEach(it => {
+                        let cat = it.cat || 'OTHER';
+                        categoryTotals[cat] = (categoryTotals[cat] === undefined ? 0 : categoryTotals[cat]) + (it.price * it.qty);
+                    });
+                }
+            });
+
+            donutChartInstance.data.labels = Object.keys(categoryTotals);
+            donutChartInstance.data.datasets[0].data = Object.values(categoryTotals);
+            donutChartInstance.update();
+        }
+    </script>
+</body>
+</html>
+```
