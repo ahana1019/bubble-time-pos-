@@ -544,7 +544,7 @@
                         <div class="tile-icon-box" style="background: #dcfce7; border-color: #86efac;">
                             <svg viewBox="0 0 24 24" style="fill: #16a34a;"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
                         </div>
-                        <span class="tile-label" style="color: #15803d;">GROSS SALES ANALYTICS (MONTHLY & YEARLY)</span>
+                        <span class="tile-label" style="color: #15803d;">GROSS SALES ANALYTICS (DAILY, MONTHLY & YEARLY)</span>
                     </div>
 
                     <!-- ADMIN ONLY: ADMIN SETTINGS & STAFF MANAGEMENT TILE -->
@@ -623,7 +623,8 @@
                                 <div>
                                     <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 2px;">Item Type:</label>
                                     <select id="batchItemSelect" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; background: white;">
-                                        <option value="TEA">Tea (grams)</option>
+                                        <option value="GREEN TEA">Green Tea (grams)</option>
+                                        <option value="BLACK TEA">Black Tea (grams)</option>
                                         <option value="TAPIOCA PEARLS">Tapioca Pearls (grams)</option>
                                     </select>
                                 </div>
@@ -641,9 +642,15 @@
                             <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
                                 <div style="background: white; border: 1px solid var(--border); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                                     <div>
-                                        <strong style="font-size: 0.85rem; color: #0284c7;">Total Tea Prepared:</strong>
+                                        <strong style="font-size: 0.85rem; color: #0284c7;">Total Green Tea:</strong>
                                     </div>
-                                    <span id="totalTeaPreparedDisplay" style="font-size: 0.95rem; font-weight: bold; color: #059669;">0 g</span>
+                                    <span id="totalGreenTeaPreparedDisplay" style="font-size: 0.95rem; font-weight: bold; color: #059669;">0 g</span>
+                                </div>
+                                <div style="background: white; border: 1px solid var(--border); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong style="font-size: 0.85rem; color: #0284c7;">Total Black Tea:</strong>
+                                    </div>
+                                    <span id="totalBlackTeaPreparedDisplay" style="font-size: 0.95rem; font-weight: bold; color: #059669;">0 g</span>
                                 </div>
                                 <div style="background: white; border: 1px solid var(--border); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                                     <div>
@@ -734,7 +741,8 @@
                     </div>
                     
                     <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
-                        <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #0284c7; font-size: 0.85rem;" onclick="renderAdminSalesRecords('monthly')">View Monthly Sales</button>
+                        <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #0284c7; font-size: 0.85rem;" onclick="renderAdminSalesRecords('daily')">View Daily Sales</button>
+                        <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #2563eb; font-size: 0.85rem;" onclick="renderAdminSalesRecords('monthly')">View Monthly Sales</button>
                         <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #059669; font-size: 0.85rem;" onclick="renderAdminSalesRecords('yearly')">View Yearly Sales</button>
                     </div>
                     
@@ -810,7 +818,8 @@
 
                         <!-- On-Screen Receipt Preview Container -->
                         <div id="screenReceiptBox" style="background: #fffbeb; border: 1px dashed #d97706; padding: 8px; border-radius: 6px; margin-bottom: 8px; font-family: monospace; font-size: 0.7rem; max-height: 125px; overflow-y: auto;">
-                            <div style="text-align: center; font-weight: bold; font-size: 0.75rem;">Mercury Distribution Ltd</div>
+                            <div style="text-align: center; font-weight: bold; font-size: 0.75rem;">Bubble Time</div>
+                            <div style="text-align: center; font-weight: bold; font-size: 0.7rem;">Mercury Distribution Ltd</div>
                             <div style="text-align: center; font-size: 0.65rem; color: #475569; line-height: 1.2;">
                                 Louis Pasteur, st<br>
                                 Manhattan Mall, Curepipe<br>
@@ -1120,6 +1129,10 @@
         let orderSequenceNumber = parseInt(localStorage.getItem('pos_order_seq')) || 11;
         let deletedOrdersLog = JSON.parse(localStorage.getItem('pos_deleted_orders_log')) || { count: 0, quantity: 0, amount: 0 };
         let dailyBatchLogs = JSON.parse(localStorage.getItem('pos_daily_batch_logs')) || [];
+        let historicalClosedDailySales = JSON.parse(localStorage.getItem('pos_historical_closed_daily_sales')) || [
+            { date: '2026-09-01', transactions: 12, revenue: 2150.00, methods: { Cash: 1500, Card: 400, Delivoo: 250 }, itemsSummary: { 'MILK TEA': 1200, 'FRUITS TEA': 950 } },
+            { date: '2026-09-02', transactions: 15, revenue: 2840.00, methods: { Cash: 1800, Blink: 540, 'Hungry Dodo': 500 }, itemsSummary: { 'MILK TEA': 1500, 'MOJITO': 1340 } }
+        ];
 
         const defaultProducts = [
             { id: 1, name: 'Pearl Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 50 },
@@ -1434,20 +1447,24 @@
         }
 
         function renderBatchPrepView() {
-            const teaDisplay = document.getElementById('totalTeaPreparedDisplay');
+            const greenTeaDisplay = document.getElementById('totalGreenTeaPreparedDisplay');
+            const blackTeaDisplay = document.getElementById('totalBlackTeaPreparedDisplay');
             const tapiocaDisplay = document.getElementById('totalTapiocaPreparedDisplay');
             const historyContainer = document.getElementById('batchHistoryContainer');
-            if(!teaDisplay || !tapiocaDisplay || !historyContainer) return;
+            if(!greenTeaDisplay || !blackTeaDisplay || !tapiocaDisplay || !historyContainer) return;
 
-            let totalTea = 0;
+            let totalGreenTea = 0;
+            let totalBlackTea = 0;
             let totalTapioca = 0;
 
             dailyBatchLogs.forEach(b => {
-                if (b.item === 'TEA') totalTea += b.grams;
+                if (b.item === 'GREEN TEA') totalGreenTea += b.grams;
+                else if (b.item === 'BLACK TEA') totalBlackTea += b.grams;
                 else if (b.item === 'TAPIOCA PEARLS') totalTapioca += b.grams;
             });
 
-            teaDisplay.innerText = `${totalTea} g`;
+            greenTeaDisplay.innerText = `${totalGreenTea} g`;
+            blackTeaDisplay.innerText = `${totalBlackTea} g`;
             tapiocaDisplay.innerText = `${totalTapioca} g`;
 
             if (dailyBatchLogs.length === 0) {
@@ -1826,7 +1843,6 @@
         }
 
         function deductRawInventoryForSale() {
-            // Powder scoop weights in grams per 1 scoop
             const powderScoopWeights = {
                 'COFFEE': 9,
                 'PEARL MILK TEA': 13,
@@ -1849,7 +1865,6 @@
                 
                 let isLarge = nameUpper.includes('(L)') || nameUpper.includes('LARGE');
 
-                // 1. Check Fruit-Tea
                 if (catUpper === 'FRUITS TEA' && !nameUpper.includes('JASMINE GREEN TEA')) {
                     let flavorMl = isLarge ? 40 : 32;
                     let fructoseMl = isLarge ? 35 : 25;
@@ -1865,7 +1880,6 @@
                         }
                     });
                 }
-                // 2. Check Signature Chewy (Double Q)
                 else if (catUpper === 'SIGNATURE CHEWY') {
                     let flavorMl = isLarge ? 40 : 32;
                     let fructoseMl = isLarge ? 25 : 15;
@@ -1881,7 +1895,6 @@
                         }
                     });
                 }
-                // 3. Check Smoothie / Milkshake
                 else if (catUpper === 'MILKSHAKE' && (nameUpper.includes('SMOOTHIE') || nameUpper.includes('MILKSHAKE') || nameUpper.includes('CHEESECREAM'))) {
                     let flavorMl = isLarge ? 48 : 40;
                     let fructoseMl = isLarge ? 45 : 35;
@@ -1897,13 +1910,11 @@
                         }
                     });
                 }
-                // 4. Check Matcha Milk-Tea specifically
                 else if (nameUpper.includes('MATCHA')) {
                     let flavorScoops = 1;
                     let creamerScoops = isLarge ? 3 : 2;
                     let fructoseMl = isLarge ? 45 : 35;
 
-                    // Deduct Matcha powder
                     inventoryList.forEach(inv => {
                         if (inv.cat === 'POWDER (g)' && inv.name.toUpperCase() === 'MATCHA') {
                             let scoopW = powderScoopWeights['MATCHA'] || 8;
@@ -1911,7 +1922,6 @@
                         }
                     });
 
-                    // Deduct Creamer powder
                     inventoryList.forEach(inv => {
                         if (inv.cat === 'POWDER (g)' && inv.name.toUpperCase() === 'CREAMER') {
                             let creamerW = powderScoopWeights['CREAMER'] || 15;
@@ -1919,20 +1929,17 @@
                         }
                     });
 
-                    // Deduct Fructose
                     inventoryList.forEach(inv => {
                         if (inv.cat === 'FRUCTOSE (ml)') {
                             inv.stock = Math.max(0, inv.stock - (fructoseMl * soldQty));
                         }
                     });
                 }
-                // 5. Check All Other Powder Drinks (Milk Tea / Milk Series)
                 else if (catUpper === 'MILK TEA' || catUpper === 'MILK SERIES') {
                     let flavorScoops = isLarge ? 4 : 3;
                     let creamerScoops = isLarge ? 3 : 2;
                     let fructoseMl = isLarge ? 45 : 35;
 
-                    // Deduct main flavor powder
                     inventoryList.forEach(inv => {
                         if (inv.cat === 'POWDER (g)') {
                             let invName = inv.name.toUpperCase();
@@ -1943,7 +1950,6 @@
                         }
                     });
 
-                    // Deduct Creamer powder
                     inventoryList.forEach(inv => {
                         if (inv.cat === 'POWDER (g)' && inv.name.toUpperCase() === 'CREAMER') {
                             let creamerW = powderScoopWeights['CREAMER'] || 15;
@@ -1951,14 +1957,12 @@
                         }
                     });
 
-                    // Deduct Fructose
                     inventoryList.forEach(inv => {
                         if (inv.cat === 'FRUCTOSE (ml)') {
                             inv.stock = Math.max(0, inv.stock - (fructoseMl * soldQty));
                         }
                     });
                 }
-                // Default fallback deduction for other items
                 else {
                     inventoryList.forEach(inv => {
                         let invName = inv.name.toUpperCase();
@@ -2037,6 +2041,7 @@
             let vatAmount = total - netSales;
 
             let rawLines = [];
+            rawLines.push("       Bubble Time");
             rawLines.push("    Mercury Distribution Ltd");
             rawLines.push("       Louis Pasteur, st");
             rawLines.push("    Manhattan Mall, Curepipe");
@@ -2192,6 +2197,7 @@
         async function printCombinedDailySalesReport() {
             refreshReconData();
             let totalCcount = 0, totalQty = 0, totalAmt = 0;
+            let methodTotals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
 
             placedOrders.forEach(ord => {
                 if (ord.paymentStatus === 'PAID') {
@@ -2199,10 +2205,14 @@
                     totalCcount++;
                     totalQty += ordQty;
                     totalAmt += ord.total;
+                    if (methodTotals[ord.paymentMethod] !== undefined) {
+                        methodTotals[ord.paymentMethod] += ord.total;
+                    }
                 }
             });
 
             let reportLines = [];
+            reportLines.push("       Bubble Time");
             reportLines.push("    Mercury Distribution Ltd");
             reportLines.push("       Louis Pasteur, st");
             reportLines.push("    Manhattan Mall, Curepipe");
@@ -2214,6 +2224,13 @@
             reportLines.push(`Total Sales: Rs ${totalAmt.toFixed(2)}`);
             reportLines.push(`Transactions: ${totalCcount}`);
             reportLines.push("------------------------------");
+            reportLines.push("PAYMENT BREAKDOWN:");
+            for (const [m, amt] of Object.entries(methodTotals)) {
+                if (amt > 0) {
+                    reportLines.push(` - ${m}: Rs ${amt.toFixed(2)}`);
+                }
+            }
+            reportLines.push("------------------------------");
             reportLines.push("\n\n");
 
             await printDirectToJP80M(reportLines.join("\n"));
@@ -2221,6 +2238,46 @@
 
         async function approveCloseShiftAndPrintReport() {
             await printCombinedDailySalesReport();
+
+            let todayDateStr = new Date().toISOString().split('T')[0];
+            let shiftRevenue = 0;
+            let shiftTransCount = 0;
+            let shiftMethods = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
+            let shiftItems = {};
+
+            placedOrders.forEach(ord => {
+                if (ord.paymentStatus === 'PAID') {
+                    shiftRevenue += ord.total;
+                    shiftTransCount++;
+                    if (shiftMethods[ord.paymentMethod] !== undefined) {
+                        shiftMethods[ord.paymentMethod] += ord.total;
+                    }
+                    ord.items.forEach(it => {
+                        let cat = it.cat || 'OTHER';
+                        shiftItems[cat] = (shiftItems[cat] || 0) + (it.price * it.qty);
+                    });
+                }
+            });
+
+            if (shiftRevenue > 0) {
+                let existingIndex = historicalClosedDailySales.findIndex(d => d.date === todayDateStr);
+                if (existingIndex >= 0) {
+                    historicalClosedDailySales[existingIndex].revenue += shiftRevenue;
+                    historicalClosedDailySales[existingIndex].transactions += shiftTransCount;
+                    for (const [m, amt] of Object.entries(shiftMethods)) {
+                        historicalClosedDailySales[existingIndex].methods[m] = (historicalClosedDailySales[existingIndex].methods[m] || 0) + amt;
+                    }
+                } else {
+                    historicalClosedDailySales.push({ 
+                        date: todayDateStr, 
+                        transactions: shiftTransCount, 
+                        revenue: shiftRevenue, 
+                        methods: shiftMethods,
+                        itemsSummary: shiftItems
+                    });
+                }
+                localStorage.setItem('pos_historical_closed_daily_sales', JSON.stringify(historicalClosedDailySales));
+            }
 
             localStorage.removeItem('pos_placed_orders');
             localStorage.removeItem('pos_daily_sales');
@@ -2248,6 +2305,7 @@
             platformOrders.forEach(ord => { platformTotal += ord.total; });
 
             let reportLines = [];
+            reportLines.push("       Bubble Time");
             reportLines.push("    Mercury Distribution Ltd");
             reportLines.push("       Louis Pasteur, st");
             reportLines.push("    Manhattan Mall, Curepipe");
@@ -2269,25 +2327,70 @@
             }
 
             const container = document.getElementById('adminSalesAnalyticsReportContainer');
+
+            if (type === 'daily') {
+                let html = `<table style="width:100%; background:white; font-size:0.8rem;">
+                    <tr>
+                        <th style="padding:6px;">Date</th>
+                        <th style="padding:6px; text-align:center;">Transactions</th>
+                        <th style="padding:6px;">Payment Breakdown</th>
+                        <th style="padding:6px; text-align:right;">Gross Revenue</th>
+                    </tr>`;
+
+                let grandGross = 0, totalTrans = 0;
+                let sortedDays = [...historicalClosedDailySales].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+                if (sortedDays.length === 0) {
+                    html += `<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:10px;">No closed daily sales recorded yet since Sept 1, 2026.</td></tr>`;
+                } else {
+                    sortedDays.forEach(day => {
+                        grandGross += day.revenue;
+                        totalTrans += day.transactions;
+                        
+                        let methodsStr = '';
+                        if (day.methods) {
+                            for (const [m, amt] of Object.entries(day.methods)) {
+                                if (amt > 0) methodsStr += `${m}: Rs ${amt.toFixed(0)}<br>`;
+                            }
+                        } else {
+                            methodsStr = 'Cash / Card / Delivery';
+                        }
+
+                        html += `<tr>
+                            <td style="padding:6px; font-weight:bold;">${day.date}</td>
+                            <td style="padding:6px; text-align:center;">${day.transactions}</td>
+                            <td style="padding:6px; font-size:0.7rem; color:#475569;">${methodsStr}</td>
+                            <td style="padding:6px; text-align:right; font-weight:bold; color:#059669;">Rs ${day.revenue.toFixed(2)}</td>
+                        </tr>`;
+                    });
+                }
+
+                html += `</table>
+                    <div style="margin-top: 10px; padding: 8px 10px; background: #e0f2fe; border-radius: 6px; display: flex; justify-content: space-between; font-weight: bold; font-size: 0.85rem; color: #0369a1;">
+                        <span>Total Accumulated:</span>
+                        <span>Rs ${grandGross.toFixed(2)} (${totalTrans} Orders)</span>
+                    </div>`;
+                if (container) container.innerHTML = html;
+                return;
+            }
+
             let groupedData = {};
 
-            placedOrders.forEach(ord => {
-                if (ord.paymentStatus === 'PAID') {
-                    let ordDate = ord.date ? new Date(ord.date) : new Date();
-                    let key = '';
-                    if (type === 'monthly') {
-                        let monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                        key = `${monthNames[ordDate.getMonth()]} ${ordDate.getFullYear()}`;
-                    } else {
-                        key = `${ordDate.getFullYear()}`;
-                    }
-
-                    if (!groupedData[key]) {
-                        groupedData[key] = { revenue: 0, count: 0 };
-                    }
-                    groupedData[key].revenue += ord.total;
-                    groupedData[key].count += 1;
+            historicalClosedDailySales.forEach(day => {
+                let ordDate = new Date(day.date);
+                let key = '';
+                if (type === 'monthly') {
+                    let monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                    key = `${monthNames[ordDate.getMonth()]} ${ordDate.getFullYear()}`;
+                } else {
+                    key = `${ordDate.getFullYear()}`;
                 }
+
+                if (!groupedData[key]) {
+                    groupedData[key] = { revenue: 0, count: 0 };
+                }
+                groupedData[key].revenue += day.revenue;
+                groupedData[key].count += day.transactions;
             });
 
             if (Object.keys(groupedData).length === 0) {
@@ -2327,6 +2430,7 @@
                 if (confirmed) {
                     placedOrders = [];
                     dailyBatchLogs = [];
+                    historicalClosedDailySales = [];
                     dailySalesLog = {
                         totalTransactions: 0, totalQuantity: 0, totalAmount: 0,
                         paymentMethods: { Cash: { count: 0, amount: 0 }, Card: { count: 0, amount: 0 }, Juice: { count: 0, amount: 0 }, 'MyT Money': { count: 0, amount: 0 }, Blink: { count: 0, amount: 0 }, Delivoo: { count: 0, amount: 0 }, 'Hungry Dodo': { count: 0, amount: 0 } }
@@ -2335,6 +2439,7 @@
                     localStorage.removeItem('pos_daily_sales');
                     localStorage.removeItem('pos_deleted_orders_log');
                     localStorage.removeItem('pos_daily_batch_logs');
+                    localStorage.removeItem('pos_historical_closed_daily_sales');
                     
                     renderPlacedOrdersList();
                     refreshReconData();
@@ -2650,6 +2755,7 @@
 
         async function printStoreStockReport() {
             let reportLines = [];
+            reportLines.push("       Bubble Time");
             reportLines.push("    Mercury Distribution Ltd    ");
             reportLines.push("       Louis Pasteur, st        ");
             reportLines.push("    Manhattan Mall, Curepipe    ");
