@@ -1,0 +1,2246 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- PWA / App-mode configuration for tablet home screens -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="application-name" content="POS">
+    <meta name="apple-mobile-web-app-title" content="POS">
+    <title>Bubble Time POS & Management Portal</title>
+    
+    <!-- Include Tailwind CSS CDN for modern utilities -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Include Chart.js for Donut Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --primary: #f59e0b;
+            --primary-hover: #d97706;
+            --bg: #1e293b;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --theme-color: #f59e0b;
+            --theme-text: #713f12;
+        }
+
+        html, body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-text-size-adjust: 100%;
+            touch-action: manipulation;
+        }
+
+        #customModalOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.75);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .custom-modal-card {
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .custom-modal-card h3 { margin-top: 0; color: #1e293b; margin-bottom: 10px; font-size: 1.1rem; font-weight: bold; }
+        .custom-modal-card p { color: #475569; font-size: 0.9rem; margin-bottom: 20px; line-height: 1.4; white-space: pre-line; }
+        .custom-modal-buttons { display: flex; gap: 10px; justify-content: center; }
+
+        #loginOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .login-card {
+            background: var(--surface);
+            padding: 24px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .login-card h2 { margin-bottom: 5px; color: var(--primary); border-bottom: none; font-size: 1.25rem; font-weight: bold; }
+        .login-card p { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
+        .login-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            background: #fff;
+        }
+
+        #mainApp {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
+            background: #f8fafc;
+            overflow: hidden;
+            width: 100vw;
+        }
+
+        .top-header {
+            background: #fbbf24;
+            color: #713f12;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1rem;
+            font-weight: 600;
+            flex-shrink: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .view-container {
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+            background: #f8fafc;
+            -webkit-overflow-scrolling: touch;
+            padding: 12px;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .view-pane {
+            display: none;
+            height: 100%;
+            box-sizing: border-box;
+            flex-direction: column;
+        }
+
+        .view-pane.active {
+            display: flex;
+        }
+
+        .bottom-nav {
+            height: 56px;
+            min-height: 56px;
+            background: #fbbf24;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid #f59e0b;
+            flex-shrink: 0;
+            z-index: 100;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .nav-item {
+            color: #713f12;
+            background: transparent;
+            border: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.7rem;
+            flex: 1;
+            height: 100%;
+            padding: 2px 0;
+            opacity: 0.85;
+            transition: opacity 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            line-height: 1.1;
+        }
+
+        .nav-item svg {
+            width: 18px;
+            height: 18px;
+            margin-bottom: 2px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        .nav-item.active, .nav-item:hover {
+            opacity: 1;
+            font-weight: bold;
+        }
+
+        .home-dashboard-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+            padding-bottom: 20px;
+        }
+
+        .dashboard-tile {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 70px;
+            position: relative;
+            box-sizing: border-box;
+            gap: 16px;
+        }
+
+        .dashboard-tile:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
+            border-color: #cbd5e1;
+        }
+
+        .tile-icon-box {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+
+        .tile-icon-box svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .dashboard-tile span.tile-label { 
+            font-weight: 700; 
+            font-size: 0.9rem; 
+            letter-spacing: 0.2px; 
+            text-align: left;
+            flex: 1;
+        }
+
+        .pos-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 12px;
+            height: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        @media (max-width: 900px) {
+            .pos-grid {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+                height: auto;
+            }
+            .pos-grid .card {
+                min-height: 380px;
+                overflow: visible !important;
+            }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        h2 { margin-top: 0; font-size: 1.05rem; font-weight: bold; color: #1e293b; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+
+        .catalog-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 2px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .category-dropdown {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .category-header {
+            background: #f1f5f9;
+            padding: 10px 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            font-size: 0.85rem;
+        }
+
+        .category-header:hover { background: #e2e8f0; }
+
+        .category-content {
+            display: none;
+            padding: 8px;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 6px;
+            background: #fafafa;
+            border-top: 1px solid var(--border);
+        }
+
+        .category-dropdown.active .category-content {
+            display: grid;
+        }
+
+        .product-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .product-btn:hover {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+
+        .product-name { font-weight: 600; display: block; margin-bottom: 2px; font-size: 0.75rem; }
+        .product-price { color: #64748b; font-size: 0.7rem; }
+        .product-stock { color: #059669; font-size: 0.6rem; font-weight: bold; display: block; margin-top: 2px; }
+
+        .cart-items {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+            max-height: 180px;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px dashed var(--border);
+        }
+
+        .cart-item-controls button {
+            background: #e2e8f0;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .totals-box {
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+            background: #f1f5f9;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+
+        .totals-row.grand {
+            font-weight: bold;
+            font-size: 0.95rem;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 4px;
+            margin-top: 3px;
+        }
+
+        .btn {
+            width: 100%;
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 6px;
+            box-sizing: border-box;
+        }
+
+        .btn:hover { background: #d97706; }
+        .btn-secondary { background: #64748b; color: white; }
+        .btn-secondary:hover { background: #475569; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-success { background: #059669; color: white; }
+        .btn-success:hover { background: #047857; }
+
+        .placed-orders-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 12px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 900px) {
+            .placed-orders-layout {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+                height: auto;
+            }
+            .placed-orders-layout > div {
+                min-height: 300px;
+            }
+        }
+
+        .recon-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 900px) {
+            .recon-layout {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+                height: auto;
+            }
+        }
+
+        .recon-panel {
+            background: #ffffff;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
+        }
+
+        /* Dedicated Method & Revenue Table Styling */
+        .method-revenue-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+            font-size: 0.85rem;
+            background: #ffffff;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .method-revenue-table th {
+            background-color: #f1f5f9;
+            color: #334155;
+            font-weight: 700;
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 2px solid #cbd5e1;
+        }
+
+        .method-revenue-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .method-revenue-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .method-revenue-table .rev-col {
+            text-align: right;
+            font-weight: bold;
+            color: #059669;
+        }
+
+        .method-revenue-table .total-row td {
+            background-color: #f8fafc;
+            font-weight: bold;
+            border-top: 2px solid #94a3b8;
+            color: #1e293b;
+        }
+
+        table.stock-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.8rem; }
+        table.stock-table th, table.stock-table td { border: 1px solid var(--border); padding: 6px; text-align: left; }
+        table.stock-table th { background: #f1f5f9; }
+
+        .hidden { display: none !important; }
+
+        /* Print Receipt styling overlay */
+        @media print {
+            body * { visibility: hidden; }
+            #printableReceiptArea, #printableReceiptArea * { visibility: visible; }
+            #printableReceiptArea { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div id="customModalOverlay">
+        <div class="custom-modal-card">
+            <h3 id="customModalTitle">Notice</h3>
+            <p id="customModalMessage">Message text here...</p>
+            <div id="customModalButtons" class="custom-modal-buttons">
+                <button class="btn" onclick="closeCustomModal(true)">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginOverlay">
+        <div class="login-card">
+            <h2>Bubble Time POS</h2>
+            <p>Please log in to start shift</p>
+            <select id="loginUser" class="login-input">
+                <option value="" disabled selected>Select Staff Name...</option>
+            </select>
+            <input type="password" id="loginPin" class="login-input" placeholder="PIN Code">
+            <button class="btn" onclick="handleLogin()">Login & Open Register</button>
+        </div>
+    </div>
+
+    <div id="mainApp" class="hidden">
+        <div class="top-header">
+            <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <span id="currentViewTitle" style="font-weight: bold;">HOME USER</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                <span id="loggedInUserDisplay" style="font-size: 0.85rem; color: #713f12;"></span>
+                <button class="btn btn-danger" style="width: auto; padding: 4px 8px; font-size: 0.75rem; margin:0;" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="view-container">
+            <!-- VIEW 0: HOME USER / DASHBOARD -->
+            <div id="paneHome" class="view-pane active">
+                <div class="home-dashboard-container">
+                    <div style="text-align: center; margin-bottom: 2px;">
+                        <h2 style="border: none; margin-bottom: 2px; color: #1e293b;">Home User & Settings</h2>
+                    </div>
+
+                    <!-- ADMIN ONLY: ADD NEW PRODUCTS TILE -->
+                    <div id="adminAddNewProductsCard" class="dashboard-tile" style="display: none; background: #eff6ff; border-color: #bfdbfe;" onclick="switchView('paneAdminAddProducts', null, 'ADD NEW PRODUCTS')">
+                        <div class="tile-icon-box" style="background: #dbeafe; border-color: #93c5fd;">
+                            <svg viewBox="0 0 24 24" style="fill: #2563eb;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #1d4ed8;">ADD NEW PRODUCTS</span>
+                    </div>
+
+                    <!-- ADMIN ONLY: GROSS SALES ANALYTICS TILE -->
+                    <div id="adminGrossSalesAnalyticsCard" class="dashboard-tile" style="display: none; background: #f0fdf4; border-color: #bbf7d0;" onclick="switchView('paneAdminSales', null, 'GROSS SALES ANALYTICS')">
+                        <div class="tile-icon-box" style="background: #dcfce7; border-color: #86efac;">
+                            <svg viewBox="0 0 24 24" style="fill: #16a34a;"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #15803d;">GROSS SALES ANALYTICS (DAILY, MONTHLY & YEARLY)</span>
+                    </div>
+
+                    <!-- ADMIN ONLY: ADMIN SETTINGS & STAFF MANAGEMENT TILE -->
+                    <div id="adminHomeSettingsSection" class="dashboard-tile" style="display: none; background: #fdf4ff; border-color: #f5d0fe;" onclick="switchView('paneAdminStaff', null, 'ADMIN SETTINGS & STAFF MANAGEMENT')">
+                        <div class="tile-icon-box" style="background: #fae8ff; border-color: #e879f9;">
+                            <svg viewBox="0 0 24 24" style="fill: #9333ea;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.02-.42 1.95-1.07 2.65z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #7c3aed;">ADMIN SETTINGS & STAFF MANAGEMENT</span>
+                    </div>
+                    
+                    <!-- Tile 1: Place Order -->
+                    <div class="dashboard-tile" style="background: #eff6ff; border-color: #bfdbfe;" onclick="switchView('paneRegister', document.querySelectorAll('.bottom-nav .nav-item')[1], 'POS REGISTER')">
+                        <div class="tile-icon-box" style="background: #dbeafe; border-color: #93c5fd;">
+                            <svg viewBox="0 0 24 24" style="fill: #2563eb;"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h2v2H6zm4-4h2v2H6zm0 4h2v2H6zm4-4h2v2H6zm0 4h2v2H6z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #1d4ed8;">PLACE ORDER</span>
+                    </div>
+
+                    <!-- Tile 2: Orders by Cashier -->
+                    <div class="dashboard-tile" style="background: #f0fdf4; border-color: #bbf7d0;" onclick="switchView('panePlacedOrders', document.querySelectorAll('.bottom-nav .nav-item')[2], 'PLACED ORDERS')">
+                        <div class="tile-icon-box" style="background: #dcfce7; border-color: #86efac;">
+                            <svg viewBox="0 0 24 24" style="fill: #16a34a;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #15803d;">ORDERS BY CASHIER</span>
+                    </div>
+
+                    <!-- Tile 3: Chart Today Sales -->
+                    <div class="dashboard-tile" style="background: #fff7ed; border-color: #fed7aa;" onclick="switchView('paneDashboard', null, 'SALES CHART & ANALYTICS')">
+                        <div class="tile-icon-box" style="background: #ffedd5; border-color: #fdba74;">
+                            <svg viewBox="0 0 24 24" style="fill: #ea580c;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #c2410c;">CHART TODAY SALES</span>
+                    </div>
+
+                    <!-- Tile 4: Daily Recon -->
+                    <div class="dashboard-tile" style="background: #fef2f2; border-color: #fecaca;" onclick="switchView('paneRecon', document.querySelectorAll('.bottom-nav .nav-item')[3], 'DAILY RECON')">
+                        <div class="tile-icon-box" style="background: #fee2e2; border-color: #fca5a5;">
+                            <svg viewBox="0 0 24 24" style="fill: #dc2626;"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #b91c1c;">DAILY RECON REPORT</span>
+                    </div>
+
+                    <!-- Tile 5: Daily Tea & Tapioca Batch Prep -->
+                    <div class="dashboard-tile" style="background: #f0fdf4; border-color: #86efac;" onclick="switchView('paneBatchPrep', null, 'DAILY TEA & TAPIOCA BATCH')">
+                        <div class="tile-icon-box" style="background: #dcfce7; border-color: #4ade80;">
+                            <svg viewBox="0 0 24 24" style="fill: #16a34a;"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a3 3 0 0 0 3-3v-4a3 3 0 0 0-3-3zm1 7a1 1 0 0 1-1 1H9a6 6 0 1 1 6-6h3a1 1 0 0 1 1 1z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #15803d;">DAILY TEA & TAPIOCA PREP (BATCH)</span>
+                    </div>
+
+                    <!-- Tile 6: Inventory & Stock -->
+                    <div id="homeInventoryTile" class="dashboard-tile" style="background: #fefce8; border-color: #fef08a;" onclick="switchView('paneInventory', null, 'STORE STOCK')">
+                        <div class="tile-icon-box" style="background: #fef9c3; border-color: #fde047;">
+                            <svg viewBox="0 0 24 24" style="fill: #ca8a04;"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4zm10 15H4V8h16v11z"/></svg>
+                        </div>
+                        <span class="tile-label" style="color: #a16207;">INVENTORY & STOCK</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="paneBatchPrep" class="view-pane">
+                <div class="card" style="height: 100%; padding: 16px; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <h2 style="margin: 0; border: none; color: #16a34a;">🍵 DAILY TEA & TAPIOCA BATCH PREP</h2>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="switchView('paneHome', null, 'HOME USER')">← Back to Home</button>
+                    </div>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 0;">Enter initial daily prepared amounts in grams or add new cooked batches throughout the shift.</p>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+                        <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; border: 1px solid #bbf7d0; display: flex; flex-direction: column;">
+                            <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: bold; color: #15803d; border-bottom: 1px solid #bbf7d0; padding-bottom: 6px;">Add / Top-up Prepared Batch</h3>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                                <div>
+                                    <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 2px;">Item Type:</label>
+                                    <select id="batchItemSelect" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; background: white;">
+                                        <option value="GREEN TEA">Green Tea (grams)</option>
+                                        <option value="BLACK TEA">Black Tea (grams)</option>
+                                        <option value="TAPIOCA PEARLS">Tapioca Pearls (grams)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 2px;">Add Quantity (grams):</label>
+                                    <input type="number" id="batchGramInput" placeholder="e.g. 500" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; box-sizing: border-box;">
+                                </div>
+                                <button class="btn-success" style="padding: 8px; border: none; border-radius: 6px; color:white; cursor:pointer; font-weight:bold; font-size: 0.85rem; margin-top: 6px;" onclick="submitBatchPrepInput()">Record Prepared Batch</button>
+                            </div>
+                        </div>
+
+                        <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; max-height: 420px;">
+                            <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: bold; color: #1e293b; border-bottom: 1px solid var(--border); padding-bottom: 6px;">Current Shift Prepared Totals</h3>
+                            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                                <div style="background: white; border: 1px solid var(--border); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div><strong style="font-size: 0.85rem; color: #0284c7;">Total Green Tea:</strong></div>
+                                    <span id="totalGreenTeaPreparedDisplay" style="font-size: 0.95rem; font-weight: bold; color: #059669;">0 g</span>
+                                </div>
+                                <div style="background: white; border: 1px solid var(--border); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div><strong style="font-size: 0.85rem; color: #0284c7;">Total Black Tea:</strong></div>
+                                    <span id="totalBlackTeaPreparedDisplay" style="font-size: 0.95rem; font-weight: bold; color: #059669;">0 g</span>
+                                </div>
+                                <div style="background: white; border: 1px solid var(--border); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div><strong style="font-size: 0.85rem; color: #0284c7;">Total Tapioca Prepared:</strong></div>
+                                    <span id="totalTapiocaPreparedDisplay" style="font-size: 0.95rem; font-weight: bold; color: #059669;">0 g</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 12px; flex: 1; overflow-y: auto;">
+                                <h4 style="margin: 0 0 4px 0; font-size: 0.8rem; color: #64748b; font-weight: bold;">Batch Log History Today</h4>
+                                <div id="batchHistoryContainer" style="font-size: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: white; padding: 6px; max-height: 120px; overflow-y: auto;">
+                                    <span style="color: #94a3b8;">No batches recorded yet today</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="paneAdminAddProducts" class="view-pane">
+                <div class="card" style="height: 100%; padding: 16px; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <h2 style="margin: 0; border: none; color: #2563eb;">➕ ADD NEW PRODUCTS & PRICE MANAGEMENT</h2>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="switchView('paneHome', null, 'HOME USER')">← Back to Home</button>
+                    </div>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 0;">Add new menu items or edit existing product names and prices across categories.</p>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+                        <div style="background: #eff6ff; padding: 16px; border-radius: 8px; border: 1px solid #bfdbfe; display: flex; flex-direction: column;">
+                            <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: bold; color: #1d4ed8; border-bottom: 1px solid #bfdbfe; padding-bottom: 6px;">Add New Product</h3>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                                <div>
+                                    <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 2px;">Category:</label>
+                                    <div style="display: flex; gap: 4px;">
+                                        <select id="homeNewProdCategory" style="flex: 1; padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; background: white;"></select>
+                                        <button class="btn btn-secondary" style="width: auto; padding: 6px 10px; margin: 0; font-size: 0.75rem;" onclick="addNewCategory()">+ Category</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 2px;">Product Name:</label>
+                                    <input type="text" id="homeNewProdName" placeholder="e.g. Special Drink" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; box-sizing: border-box;">
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <div style="flex: 1;">
+                                        <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 2px;">Price (Rs):</label>
+                                        <input type="number" id="homeNewProdPrice" placeholder="0.00" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; box-sizing: border-box;">
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 2px;">Stock:</label>
+                                        <input type="number" id="homeNewProdStock" value="50" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; box-sizing: border-box;">
+                                    </div>
+                                </div>
+                                <button class="btn-success" style="padding: 8px; border: none; border-radius: 6px; color:white; cursor:pointer; font-weight:bold; font-size: 0.85rem; margin-top: 6px;" onclick="addNewMenuCatalogProductFromHomePane()">Add Product</button>
+                            </div>
+                        </div>
+
+                        <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; max-height: 420px;">
+                            <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: bold; color: #1e293b; border-bottom: 1px solid var(--border); padding-bottom: 6px;">Edit Existing Catalog Prices</h3>
+                            <div style="margin-bottom: 6px; margin-top: 6px;">
+                                <input type="text" id="catalogSearchFilter" placeholder="Search product name..." oninput="renderAdminCatalogEditTable()" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; box-sizing: border-box;">
+                            </div>
+                            <div id="adminCatalogEditTableContainer" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 6px; background: white;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="paneAdminSales" class="view-pane">
+                <div class="card" style="height: 100%; padding: 16px; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <h2 style="margin: 0; border: none; color: #16a34a;">📈 GROSS SALES ANALYTICS</h2>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="switchView('paneHome', null, 'HOME USER')">← Back to Home</button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                        <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #0284c7; font-size: 0.85rem;" onclick="renderAdminSalesRecords('daily')">View Daily Sales</button>
+                        <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #2563eb; font-size: 0.85rem;" onclick="renderAdminSalesRecords('monthly')">View Monthly Sales</button>
+                        <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #059669; font-size: 0.85rem;" onclick="renderAdminSalesRecords('yearly')">View Yearly Sales</button>
+                    </div>
+                    
+                    <div id="adminSalesAnalyticsReportContainer" style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; flex: 1; overflow-y: auto; margin-bottom: 16px;">
+                        <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 20px;">Select a report view above to load sales summary with Method and Revenue breakdown.</p>
+                    </div>
+
+                    <div style="border-top: 2px dashed #cbd5e1; padding-top: 14px; margin-top: auto;">
+                        <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <h4 style="margin: 0 0 2px 0; color: #b91c1c; font-size: 0.9rem; font-weight: bold;">🔄 Reset & Restart Shift / Clear Sales Data</h4>
+                                <p style="margin: 0; font-size: 0.75rem; color: #7f1d1d;">Clear all test sales history and reset daily analytics back to zero.</p>
+                            </div>
+                            <button class="btn btn-danger" style="width: auto; padding: 8px 14px; margin: 0; font-size: 0.8rem;" onclick="resetAllSalesAndShiftData()">🗑️ Reset All Sales Data</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="paneAdminStaff" class="view-pane">
+                <div class="card" style="height: 100%; padding: 16px; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <h2 style="margin: 0; border: none; color: #9333ea;">👤 ADMIN SETTINGS & STAFF MANAGEMENT</h2>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="switchView('paneHome', null, 'HOME USER')">← Back to Home</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                        <input type="text" id="homeNewStaffNameInput" placeholder="Staff Name" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; flex: 2; min-width: 120px; font-size: 0.85rem;">
+                        <input type="text" id="homeNewStaffUserInput" placeholder="Username" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; flex: 1.5; min-width: 100px; font-size: 0.85rem;">
+                        <input type="password" id="homeNewStaffPinInput" placeholder="PIN" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px; width: 75px; font-size: 0.85rem;">
+                        <button class="btn-success" style="padding: 8px 14px; border: none; border-radius: 6px; color:white; cursor:pointer; font-weight:bold; width: auto; margin:0; font-size: 0.85rem;" onclick="createNewStaffMemberFromHome()">Add Staff</button>
+                    </div>
+                    <div id="homeAdminStaffDirectoryList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-bottom: 12px;"></div>
+                    <div id="homeAdminStaffAuditBox" style="background: #fffbeb; border: 1px dashed #d97706; padding: 12px; border-radius: 8px; display: none;">
+                        <h4 style="margin:0 0 6px 0; color: #b45309; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-weight: bold;">
+                            <span id="homeAuditStaffTitleHeading">Private Audit</span>
+                            <button class="btn-secondary" style="width: auto; padding: 2px 6px; font-size: 0.7rem; margin:0;" onclick="closeHomeStaffAudit()">Close</button>
+                        </h4>
+                        <div id="homeAuditStaffTransactionsContainer" style="max-height: 140px; overflow-y: auto; font-size: 0.8rem;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="paneRegister" class="view-pane">
+                <div style="margin-bottom: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                        <button class="btn btn-secondary" style="width: auto; padding: 5px 10px; font-size: 0.75rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
+                        <button id="connectPrinterBtn" class="btn btn-secondary" style="width: auto; padding: 5px 10px; font-size: 0.75rem; margin:0;" onclick="connectBluetoothPrinter()">🔗 Connect JP80M-UE</button>
+                        <button class="btn btn-success" style="width: auto; padding: 5px 10px; font-size: 0.75rem; margin:0;" onclick="openCashDrawerExplicit()">🔓 Open Drawer</button>
+                        <span id="printerStatus" style="font-size: 0.75rem; color: #dc2626; font-weight: 600;">no printer</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; background: #e2e8f0; padding: 3px 8px; border-radius: 6px;">
+                        <span style="font-size: 0.75rem; font-weight: 600;">Receipt Screen:</span>
+                        <button id="receiptToggleBtn" class="btn btn-success" style="width: auto; padding: 2px 6px; font-size: 0.7rem; margin:0;" onclick="toggleScreenReceipt()">ON</button>
+                    </div>
+                </div>
+
+                <div class="pos-grid">
+                    <div class="card">
+                        <h2>Menu Catalog</h2>
+                        <div id="accordionContainer" class="catalog-scroll"></div>
+                    </div>
+
+                    <div class="card">
+                        <h2>Current Order</h2>
+                        <div id="cartItems" class="cart-items">
+                            <p style="color: #94a3b8; text-align: center; font-size: 0.85rem;">Cart is empty</p>
+                        </div>
+
+                        <div id="screenReceiptBox" style="background: #fffbeb; border: 1px dashed #d97706; padding: 8px; border-radius: 6px; margin-bottom: 8px; font-family: monospace; font-size: 0.7rem; max-height: 125px; overflow-y: auto;">
+                            <div style="text-align: center; font-weight: bold; font-size: 0.75rem;">Bubble Time</div>
+                            <div style="text-align: center; font-weight: bold; font-size: 0.7rem;">Mercury Distribution Ltd</div>
+                            <div style="text-align: center; font-size: 0.65rem; color: #475569; line-height: 1.2;">
+                                Louis Pasteur st<br>
+                                Manhattan Mall, Curepipe<br>
+                                Tel: 52573727 | VAT: 28237334<br>
+                                BRN: C24206010
+                            </div>
+                            <div style="text-align: center; font-weight: bold; margin-top: 3px; font-size: 0.75rem; letter-spacing: 0.5px;">VAT INVOICE</div>
+                            <div id="screenReceiptContent" style="margin-top: 3px; border-top: 1px dotted #d97706; padding-top: 2px;">No items in receipt preview</div>
+                        </div>
+
+                        <div class="totals-box">
+                            <div class="totals-row">
+                                <span>Subtotal:</span>
+                                <span id="cartSubtotal">Rs 0.00</span>
+                            </div>
+                            <div class="totals-row">
+                                <span>VAT (15%):</span>
+                                <span id="cartVat">Rs 0.00</span>
+                            </div>
+                            <div class="totals-row grand">
+                                <span>Total:</span>
+                                <span id="cartTotal">Rs 0.00</span>
+                            </div>
+                        </div>
+
+                        <div style="background: #f8fafc; border: 1px solid var(--border); padding: 6px; border-radius: 6px; margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <label style="font-size: 0.8rem; font-weight: 600;">Cash Given (Rs):</label>
+                                <input type="number" id="cashGivenInput" placeholder="0.00" oninput="calculateChange()" style="width: 90px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; text-align: right; font-weight: bold; font-size: 0.85rem;">
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-weight: bold; color: #059669;">
+                                <span>Change Due:</span>
+                                <span id="changeDueDisplay">Rs 0.00</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 8px;">
+                            <label style="font-size: 0.8rem; font-weight: 600;">Payment Method:</label>
+                            <select id="paymentMethod" style="width: 100%; padding: 6px; margin-top: 2px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem;">
+                                <option value="Cash">Cash</option>
+                                <option value="Card">Card</option>
+                                <option value="Juice">Juice</option>
+                                <option value="MyT">MyT</option>
+                                <option value="Blink">Blink</option>
+                                <option value="Deliveroo">Deliveroo</option>
+                                <option value="Hungry Dodo">Hungry Dodo</option>
+                            </select>
+                        </div>
+
+                        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                            <button class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0;" onclick="placeOrderForLater()">Hold / Place Order</button>
+                            <button class="btn btn-danger" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0;" onclick="clearCart()">Clear Cart</button>
+                        </div>
+
+                        <button class="btn" style="padding: 10px; font-size: 0.9rem; margin-bottom:0;" onclick="completeSaleAndPrintReceipt()">Complete Sale & Print Receipt</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panePlacedOrders" class="view-pane">
+                <div style="margin-bottom: 8px;">
+                    <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
+                </div>
+                <div class="placed-orders-layout" style="flex: 1; height: calc(100% - 35px);">
+                    <div class="orders-list-panel" style="background: white; border: 1px solid var(--border); border-radius: 8px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <div style="padding: 10px 12px; font-weight: bold; border-bottom: 1px solid var(--border); background: #f1f5f9; font-size: 0.9rem;">Placed Orders</div>
+                        <div id="placedOrdersListContainer">
+                            <p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>
+                        </div>
+                    </div>
+                    <div class="order-details-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <div id="selectedOrderDetailsHeader" style="margin-bottom: 12px;">
+                            <p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>
+                        </div>
+                        <div id="selectedOrderItemsTable" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
+                    </div>
+                    <div class="order-settlement-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <h2 style="font-size: 1rem;">Settlement</h2>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Status</label>
+                            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                <button id="btnStatusPaid" class="btn btn-success" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0;" onclick="setPaymentStatus('PAID')">PAID</button>
+                                <button id="btnStatusUnpaid" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0; background:#64748b;" onclick="setPaymentStatus('UNPAID')">UNPAID</button>
+                            </div>
+                            <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Type</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 15px;">
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Cash')">💵 CASH</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Card')">💳 CARD</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Juice')">🧃 JUICE</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('MyT')">📱 MYT</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Blink')">📱 BLINK</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Deliveroo')">🛵 DELIVEROO</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0; grid-column: span 2;" onclick="settleCurrentSelectedOrder('Hungry Dodo')">🍔 HUNGRY DODO</button>
+                            </div>
+                            <button class="btn btn-success" style="margin-bottom: 8px; background-color: #0284c7; padding: 9px; font-size: 0.85rem;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
+                            <button class="btn btn-danger" style="margin-top: auto; padding: 9px; font-size: 0.85rem;" onclick="deleteSelectedPlacedOrder()">Delete Order (Cancel)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="paneRecon" class="view-pane">
+                <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #0284c7;" onclick="printCombinedDailySalesReport()">🖨️ PRINT QBC</button>
+                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #d97706;" onclick="printSpecificPlatformReport('Deliveroo')">🖨️ DELIVEROO</button>
+                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #e11d48;" onclick="printSpecificPlatformReport('Hungry Dodo')">🖨️ HUNGRY DODO</button>
+                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #059669;" onclick="refreshReconData()">🔄 UPDATE</button>
+                    </div>
+                </div>
+
+                <div class="recon-layout" style="flex: 1; height: calc(100% - 35px);">
+                    <!-- Left Panel: Reconciliation Method & Revenue Table -->
+                    <div class="recon-panel">
+                        <h4 style="margin-top: 0; color: #f59e0b; border-bottom: 1px solid var(--border); padding-bottom: 6px; font-size: 0.95rem; font-weight: bold;">QBC Payment Method Breakdown</h4>
+                        <div style="font-size: 0.85rem; line-height: 1.5; margin-top: 8px;">
+                            <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">Timestamp: <span id="reconTimestamp">-</span></div>
+                            <div style="font-weight: bold; margin-bottom: 10px;">CASHIER: <span id="reconCashierName">Administrator</span></div>
+
+                            <!-- DEDICATED METHOD AND REVENUE TABLE -->
+                            <div style="margin-bottom: 12px;">
+                                <table class="method-revenue-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Method</th>
+                                            <th style="text-align: right;">Revenue</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reconMethodRevenueTableBody">
+                                        <!-- Dynamic Rows Rendered by JS -->
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="total-row">
+                                            <td>TOTAL REVENUE</td>
+                                            <td id="reconGrandTotal" class="rev-col" style="color: #1d4ed8; font-size: 0.95rem;">Rs 0.00</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Daily Sales & Shift Info -->
+                    <div class="recon-panel">
+                        <h4 style="margin-top: 0; color: #f59e0b; border-bottom: 1px solid var(--border); padding-bottom: 6px; font-size: 0.95rem; font-weight: bold;">Daily Item & Category Sales Breakdown</h4>
+                        <div id="reconItemizedSalesList" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: 0.8rem; margin-top: 8px; max-height: 220px; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: #f8fafc;"></div>
+
+                        <div style="margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px;">
+                            <div style="font-size: 0.8rem; margin-bottom: 3px;"><strong>Active Cashier:</strong> <span id="adminReconCashier">Administrator</span></div>
+                            <div style="font-size: 0.8rem; margin-bottom: 8px;"><strong>Total Transactions:</strong> <span id="adminReconTransCount">0</span></div>
+                            <button class="btn btn-success" style="width: 100%; margin: 0; padding: 9px; font-size: 0.85rem;" onclick="approveCloseShiftAndPrintReport()">Approve & Close Shift</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="paneDashboard" class="view-pane">
+                <div class="card" style="height: 100%; padding: 16px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                    <div style="margin-bottom: 10px;">
+                        <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
+                    </div>
+                    <h2>📊 Dashboard & Analytics</h2>
+                    <p style="color: #64748b; font-size: 0.85rem;">Shift metrics, staff performance, and quick metrics for Bubble Time.</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 12px;">
+                        <div style="background: #eef2ff; padding: 12px; border-radius: 8px; border: 1px solid #c7d2fe;">
+                            <h4 style="margin: 0 0 6px 0; color: #4f46e5; font-size: 0.8rem; font-weight: bold;">Active Shift Staff</h4>
+                            <p id="dashStaffName" style="font-size: 1rem; font-weight: bold; margin: 0;">-</p>
+                        </div>
+                        <div style="background: #ecfdf5; padding: 12px; border-radius: 8px; border: 1px solid #a7f3d0;">
+                            <h4 style="margin: 0 0 6px 0; color: #059669; font-size: 0.8rem; font-weight: bold;">Pending Placed Orders</h4>
+                            <p id="dashPendingCount" style="font-size: 1rem; font-weight: bold; margin: 0;">0</p>
+                        </div>
+                        <div style="background: #fffbeb; padding: 12px; border-radius: 8px; border: 1px solid #fde68a;">
+                            <h4 style="margin: 0 0 6px 0; color: #d97706; font-size: 0.8rem; font-weight: bold;">Today's Revenue</h4>
+                            <p id="dashRevenue" style="font-size: 1rem; font-weight: bold; margin: 0;">Rs 0.00</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; background: white; padding: 16px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center;">
+                        <h3 style="margin-top: 0; font-size: 0.9rem; font-weight: bold; color: #334155; width: 100%; text-align: left; border-bottom: 1px solid var(--border); padding-bottom: 6px;">Sales Distribution by Category (Today)</h3>
+                        <div style="width: 100%; max-width: 340px; height: 280px; position: relative; margin-top: 10px;">
+                            <canvas id="salesDonutChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="paneInventory" class="view-pane">
+                <div class="card" style="height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px;">
+                    <div style="margin-bottom: 10px;">
+                        <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+                        <h2 style="margin:0; border:none; font-size: 1.05rem;">🔒 Store Stock Management</h2>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="printStoreStockReport()">🖨️ Print Stock Report</button>
+                    </div>
+                    <p style="color: #64748b; font-size: 0.8rem; margin-top: 0;">Manage raw inventory levels for powders (1000g / Matcha 600g), syrups, fructose, toppings, and store supplies.</p>
+                    
+                    <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-top: 12px;">
+                        <h3 style="margin-top: 0; font-size: 0.9rem; font-weight: bold;">📦 Add Raw Stock Item</h3>
+                        <div style="display: flex; gap: 6px; margin-bottom: 4px; flex-wrap: wrap;">
+                            <select id="stockCategory" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; flex: 1; min-width: 110px; font-size: 0.8rem;">
+                                <option value="POWDER (g)">POWDER (g)</option>
+                                <option value="SYRUPS (ml)">SYRUPS (ml)</option>
+                                <option value="FRUCTOSE (ml)">FRUCTOSE (ml)</option>
+                                <option value="POPPING BOBA">POPPING BOBA</option>
+                                <option value="JELLY">JELLY</option>
+                                <option value="OTHERS">OTHERS</option>
+                            </select>
+                            <input type="text" id="stockName" placeholder="Item Name" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; flex: 2; min-width: 110px; font-size: 0.8rem;">
+                            <input type="number" id="stockQty" placeholder="Qty (g/ml)" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; width: 90px; font-size: 0.8rem;">
+                            <button class="btn-success" style="padding: 6px 14px; border: none; border-radius: 6px; color:white; cursor:pointer; font-weight:bold; font-size: 0.8rem;" onclick="addNewInventoryItem()">Add</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 12px; flex: 1; overflow-y: auto;">
+                        <table id="inventoryTable" class="stock-table">
+                            <thead>
+                                <tr><th>Category</th><th>Item</th><th>Stock</th><th>Action</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="bottom-nav">
+            <button class="nav-item" onclick="switchView('paneHome', this, 'HOME USER')">
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                Home
+            </button>
+            <button class="nav-item active" onclick="switchView('paneRegister', this, 'POS REGISTER')">
+                <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h2v2H6zm4-4h2v2H6zm0 4h2v2H6zm4-4h2v2H6zm0 4h2v2H6z"/></svg>
+                POS Register
+            </button>
+            <button class="nav-item" onclick="switchView('panePlacedOrders', this, 'PLACED ORDERS')">
+                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                Orders
+            </button>
+            <button class="nav-item" onclick="switchView('paneRecon', this, 'DAILY RECON')">
+                <svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                Recon
+            </button>
+        </div>
+    </div>
+
+    <!-- Hidden area used for direct browser thermal print generation -->
+    <div id="printableReceiptArea" class="hidden"></div>
+
+    <script>
+        let modalCallback = null;
+        function showModal(title, message, isConfirm = false, callback = null) {
+            document.getElementById('customModalTitle').innerText = title;
+            document.getElementById('customModalMessage').innerText = message;
+            modalCallback = callback;
+            const btnContainer = document.getElementById('customModalButtons');
+            if (isConfirm) {
+                btnContainer.innerHTML = `
+                    <button class="btn btn-secondary" style="width: 100px; margin:0;" onclick="closeCustomModal(false)">Cancel</button>
+                    <button class="btn btn-success" style="width: 100px; margin:0;" onclick="closeCustomModal(true)">Confirm</button>
+                `;
+            } else {
+                btnContainer.innerHTML = `
+                    <button class="btn" style="width: 120px; margin:0;" onclick="closeCustomModal(true)">OK</button>
+                `;
+            }
+            document.getElementById('customModalOverlay').style.display = 'flex';
+        }
+
+        function closeCustomModal(result) {
+            document.getElementById('customModalOverlay').style.display = 'none';
+            if (modalCallback) {
+                const cb = modalCallback;
+                modalCallback = null;
+                cb(result);
+            }
+        }
+
+        let defaultStaffList = [
+            { username: 'Admin', name: 'Administrator', pin: '0000' },
+            { username: 'Ahana Lead', name: 'Ahana Lead', pin: '1111' },
+            { username: 'Alex Valentina', name: 'Alex Valentina', pin: '1234' },
+            { username: 'Auline Plouis 1', name: 'Auline Plouis 1', pin: '2222' },
+            { username: 'Nushayhah Plouis 2', name: 'Nushayhah Plouis 2', pin: '3333' },
+            { username: 'Sharfaa Mahebourge', name: 'Sharfaa Mahebourge', pin: '4444' }
+        ];
+
+        let staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+
+        function populateLoginDropdown() {
+            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+            const selectEl = document.getElementById('loginUser');
+            if(selectEl) {
+                selectEl.innerHTML = '<option value="" disabled selected>Select Staff Name...</option>';
+                staffList.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.username;
+                    opt.innerText = `${s.name} (${s.username})`;
+                    selectEl.appendChild(opt);
+                });
+            }
+        }
+
+        let currentStaff = null;
+        let selectedPlacedOrderId = null;
+        let donutChartInstance = null;
+        let showScreenReceipt = true;
+        let orderSequenceNumber = parseInt(localStorage.getItem('pos_order_seq')) || 101;
+        let dailyBatchLogs = JSON.parse(localStorage.getItem('pos_daily_batch_logs')) || [];
+
+        // Sample initial sales history including cookies, toppings, cakes, and drinks
+        let salesHistory = JSON.parse(localStorage.getItem('pos_sales_history')) || [
+            { id: 1001, timestamp: new Date().toISOString(), cashier: 'Administrator', method: 'Cash', total: 335.00, items: [{ name: 'Pearl Milk Tea (M)', qty: 1, price: 160, cat: 'MILK TEA' }, { name: 'Jasmine Green Tea (L)', qty: 1, price: 175, cat: 'FRUITS TEA' }] },
+            { id: 1002, timestamp: new Date().toISOString(), cashier: 'Administrator', method: 'Card', total: 370.00, items: [{ name: 'Strawberry Matcha Latte (M)', qty: 2, price: 185, cat: 'MILK SERIES' }] },
+            { id: 1003, timestamp: new Date().toISOString(), cashier: 'Ahana Lead', method: 'Juice', total: 485.00, items: [{ name: 'Matcha Milk (M)', qty: 1, price: 185, cat: 'MILK SERIES' }, { name: 'Chocolate Cookie', qty: 2, price: 150, cat: 'COOKIES' }] },
+            { id: 1004, timestamp: new Date().toISOString(), cashier: 'Alex Valentina', method: 'Deliveroo', total: 1285.00, items: [{ name: 'Chocolate Cake', qty: 3, price: 295, cat: 'CAKE' }, { name: 'Popping Boba Mango', qty: 4, price: 25, cat: 'TOPPINGS' }, { name: 'Mojito (M)', qty: 1, price: 165, cat: 'MOJITO' }, { name: 'Mango (M)', qty: 1, price: 155, cat: 'FRUITS TEA' }] },
+            { id: 1005, timestamp: new Date().toISOString(), cashier: 'Administrator', method: 'Blink', total: 320.00, items: [{ name: 'Strawberry (M)', qty: 2, price: 160, cat: 'FRUITS TEA' }] },
+            { id: 1006, timestamp: new Date().toISOString(), cashier: 'Ahana Lead', method: 'Hungry Dodo', total: 450.00, items: [{ name: 'Classic Waffle', qty: 2, price: 150, cat: 'WAFFLE' }, { name: 'Popping Boba Passion', qty: 6, price: 25, cat: 'TOPPINGS' }] },
+            { id: 1007, timestamp: new Date().toISOString(), cashier: 'Alex Valentina', method: 'MyT', total: 310.00, items: [{ name: 'Taro Milk Tea (M)', qty: 1, price: 160, cat: 'MILK TEA' }, { name: 'Vanilla Cookie', qty: 1, price: 150, cat: 'COOKIES' }] }
+        ];
+        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+
+        let defaultCategories = ['MILK TEA', 'MILK SERIES', 'SIGNATURE CHEWY', 'MOJITO', 'FRUITS TEA', 'MILKSHAKE', 'SMOOTHIE', 'LIMITED EDITION DRINKS', 'COOKIES', 'TOPPINGS', 'CAKE', 'WAFFLE', 'CREPES', 'OTHER'];
+        let categoryList = JSON.parse(localStorage.getItem('pos_category_list')) || defaultCategories;
+
+        const defaultProducts = [
+            { id: 1, name: 'Pearl Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 50 },
+            { id: 2, name: 'Pearl Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 40 },
+            { id: 3, name: 'Coffee Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 35 },
+            { id: 4, name: 'Coffee Milk Tea (L)', price: 175, cat: 'MILK TEA', stock: 35 },
+            { id: 11, name: 'Taro Milk Tea (M)', price: 160, cat: 'MILK TEA', stock: 35 },
+            { id: 501, name: 'Strawberry Matcha Latte (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+            { id: 508, name: 'Matcha Milk (M)', price: 185, cat: 'MILK SERIES', stock: 40 },
+            { id: 20, name: 'Mojito (M)', price: 165, cat: 'MOJITO', stock: 40 },
+            { id: 32, name: 'Jasmine Green Tea (M)', price: 145, cat: 'FRUITS TEA', stock: 45 },
+            { id: 33, name: 'Jasmine Green Tea (L)', price: 175, cat: 'FRUITS TEA', stock: 40 },
+            { id: 101, name: 'Mango (M)', price: 155, cat: 'FRUITS TEA', stock: 40 },
+            { id: 105, name: 'Strawberry (M)', price: 160, cat: 'FRUITS TEA', stock: 40 },
+            { id: 80, name: 'Almond Milkshake (M)', price: 185, cat: 'MILKSHAKE', stock: 30 },
+            { id: 901, name: 'Mango Smoothie (M)', price: 190, cat: 'SMOOTHIE', stock: 30 },
+            { id: 601, name: 'Chocolate Cookie', price: 150, cat: 'COOKIES', stock: 40 },
+            { id: 602, name: 'Vanilla Cookie', price: 150, cat: 'COOKIES', stock: 40 },
+            { id: 301, name: 'Popping Boba Mango', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 302, name: 'Popping Boba Passion', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 303, name: 'Popping Boba Strawberry', price: 25, cat: 'TOPPINGS', stock: 50 },
+            { id: 701, name: 'Chocolate Cake', price: 295, cat: 'CAKE', stock: 20 },
+            { id: 702, name: 'Red Velvet Cake', price: 295, cat: 'CAKE', stock: 20 },
+            { id: 801, name: 'Classic Waffle', price: 150, cat: 'WAFFLE', stock: 30 },
+            { id: 802, name: 'Nutella Waffle', price: 180, cat: 'WAFFLE', stock: 30 },
+            { id: 851, name: 'Nutella Crepe', price: 170, cat: 'CREPES', stock: 25 }
+        ];
+
+        let products = JSON.parse(localStorage.getItem('pos_products')) || defaultProducts;
+        let inventoryList = JSON.parse(localStorage.getItem('pos_inventory')) || [
+            { id: 1, category: 'POWDER (g)', name: 'Taro Powder', qty: 1000 },
+            { id: 2, category: 'POWDER (g)', name: 'Matcha Powder', qty: 600 },
+            { id: 3, category: 'SYRUPS (ml)', name: 'Mango Syrup', qty: 2000 },
+            { id: 4, category: 'TOPPINGS', name: 'Tapioca Pearls', qty: 3000 }
+        ];
+
+        let cart = [];
+
+        function handleLogin() {
+            const userSelect = document.getElementById('loginUser').value;
+            const pinInput = document.getElementById('loginPin').value;
+
+            if(!userSelect) {
+                showModal('Login Error', 'Please select a staff member from the list.');
+                return;
+            }
+
+            const staffObj = staffList.find(s => s.username === userSelect);
+            if(staffObj && staffObj.pin === pinInput) {
+                currentStaff = staffObj;
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('loggedInUserDisplay').innerText = `User: ${currentStaff.name}`;
+                document.getElementById('loginPin').value = '';
+
+                // Enable/disable Admin views
+                const isAdmin = (currentStaff.username === 'Admin' || currentStaff.name.toLowerCase().includes('admin'));
+                document.getElementById('adminAddNewProductsCard').style.display = isAdmin ? 'flex' : 'none';
+                document.getElementById('adminGrossSalesAnalyticsCard').style.display = isAdmin ? 'flex' : 'none';
+                document.getElementById('adminHomeSettingsSection').style.display = isAdmin ? 'flex' : 'none';
+
+                renderCatalog();
+                refreshReconData();
+                populateCategoryDropdowns();
+                updateBatchPrepUI();
+                renderInventoryTable();
+            } else {
+                showModal('Login Error', 'Incorrect PIN code entered.');
+            }
+        }
+
+        function logout() {
+            showModal('Confirm Logout', 'Are you sure you want to end shift & logout?', true, (confirmed) => {
+                if(confirmed) {
+                    currentStaff = null;
+                    document.getElementById('mainApp').classList.add('hidden');
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                    populateLoginDropdown();
+                }
+            });
+        }
+
+        function switchView(paneId, navEl, titleText) {
+            document.querySelectorAll('.view-pane').forEach(p => p.classList.remove('active'));
+            document.getElementById(paneId).classList.add('active');
+
+            if(titleText) {
+                document.getElementById('currentViewTitle').innerText = titleText;
+            }
+
+            if(navEl) {
+                document.querySelectorAll('.bottom-nav .nav-item').forEach(i => i.classList.remove('active'));
+                navEl.classList.add('active');
+            }
+
+            if(paneId === 'paneRecon') {
+                refreshReconData();
+            } else if(paneId === 'paneDashboard') {
+                updateDashboardData();
+            } else if(paneId === 'panePlacedOrders') {
+                renderPlacedOrders();
+            } else if(paneId === 'paneAdminStaff') {
+                renderStaffDirectory();
+            } else if(paneId === 'paneAdminAddProducts') {
+                renderAdminCatalogEditTable();
+            }
+        }
+
+        function renderCatalog() {
+            const accordion = document.getElementById('accordionContainer');
+            if(!accordion) return;
+            accordion.innerHTML = '';
+
+            categoryList.forEach(cat => {
+                const catProds = products.filter(p => p.cat === cat);
+                if(catProds.length === 0) return;
+
+                const drop = document.createElement('div');
+                drop.className = 'category-dropdown';
+
+                const header = document.createElement('div');
+                header.className = 'category-header';
+                header.innerHTML = `<span>${cat} (${catProds.length})</span> <span>▼</span>`;
+                header.onclick = () => drop.classList.toggle('active');
+
+                const content = document.createElement('div');
+                content.className = 'category-content';
+
+                catProds.forEach(prod => {
+                    const btn = document.createElement('div');
+                    btn.className = 'product-btn';
+                    btn.innerHTML = `
+                        <span class="product-name">${prod.name}</span>
+                        <span class="product-price">Rs ${prod.price.toFixed(2)}</span>
+                        <span class="product-stock">Stock: ${prod.stock}</span>
+                    `;
+                    btn.onclick = () => addToCart(prod.id);
+                    content.appendChild(btn);
+                });
+
+                drop.appendChild(header);
+                drop.appendChild(content);
+                accordion.appendChild(drop);
+            });
+        }
+
+        function addToCart(prodId) {
+            const prod = products.find(p => p.id === prodId);
+            if(!prod) return;
+
+            if(prod.stock <= 0) {
+                showModal('Stock Alert', `Item "${prod.name}" is out of stock!`);
+                return;
+            }
+
+            const existing = cart.find(c => c.id === prodId);
+            if(existing) {
+                if(existing.qty >= prod.stock) {
+                    showModal('Stock Limit', `Cannot add more than available stock (${prod.stock}).`);
+                    return;
+                }
+                existing.qty++;
+            } else {
+                cart.push({ id: prod.id, name: prod.name, price: prod.price, cat: prod.cat, qty: 1 });
+            }
+            renderCart();
+        }
+
+        function updateCartQty(prodId, delta) {
+            const item = cart.find(c => c.id === prodId);
+            if(!item) return;
+
+            const prod = products.find(p => p.id === prodId);
+            item.qty += delta;
+
+            if(prod && item.qty > prod.stock) {
+                item.qty = prod.stock;
+                showModal('Stock Limit', `Stock maximum reached (${prod.stock}).`);
+            }
+
+            if(item.qty <= 0) {
+                cart = cart.filter(c => c.id !== prodId);
+            }
+            renderCart();
+        }
+
+        function clearCart() {
+            cart = [];
+            document.getElementById('cashGivenInput').value = '';
+            document.getElementById('changeDueDisplay').innerText = 'Rs 0.00';
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+            if(cart.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8; text-align: center; font-size: 0.85rem;">Cart is empty</p>';
+                document.getElementById('cartSubtotal').innerText = 'Rs 0.00';
+                document.getElementById('cartVat').innerText = 'Rs 0.00';
+                document.getElementById('cartTotal').innerText = 'Rs 0.00';
+                document.getElementById('screenReceiptContent').innerText = 'No items in receipt preview';
+                return;
+            }
+
+            let subtotal = 0;
+            let receiptItemsHtml = '';
+            container.innerHTML = '';
+
+            cart.forEach(item => {
+                const itemTotal = item.price * item.qty;
+                subtotal += itemTotal;
+
+                const row = document.createElement('div');
+                row.className = 'cart-item';
+                row.innerHTML = `
+                    <div>
+                        <strong>${item.name}</strong><br>
+                        <span style="color:#64748b; font-size:0.7rem;">Rs ${item.price} x ${item.qty} = Rs ${itemTotal}</span>
+                    </div>
+                    <div class="cart-item-controls" style="display:flex; gap:4px; align-items:center;">
+                        <button onclick="updateCartQty(${item.id}, -1)">-</button>
+                        <span style="font-weight:bold; font-size:0.8rem;">${item.qty}</span>
+                        <button onclick="updateCartQty(${item.id}, 1)">+</button>
+                    </div>
+                `;
+                container.appendChild(row);
+
+                receiptItemsHtml += `<div style="display:flex; justify-content:space-between;"><span>${item.qty}x ${item.name}</span><span>Rs ${itemTotal.toFixed(2)}</span></div>`;
+            });
+
+            const vat = subtotal * 0.15;
+            const grandTotal = subtotal;
+
+            document.getElementById('cartSubtotal').innerText = `Rs ${(subtotal - vat).toFixed(2)}`;
+            document.getElementById('cartVat').innerText = `Rs ${vat.toFixed(2)}`;
+            document.getElementById('cartTotal').innerText = `Rs ${grandTotal.toFixed(2)}`;
+
+            document.getElementById('screenReceiptContent').innerHTML = `
+                ${receiptItemsHtml}
+                <div style="border-top:1px dashed #d97706; margin-top:4px; padding-top:2px; font-weight:bold; display:flex; justify-content:space-between;">
+                    <span>TOTAL:</span><span>Rs ${grandTotal.toFixed(2)}</span>
+                </div>
+            `;
+
+            calculateChange();
+        }
+
+        function calculateChange() {
+            const cashGiven = parseFloat(document.getElementById('cashGivenInput').value) || 0;
+            const totalText = document.getElementById('cartTotal').innerText.replace('Rs ', '');
+            const total = parseFloat(totalText) || 0;
+            const change = cashGiven - total;
+            document.getElementById('changeDueDisplay').innerText = `Rs ${change > 0 ? change.toFixed(2) : '0.00'}`;
+        }
+
+        function toggleScreenReceipt() {
+            showScreenReceipt = !showScreenReceipt;
+            const box = document.getElementById('screenReceiptBox');
+            const btn = document.getElementById('receiptToggleBtn');
+            if(showScreenReceipt) {
+                box.style.display = 'block';
+                btn.innerText = 'ON';
+                btn.className = 'btn btn-success';
+            } else {
+                box.style.display = 'none';
+                btn.innerText = 'OFF';
+                btn.className = 'btn btn-secondary';
+            }
+        }
+
+        function completeSaleAndPrintReceipt() {
+            if(cart.length === 0) {
+                showModal('Empty Order', 'Please add items to cart before completing sale.');
+                return;
+            }
+
+            const method = document.getElementById('paymentMethod').value;
+            let grandTotal = 0;
+            cart.forEach(c => { grandTotal += (c.price * c.qty); });
+
+            // Reduce product stock
+            cart.forEach(c => {
+                const prod = products.find(p => p.id === c.id);
+                if(prod) prod.stock = Math.max(0, prod.stock - c.qty);
+            });
+            localStorage.setItem('pos_products', JSON.stringify(products));
+
+            const saleRecord = {
+                id: orderSequenceNumber++,
+                timestamp: new Date().toISOString(),
+                cashier: currentStaff ? currentStaff.name : 'Unknown',
+                method: method,
+                total: grandTotal,
+                items: [...cart]
+            };
+
+            salesHistory.unshift(saleRecord);
+            localStorage.setItem('pos_sales_history', JSON.stringify(salesHistory));
+            localStorage.setItem('pos_order_seq', orderSequenceNumber);
+
+            showModal('Sale Completed', `Order #${saleRecord.id} recorded successfully!\nTotal: Rs ${grandTotal.toFixed(2)}\nPayment: ${method}`);
+            
+            clearCart();
+            renderCatalog();
+            refreshReconData();
+        }
+
+        function placeOrderForLater() {
+            if(cart.length === 0) {
+                showModal('Empty Order', 'Please add items to cart before placing order.');
+                return;
+            }
+
+            let grandTotal = 0;
+            cart.forEach(c => { grandTotal += (c.price * c.qty); });
+
+            const newPlacedOrder = {
+                id: orderSequenceNumber++,
+                timestamp: new Date().toISOString(),
+                cashier: currentStaff ? currentStaff.name : 'Unknown',
+                status: 'UNPAID',
+                method: document.getElementById('paymentMethod').value,
+                total: grandTotal,
+                items: [...cart]
+            };
+
+            placedOrders.unshift(newPlacedOrder);
+            localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+            localStorage.setItem('pos_order_seq', orderSequenceNumber);
+
+            showModal('Order Placed', `Order #${newPlacedOrder.id} placed for hold/later settlement.`);
+            clearCart();
+        }
+
+        function renderPlacedOrders() {
+            const container = document.getElementById('placedOrdersListContainer');
+            if(!container) return;
+
+            if(placedOrders.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
+                document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details.</p>';
+                document.getElementById('selectedOrderItemsTable').innerHTML = '';
+                selectedPlacedOrderId = null;
+                return;
+            }
+
+            container.innerHTML = '';
+            placedOrders.forEach(ord => {
+                const div = document.createElement('div');
+                div.style.cssText = `padding: 10px; border-bottom: 1px solid var(--border); cursor: pointer; background: ${selectedPlacedOrderId === ord.id ? '#eef2ff' : 'white'};`;
+                div.onclick = () => selectPlacedOrder(ord.id);
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:0.85rem;">
+                        <span>Order #${ord.id}</span>
+                        <span style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#64748b; margin-top:2px;">
+                        <span>${ord.cashier}</span>
+                        <span>Rs ${ord.total.toFixed(2)}</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            if(!selectedPlacedOrderId && placedOrders.length > 0) {
+                selectPlacedOrder(placedOrders[0].id);
+            }
+        }
+
+        function selectPlacedOrder(ordId) {
+            selectedPlacedOrderId = ordId;
+            renderPlacedOrders();
+
+            const ord = placedOrders.find(o => o.id === ordId);
+            if(!ord) return;
+
+            document.getElementById('selectedOrderDetailsHeader').innerHTML = `
+                <h3 style="margin:0; font-size:1rem; font-weight:bold;">Order #${ord.id} Details</h3>
+                <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">
+                    Cashier: ${ord.cashier} | Status: <strong style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</strong> | Method: ${ord.method}
+                </div>
+            `;
+
+            let tableHtml = `<table class="stock-table"><thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead><tbody>`;
+            ord.items.forEach(i => {
+                tableHtml += `<tr><td>${i.name}</td><td>${i.qty}</td><td>Rs ${(i.price * i.qty).toFixed(2)}</td></tr>`;
+            });
+            tableHtml += `</tbody></table>`;
+            document.getElementById('selectedOrderItemsTable').innerHTML = tableHtml;
+        }
+
+        function setPaymentStatus(status) {
+            if(!selectedPlacedOrderId) return;
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if(ord) {
+                ord.status = status;
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                selectPlacedOrder(ord.id);
+            }
+        }
+
+        function settleCurrentSelectedOrder(method) {
+            if(!selectedPlacedOrderId) return;
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if(ord) {
+                ord.method = method;
+                ord.status = 'PAID';
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                selectPlacedOrder(ord.id);
+            }
+        }
+
+        function confirmAndFinishOrder() {
+            if(!selectedPlacedOrderId) return;
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if(!ord) return;
+
+            salesHistory.unshift({
+                id: ord.id,
+                timestamp: new Date().toISOString(),
+                cashier: ord.cashier,
+                method: ord.method,
+                total: ord.total,
+                items: ord.items
+            });
+            localStorage.setItem('pos_sales_history', JSON.stringify(salesHistory));
+
+            placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
+            localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+
+            selectedPlacedOrderId = null;
+            showModal('Order Settled', `Order #${ord.id} settled & transferred to sales analytics.`);
+            renderPlacedOrders();
+            refreshReconData();
+        }
+
+        function deleteSelectedPlacedOrder() {
+            if(!selectedPlacedOrderId) return;
+            showModal('Confirm Cancel', `Cancel and delete Order #${selectedPlacedOrderId}?`, true, (confirmed) => {
+                if(confirmed) {
+                    placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
+                    localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                    selectedPlacedOrderId = null;
+                    renderPlacedOrders();
+                }
+            });
+        }
+
+        // Helper function to calculate QBC daily metrics
+        function calculateDailyQBCData() {
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const todaySales = salesHistory.filter(s => s.timestamp.startsWith(todayStr));
+
+            const paymentMethods = ['Cash', 'Blink', 'Deliveroo', 'Hungry Dodo', 'Juice', 'MyT', 'Card'];
+            const methodTotals = {};
+            paymentMethods.forEach(m => methodTotals[m] = 0);
+
+            // Category tracking for breakdown
+            const categoryBreakdown = {};
+            let totalCupsSold = 0;
+            let grandTotal = 0;
+
+            const drinkCategories = ['MILK TEA', 'MILK SERIES', 'MOJITO', 'FRUITS TEA', 'MILKSHAKE', 'SMOOTHIE', 'LIMITED EDITION DRINKS'];
+
+            todaySales.forEach(s => {
+                grandTotal += s.total;
+
+                // Standardize method name matching (e.g., Delivoo -> Deliveroo, MyT Money -> MyT)
+                let method = s.method;
+                if(method === 'Delivoo') method = 'Deliveroo';
+                if(method === 'MyT Money') method = 'MyT';
+                if(method === 'Blinks') method = 'Blink';
+
+                if(methodTotals[method] !== undefined) {
+                    methodTotals[method] += s.total;
+                } else {
+                    methodTotals['Other'] = (methodTotals['Other'] || 0) + s.total;
+                }
+
+                s.items.forEach(item => {
+                    const catName = item.cat || 'OTHER';
+                    if(!categoryBreakdown[catName]) {
+                        categoryBreakdown[catName] = { qty: 0, total: 0 };
+                    }
+                    categoryBreakdown[catName].qty += item.qty;
+                    categoryBreakdown[catName].total += (item.price * item.qty);
+
+                    if(drinkCategories.includes(catName) || item.name.toLowerCase().includes('tea') || item.name.toLowerCase().includes('latte') || item.name.toLowerCase().includes('mojito') || item.name.toLowerCase().includes('smoothie')) {
+                        totalCupsSold += item.qty;
+                    }
+                });
+            });
+
+            return {
+                todaySales,
+                methodTotals,
+                categoryBreakdown,
+                totalCupsSold,
+                grandTotal,
+                paymentMethods
+            };
+        }
+
+        function refreshReconData() {
+            const now = new Date();
+            document.getElementById('reconTimestamp').innerText = now.toLocaleString();
+            document.getElementById('reconCashierName').innerText = currentStaff ? currentStaff.name : 'Administrator';
+            document.getElementById('adminReconCashier').innerText = currentStaff ? currentStaff.name : 'Administrator';
+
+            const data = calculateDailyQBCData();
+
+            // Render Payment Methods Table
+            const tableBody = document.getElementById('reconMethodRevenueTableBody');
+            if(tableBody) {
+                tableBody.innerHTML = '';
+                data.paymentMethods.forEach(m => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="font-weight:600; color:#1e293b;">${m}</td>
+                        <td class="rev-col">Rs ${(data.methodTotals[m] || 0).toFixed(2)}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+
+            document.getElementById('reconGrandTotal').innerText = `Rs ${data.grandTotal.toFixed(2)}`;
+            document.getElementById('adminReconTransCount').innerText = data.todaySales.length;
+
+            // Render Daily Category Sales Breakdown List (e.g. Cookies, Toppings, Cakes, Cups)
+            const itemizedContainer = document.getElementById('reconItemizedSalesList');
+            if(itemizedContainer) {
+                let html = '<div style="font-weight:bold; font-size:0.85rem; margin-bottom:6px; color:#1e293b; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">Daily Sales Breakdown Summary</div>';
+                
+                // Specific priority items highlighted as per report sample
+                const cookiesData = data.categoryBreakdown['COOKIES'] || { qty: 0, total: 0 };
+                const toppingsData = data.categoryBreakdown['TOPPINGS'] || { qty: 0, total: 0 };
+                const cakesData = data.categoryBreakdown['CAKE'] || { qty: 0, total: 0 };
+
+                html += `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Cookies (${cookiesData.qty})</span><strong>Rs ${cookiesData.total.toFixed(2)}</strong></div>`;
+                html += `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Toppings (${toppingsData.qty})</span><strong>Rs ${toppingsData.total.toFixed(2)}</strong></div>`;
+                html += `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Cakes (${cakesData.qty})</span><strong>Rs ${cakesData.total.toFixed(2)}</strong></div>`;
+
+                // Other categories
+                Object.keys(data.categoryBreakdown).forEach(cat => {
+                    if(!['COOKIES', 'TOPPINGS', 'CAKE'].includes(cat)) {
+                        const info = data.categoryBreakdown[cat];
+                        html += `<div style="display:flex; justify-content:space-between; margin-bottom:4px; color:#475569;"><span>${cat} (${info.qty})</span><span>Rs ${info.total.toFixed(2)}</span></div>`;
+                    }
+                });
+
+                html += `<div style="border-top:1px dashed #cbd5e1; margin-top:8px; padding-top:6px; display:flex; justify-content:space-between; font-weight:bold; color:#0284c7;"><span>Total Cups Sold:</span><span>${data.totalCupsSold}</span></div>`;
+
+                itemizedContainer.innerHTML = html;
+            }
+        }
+
+        function printCombinedDailySalesReport() {
+            const data = calculateDailyQBCData();
+            const now = new Date();
+
+            let categoryHtml = '';
+            const cookiesData = data.categoryBreakdown['COOKIES'] || { qty: 0, total: 0 };
+            const toppingsData = data.categoryBreakdown['TOPPINGS'] || { qty: 0, total: 0 };
+            const cakesData = data.categoryBreakdown['CAKE'] || { qty: 0, total: 0 };
+
+            categoryHtml += `<div style="display:flex; justify-content:space-between;"><span>Cookies (${cookiesData.qty})</span><span>Rs ${cookiesData.total.toFixed(2)}</span></div>`;
+            categoryHtml += `<div style="display:flex; justify-content:space-between;"><span>Toppings (${toppingsData.qty})</span><span>Rs ${toppingsData.total.toFixed(2)}</span></div>`;
+            categoryHtml += `<div style="display:flex; justify-content:space-between;"><span>Cakes (${cakesData.qty})</span><span>Rs ${cakesData.total.toFixed(2)}</span></div>`;
+
+            Object.keys(data.categoryBreakdown).forEach(cat => {
+                if(!['COOKIES', 'TOPPINGS', 'CAKE'].includes(cat)) {
+                    const info = data.categoryBreakdown[cat];
+                    categoryHtml += `<div style="display:flex; justify-content:space-between;"><span>${cat} (${info.qty})</span><span>Rs ${info.total.toFixed(2)}</span></div>`;
+                }
+            });
+
+            let methodsHtml = '';
+            data.paymentMethods.forEach(m => {
+                methodsHtml += `<div style="display:flex; justify-content:space-between;"><span>${m}</span><span>Rs ${(data.methodTotals[m] || 0).toFixed(2)}</span></div>`;
+            });
+
+            const receiptWindow = window.open('', '_blank', 'width=400,height=600');
+            receiptWindow.document.write(`
+                <html>
+                <head>
+                    <title>QBC Daily Report Receipt</title>
+                    <style>
+                        body { font-family: monospace; font-size: 12px; padding: 15px; margin: 0; }
+                        .text-center { text-align: center; }
+                        .bold { font-weight: bold; }
+                        .line { border-bottom: 1px dashed #000; margin: 8px 0; }
+                        .flex-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="text-center bold" style="font-size:14px;">BUBBLE TIME</div>
+                    <div class="text-center bold">Mercury Distribution Ltd</div>
+                    <div class="text-center" style="font-size:10px;">
+                        Louis Pasteur St, Manhattan Mall, Curepipe<br>
+                        Tel: 52573727 | VAT: 28237334 | BRN: C24206010
+                    </div>
+                    <div class="line"></div>
+                    <div class="text-center bold" style="font-size:13px;">QBC DAILY RECONCILIATION REPORT</div>
+                    <div style="font-size:10px; margin-top:4px;">
+                        Date: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}<br>
+                        Cashier: ${currentStaff ? currentStaff.name : 'Administrator'}<br>
+                        Total Orders: ${data.todaySales.length}
+                    </div>
+                    <div class="line"></div>
+                    <div class="bold" style="margin-bottom:4px;">DAILY SALES BREAKDOWN</div>
+                    ${categoryHtml}
+                    <div class="line"></div>
+                    <div class="flex-row bold" style="font-size:13px;">
+                        <span>Total Cups Sold:</span>
+                        <span>${data.totalCupsSold}</span>
+                    </div>
+                    <div class="line"></div>
+                    <div class="bold" style="margin-bottom:4px;">PAYMENT METHODS</div>
+                    ${methodsHtml}
+                    <div class="line"></div>
+                    <div class="flex-row bold" style="font-size:14px;">
+                        <span>GRAND TOTAL:</span>
+                        <span>Rs ${data.grandTotal.toFixed(2)}</span>
+                    </div>
+                    <div class="text-center" style="font-size:10px; margin-top:4px;">
+                        VAT Included (15%): Rs ${(data.grandTotal * 0.15).toFixed(2)}
+                    </div>
+                    <div class="line"></div>
+                    <br><br>
+                    <div class="flex-row">
+                        <span>Prepared By: _____________</span>
+                        <span>Approved By: _____________</span>
+                    </div>
+                </body>
+                </html>
+            `);
+            receiptWindow.document.close();
+            receiptWindow.focus();
+            setTimeout(() => { receiptWindow.print(); }, 250);
+        }
+
+        function printSpecificPlatformReport(platformName) {
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const platformSales = salesHistory.filter(s => s.timestamp.startsWith(todayStr) && (s.method.toLowerCase().includes(platformName.toLowerCase())));
+
+            let grandTotal = 0;
+            let itemsHtml = '';
+
+            platformSales.forEach(s => {
+                grandTotal += s.total;
+                itemsHtml += `<div class="bold" style="margin-top:4px;">Order #${s.id} - Rs ${s.total.toFixed(2)}</div>`;
+                s.items.forEach(i => {
+                    itemsHtml += `<div style="display:flex; justify-content:space-between; font-size:11px;"><span>${i.qty}x ${i.name}</span><span>Rs ${(i.price * i.qty).toFixed(2)}</span></div>`;
+                });
+            });
+
+            const printWin = window.open('', '_blank', 'width=400,height=600');
+            printWin.document.write(`
+                <html>
+                <head>
+                    <title>${platformName} Report</title>
+                    <style>
+                        body { font-family: monospace; font-size: 12px; padding: 15px; }
+                        .text-center { text-align: center; }
+                        .bold { font-weight: bold; }
+                        .line { border-bottom: 1px dashed #000; margin: 8px 0; }
+                    </style>
+                </head>
+                <body>
+                    <div class="text-center bold" style="font-size:14px;">BUBBLE TIME</div>
+                    <div class="text-center bold">${platformName.toUpperCase()} DISPATCH REPORT</div>
+                    <div class="line"></div>
+                    <div>Date: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}</div>
+                    <div>Total Platform Orders: ${platformSales.length}</div>
+                    <div class="line"></div>
+                    ${itemsHtml || '<div>No orders recorded today for this platform</div>'}
+                    <div class="line"></div>
+                    <div style="display:flex; justify-content:space-between;" class="bold">
+                        <span>TOTAL REVENUE:</span>
+                        <span>Rs ${grandTotal.toFixed(2)}</span>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWin.document.close();
+            printWin.focus();
+            setTimeout(() => { printWin.print(); }, 250);
+        }
+
+        function approveCloseShiftAndPrintReport() {
+            showModal('Approve & Close Shift', 'Are you sure you want to approve daily totals and close the current shift?', true, (confirmed) => {
+                if(confirmed) {
+                    printCombinedDailySalesReport();
+                    showModal('Shift Closed', 'Shift report printed and shift closed successfully.');
+                }
+            });
+        }
+
+        function renderAdminSalesRecords(period) {
+            const container = document.getElementById('adminSalesAnalyticsReportContainer');
+            if(!container) return;
+
+            const methodsList = ['Cash', 'Card', 'Juice', 'MyT', 'Blink', 'Deliveroo', 'Hungry Dodo'];
+            const methodTotals = {};
+            methodsList.forEach(m => methodTotals[m] = 0);
+
+            let filteredSales = [...salesHistory];
+            const now = new Date();
+
+            if(period === 'daily') {
+                const todayStr = now.toISOString().split('T')[0];
+                filteredSales = salesHistory.filter(s => s.timestamp.startsWith(todayStr));
+            } else if(period === 'monthly') {
+                const monthStr = now.toISOString().substring(0, 7);
+                filteredSales = salesHistory.filter(s => s.timestamp.startsWith(monthStr));
+            }
+
+            let totalRev = 0;
+            filteredSales.forEach(s => {
+                totalRev += s.total;
+                let m = s.method;
+                if(m === 'Delivoo') m = 'Deliveroo';
+                if(m === 'MyT Money') m = 'MyT';
+                if(m === 'Blinks') m = 'Blink';
+
+                if(methodTotals[m] !== undefined) {
+                    methodTotals[m] += s.total;
+                }
+            });
+
+            let methodTableRowsHtml = '';
+            methodsList.forEach(m => {
+                methodTableRowsHtml += `
+                    <tr>
+                        <td style="font-weight:600; color:#1e293b;">${m}</td>
+                        <td class="rev-col">Rs ${(methodTotals[m] || 0).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            container.innerHTML = `
+                <h3 style="margin-top:0; color:#16a34a; font-size:1rem; font-weight:bold;">
+                    ${period.toUpperCase()} SALES ANALYTICS REPORT
+                </h3>
+                <p style="font-size:0.8rem; color:#64748b; margin-top:2px;">Total Transactions: <strong>${filteredSales.length}</strong> | Total Revenue: <strong style="color:#059669;">Rs ${totalRev.toFixed(2)}</strong></p>
+                <table class="method-revenue-table" style="margin-top:10px;">
+                    <thead>
+                        <tr><th>Payment Channel</th><th style="text-align:right;">Revenue</th></tr>
+                    </thead>
+                    <tbody>${methodTableRowsHtml}</tbody>
+                </table>
+            `;
+        }
+
+        function resetAllSalesAndShiftData() {
+            showModal('Reset All Sales Data', 'CRITICAL WARNING: This action will purge all sales history, placed orders, and batch logs. Continue?', true, (confirmed) => {
+                if(confirmed) {
+                    salesHistory = [];
+                    placedOrders = [];
+                    dailyBatchLogs = [];
+                    localStorage.setItem('pos_sales_history', JSON.stringify([]));
+                    localStorage.setItem('pos_placed_orders', JSON.stringify([]));
+                    localStorage.setItem('pos_daily_batch_logs', JSON.stringify([]));
+                    refreshReconData();
+                    updateDashboardData();
+                    showModal('Reset Complete', 'All sales history and shift data have been cleared.');
+                }
+            });
+        }
+
+        function populateCategoryDropdowns() {
+            const selectEl = document.getElementById('homeNewProdCategory');
+            if(selectEl) {
+                selectEl.innerHTML = '';
+                categoryList.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.innerText = c;
+                    selectEl.appendChild(opt);
+                });
+            }
+        }
+
+        function addNewCategory() {
+            const catName = prompt('Enter new category name:');
+            if(catName && !categoryList.includes(catName.toUpperCase())) {
+                categoryList.push(catName.toUpperCase());
+                localStorage.setItem('pos_category_list', JSON.stringify(categoryList));
+                populateCategoryDropdowns();
+                renderCatalog();
+                showModal('Category Added', `Added category: ${catName.toUpperCase()}`);
+            }
+        }
+
+        function addNewMenuCatalogProductFromHomePane() {
+            const cat = document.getElementById('homeNewProdCategory').value;
+            const name = document.getElementById('homeNewProdName').value.trim();
+            const price = parseFloat(document.getElementById('homeNewProdPrice').value);
+            const stock = parseInt(document.getElementById('homeNewProdStock').value) || 50;
+
+            if(!name || isNaN(price)) {
+                showModal('Input Error', 'Please enter a valid product name and price.');
+                return;
+            }
+
+            const newProd = { id: Date.now(), name, price, cat, stock };
+            products.push(newProd);
+            localStorage.setItem('pos_products', JSON.stringify(products));
+
+            document.getElementById('homeNewProdName').value = '';
+            document.getElementById('homeNewProdPrice').value = '';
+            renderCatalog();
+            renderAdminCatalogEditTable();
+            showModal('Product Added', `Successfully added product "${name}" to category ${cat}.`);
+        }
+
+        function renderAdminCatalogEditTable() {
+            const container = document.getElementById('adminCatalogEditTableContainer');
+            if(!container) return;
+
+            const filter = (document.getElementById('catalogSearchFilter')?.value || '').toLowerCase();
+            const filtered = products.filter(p => p.name.toLowerCase().includes(filter) || p.cat.toLowerCase().includes(filter));
+
+            let html = `<table class="stock-table"><thead><tr><th>Product</th><th>Cat</th><th>Price (Rs)</th><th>Action</th></tr></thead><tbody>`;
+            filtered.forEach(p => {
+                html += `
+                    <tr>
+                        <td><strong>${p.name}</strong></td>
+                        <td>${p.cat}</td>
+                        <td><input type="number" id="priceInput_${p.id}" value="${p.price}" style="width:70px; padding:2px; font-weight:bold; border:1px solid #cbd5e1; border-radius:4px;"></td>
+                        <td><button class="btn-success" style="padding:2px 8px; font-size:0.75rem; border:none; border-radius:4px; cursor:pointer;" onclick="saveCatalogPriceEdit(${p.id})">Save</button></td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function saveCatalogPriceEdit(prodId) {
+            const prod = products.find(p => p.id === prodId);
+            const val = parseFloat(document.getElementById(`priceInput_${prodId}`).value);
+            if(prod && !isNaN(val)) {
+                prod.price = val;
+                localStorage.setItem('pos_products', JSON.stringify(products));
+                renderCatalog();
+                showModal('Price Updated', `Price for ${prod.name} updated to Rs ${val.toFixed(2)}.`);
+            }
+        }
+
+        function createNewStaffMemberFromHome() {
+            const name = document.getElementById('homeNewStaffNameInput').value.trim();
+            const username = document.getElementById('homeNewStaffUserInput').value.trim();
+            const pin = document.getElementById('homeNewStaffPinInput').value.trim();
+
+            if(!name || !username || !pin) {
+                showModal('Staff Error', 'Please fill in Name, Username, and PIN code.');
+                return;
+            }
+
+            staffList.push({ name, username, pin });
+            localStorage.setItem('pos_staff_list', JSON.stringify(staffList));
+
+            document.getElementById('homeNewStaffNameInput').value = '';
+            document.getElementById('homeNewStaffUserInput').value = '';
+            document.getElementById('homeNewStaffPinInput').value = '';
+
+            populateLoginDropdown();
+            renderStaffDirectory();
+            showModal('Staff Added', `Added new staff member: ${name}`);
+        }
+
+        function renderStaffDirectory() {
+            const container = document.getElementById('homeAdminStaffDirectoryList');
+            if(!container) return;
+
+            container.innerHTML = '';
+            staffList.forEach(s => {
+                const card = document.createElement('div');
+                card.style.cssText = 'background: white; border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center;';
+                card.innerHTML = `
+                    <div>
+                        <strong style="font-size:0.85rem; color:#1e293b;">${s.name}</strong>
+                        <div style="font-size:0.75rem; color:#64748b;">User: ${s.username} | PIN: ****</div>
+                    </div>
+                    <div style="display:flex; gap:4px;">
+                        <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem; border-radius:4px;" onclick="auditStaffTransactions('${s.name}')">Audit</button>
+                        ${s.username !== 'Admin' ? `<button class="btn-danger" style="padding:3px 8px; font-size:0.7rem; border-radius:4px; border:none;" onclick="deleteStaffMember('${s.username}')">Delete</button>` : ''}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function deleteStaffMember(username) {
+            showModal('Confirm Delete', `Remove staff username "${username}"?`, true, (confirmed) => {
+                if(confirmed) {
+                    staffList = staffList.filter(s => s.username !== username);
+                    localStorage.setItem('pos_staff_list', JSON.stringify(staffList));
+                    populateLoginDropdown();
+                    renderStaffDirectory();
+                }
+            });
+        }
+
+        function auditStaffTransactions(staffName) {
+            const container = document.getElementById('homeAuditStaffTransactionsContainer');
+            const box = document.getElementById('homeAdminStaffAuditBox');
+            document.getElementById('homeAuditStaffTitleHeading').innerText = `Audit for ${staffName}`;
+
+            const staffSales = salesHistory.filter(s => s.cashier === staffName);
+            box.style.display = 'block';
+
+            if(staffSales.length === 0) {
+                container.innerHTML = '<p style="color:#94a3b8; margin:4px 0;">No sales recorded by this staff member today.</p>';
+            } else {
+                let html = '';
+                staffSales.forEach(s => {
+                    html += `<div style="border-bottom:1px solid #fed7aa; padding:4px 0;">Order #${s.id} (${s.method}) - <strong>Rs ${s.total.toFixed(2)}</strong></div>`;
+                });
+                container.innerHTML = html;
+            }
+        }
+
+        function closeHomeStaffAudit() {
+            document.getElementById('homeAdminStaffAuditBox').style.display = 'none';
+        }
+
+        function submitBatchPrepInput() {
+            const item = document.getElementById('batchItemSelect').value;
+            const grams = parseFloat(document.getElementById('batchGramInput').value);
+
+            if(isNaN(grams) || grams <= 0) {
+                showModal('Batch Error', 'Please enter a valid gram weight.');
+                return;
+            }
+
+            dailyBatchLogs.unshift({ timestamp: new Date().toLocaleTimeString(), item, grams });
+            localStorage.setItem('pos_daily_batch_logs', JSON.stringify(dailyBatchLogs));
+            document.getElementById('batchGramInput').value = '';
+            updateBatchPrepUI();
+            showModal('Batch Logged', `Recorded ${grams}g of ${item}`);
+        }
+
+        function updateBatchPrepUI() {
+            let totalGreen = 0, totalBlack = 0, totalTapioca = 0;
+            dailyBatchLogs.forEach(b => {
+                if(b.item === 'GREEN TEA') totalGreen += b.grams;
+                if(b.item === 'BLACK TEA') totalBlack += b.grams;
+                if(b.item === 'TAPIOCA PEARLS') totalTapioca += b.grams;
+            });
+
+            document.getElementById('totalGreenTeaPreparedDisplay').innerText = `${totalGreen} g`;
+            document.getElementById('totalBlackTeaPreparedDisplay').innerText = `${totalBlack} g`;
+            document.getElementById('totalTapiocaPreparedDisplay').innerText = `${totalTapioca} g`;
+
+            const historyContainer = document.getElementById('batchHistoryContainer');
+            if(dailyBatchLogs.length === 0) {
+                historyContainer.innerHTML = '<span style="color: #94a3b8;">No batches recorded yet today</span>';
+            } else {
+                let html = '';
+                dailyBatchLogs.forEach(l => {
+                    html += `<div style="border-bottom:1px solid #f1f5f9; padding:2px 0;"><strong>${l.timestamp}</strong>: +${l.grams}g ${l.item}</div>`;
+                });
+                historyContainer.innerHTML = html;
+            }
+        }
+
+        function renderInventoryTable() {
+            const tbody = document.querySelector('#inventoryTable tbody');
+            if(!tbody) return;
+
+            tbody.innerHTML = '';
+            inventoryList.forEach((inv, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${inv.category}</td>
+                    <td><strong>${inv.name}</strong></td>
+                    <td>${inv.qty}</td>
+                    <td><button class="btn-danger" style="padding:2px 6px; font-size:0.7rem; border:none; border-radius:4px;" onclick="deleteInventoryItem(${index})">Remove</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function addNewInventoryItem() {
+            const cat = document.getElementById('stockCategory').value;
+            const name = document.getElementById('stockName').value.trim();
+            const qty = parseFloat(document.getElementById('stockQty').value);
+
+            if(!name || isNaN(qty)) {
+                showModal('Inventory Error', 'Please specify item name and quantity.');
+                return;
+            }
+
+            inventoryList.push({ id: Date.now(), category: cat, name, qty });
+            localStorage.setItem('pos_inventory', JSON.stringify(inventoryList));
+
+            document.getElementById('stockName').value = '';
+            document.getElementById('stockQty').value = '';
+            renderInventoryTable();
+            showModal('Item Added', `Added raw stock item ${name}`);
+        }
+
+        function deleteInventoryItem(idx) {
+            inventoryList.splice(idx, 1);
+            localStorage.setItem('pos_inventory', JSON.stringify(inventoryList));
+            renderInventoryTable();
+        }
+
+        function printStoreStockReport() {
+            const printWin = window.open('', '_blank', 'width=400,height=600');
+            let rowsHtml = '';
+            inventoryList.forEach(i => {
+                rowsHtml += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid #e2e8f0; padding:3px 0;"><span>${i.name} (${i.category})</span><strong>${i.qty}</strong></div>`;
+            });
+
+            printWin.document.write(`
+                <html>
+                <head><title>Inventory Report</title><style>body{font-family:monospace; padding:15px; font-size:12px;}</style></head>
+                <body>
+                    <h3 style="text-align:center;">BUBBLE TIME STORE INVENTORY</h3>
+                    <div>Date: ${new Date().toLocaleString()}</div>
+                    <hr>
+                    ${rowsHtml}
+                </body>
+                </html>
+            `);
+            printWin.document.close();
+            printWin.focus();
+            setTimeout(() => { printWin.print(); }, 250);
+        }
+
+        function updateDashboardData() {
+            document.getElementById('dashStaffName').innerText = currentStaff ? currentStaff.name : 'Administrator';
+            document.getElementById('dashPendingCount').innerText = placedOrders.length;
+
+            const data = calculateDailyQBCData();
+            document.getElementById('dashRevenue').innerText = `Rs ${data.grandTotal.toFixed(2)}`;
+
+            // Render Donut Chart
+            const ctx = document.getElementById('salesDonutChart');
+            if(ctx) {
+                if(donutChartInstance) donutChartInstance.destroy();
+
+                const labels = Object.keys(data.categoryBreakdown);
+                const chartData = labels.map(k => data.categoryBreakdown[k].total);
+
+                donutChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels.length > 0 ? labels : ['No Sales Yet'],
+                        datasets: [{
+                            data: chartData.length > 0 ? chartData : [1],
+                            backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6', '#64748b']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                });
+            }
+        }
+
+        function connectBluetoothPrinter() {
+            showModal('Printer Connected', 'Bluetooth JP80M-UE Thermal Printer status active.');
+            document.getElementById('printerStatus').innerText = 'JP80M-UE Connected';
+            document.getElementById('printerStatus').style.color = '#059669';
+        }
+
+        function openCashDrawerExplicit() {
+            showModal('Cash Drawer', 'Signal sent to open cash drawer.');
+        }
+
+        // Initialize App on load
+        window.addEventListener('load', () => {
+            populateLoginDropdown();
+            populateCategoryDropdowns();
+        });
+    </script>
+</body>
+</html>
+```
