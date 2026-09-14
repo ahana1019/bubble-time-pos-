@@ -1435,162 +1435,843 @@
             { id: 'bob5', cat: 'POPPING BOBA', name: 'BLUEBERRY', stock: 2000 },
             { id: 'bob6', cat: 'POPPING BOBA', name: 'PEACH', stock: 2000 },
             { id: 'bob7', cat: 'POPPING BOBA', name: 'KIWI', stock: 2000 },
-            { id: 'bob8', cat: 'POPPING BOBA', name: 'PINEAPPLE', stock: 2000 },
-            { id: 'bob9', cat: 'POPPING BOBA', name: 'GREEN APPLE', stock: 2000 },
-            { id: 'bob10', cat: 'POPPING BOBA', name: 'CRANBERRY', stock: 2000 },
-            { id: 'bob11', cat: 'POPPING BOBA', name: 'WATERMELON', stock: 2000 },
-            { id: 'bob12', cat: 'POPPING BOBA', name: 'BLUE RASPBERRY', stock: 2000 },
-            { id: 'jel1', cat: 'JELLY', name: 'COFFEE JELLY', stock: 2000 },
-            { id: 'jel2', cat: 'JELLY', name: 'COCONUT JELLY', stock: 2000 },
-            { id: 'jel3', cat: 'JELLY', name: 'RAINBOW JELLY', stock: 2000 },
-            { id: 'jel4', cat: 'JELLY', name: 'TAPIOCA PEARLS (g)', stock: 5000 },
-            { id: 'jel5', cat: 'JELLY', name: 'ALOE VERA', stock: 2000 },
-            { id: 'oth1', cat: 'OTHERS', name: 'CUPS M', stock: 500 },
-            { id: 'oth2', cat: 'OTHERS', name: 'CUPS L', stock: 500 },
-            { id: 'oth3', cat: 'OTHERS', name: 'STRAW', stock: 1000 },
-            { id: 'oth4', cat: 'OTHERS', name: 'JASMIN GREEN TEA', stock: 3000 },
-            { id: 'oth5', cat: 'OTHERS', name: 'ASAAM BLACK TEA', stock: 3000 }
+            { id: 'bob8', cat: 'POPPING BOBA', name: 'GREEN APPLE', stock: 2000 }
         ];
 
-        let inventoryList = JSON.parse(localStorage.getItem('pos_exact_inventory_items')) || defaultInventoryList;
+        let inventory = JSON.parse(localStorage.getItem('pos_store_inventory')) || defaultInventoryList;
         let cart = [];
         let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-        let dailySalesLog = JSON.parse(localStorage.getItem('pos_daily_sales')) || {
-            totalTransactions: 0, totalQuantity: 0, totalAmount: 0,
-            paymentMethods: { Cash: { count: 0, amount: 0 }, Card: { count: 0, amount: 0 }, Juice: { count: 0, amount: 0 }, 'MyT Money': { count: 0, amount: 0 }, Blink: { count: 0, amount: 0 }, Delivoo: { count: 0, amount: 0 }, 'Hungry Dodo': { count: 0, amount: 0 } },
-            itemsSummary: {}
-        };
+        let completedTodaySales = JSON.parse(localStorage.getItem('pos_completed_today_sales')) || [];
 
-        let bluetoothDevice = null;
-        let bluetoothCharacteristic = null;
-
-        window.addEventListener('DOMContentLoaded', () => {
+        function initApp() {
             populateLoginDropdown();
             renderCategoryList();
             renderCategoryDropdowns();
             renderAccordion();
-            renderAdminStaffDirectory();
-            autoConnectPrinterOnStartup();
-        });
+            renderAdminCatalogEditTable();
+            renderInventoryTable();
+            refreshReconData();
+            updateDashboardMetrics();
+        }
+
+        window.onload = initApp;
 
         function handleLogin() {
-            const userIn = document.getElementById('loginUser').value.trim();
-            const pinIn = document.getElementById('loginPin').value.trim();
-
-            if (!userIn) {
-                showModal('Login Error', 'Please select your staff name from the dropdown list.');
+            const userSel = document.getElementById('loginUser').value;
+            const pinVal = document.getElementById('loginPin').value;
+            if(!userSel) {
+                showModal('Login Error', 'Please select a staff member.');
                 return;
             }
-
-            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
-
-            const staff = staffList.find(s => s.username.toLowerCase() === userIn.toLowerCase() && s.pin === pinIn);
-            if (staff) {
-                currentStaff = staff;
-                const cashierDisplayStr = `${staff.name} (${staff.username})`;
-                document.getElementById('loggedInUserDisplay').innerText = `Staff: ${cashierDisplayStr}`;
-                document.getElementById('dashStaffName').innerText = cashierDisplayStr;
-                document.getElementById('reconCashierName').innerText = cashierDisplayStr;
-                document.getElementById('adminReconCashier').innerText = cashierDisplayStr;
-                document.getElementById('loginOverlay').classList.add('hidden');
+            const found = staffList.find(s => s.username === userSel);
+            if(found && found.pin === pinVal) {
+                currentStaff = found;
+                document.getElementById('loginOverlay').style.display = 'none';
                 document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('loggedInUserDisplay').innerText = `Staff: ${currentStaff.name}`;
+                
+                // Show/hide admin panels
+                const isAdmin = (currentStaff.username === 'Admin' || currentStaff.username === 'Ahana Lead');
+                document.getElementById('adminAddNewProductsCard').style.display = isAdmin ? 'flex' : 'none';
+                document.getElementById('adminGrossSalesAnalyticsCard').style.display = isAdmin ? 'flex' : 'none';
+                document.getElementById('adminHomeSettingsSection').style.display = isAdmin ? 'flex' : 'none';
 
-                if (staff.username.toLowerCase() !== 'admin') {
-                    document.getElementById('adminAddNewProductsCard').style.display = 'none';
-                    document.getElementById('adminGrossSalesAnalyticsCard').style.display = 'none';
-                    document.getElementById('adminHomeSettingsSection').style.display = 'none';
-                } else {
-                    document.getElementById('adminAddNewProductsCard').style.display = 'flex';
-                    document.getElementById('adminGrossSalesAnalyticsCard').style.display = 'flex';
-                    document.getElementById('adminHomeSettingsSection').style.display = 'flex';
-                }
-
-                renderAccordion();
-                renderPlacedOrders();
                 refreshReconData();
-                renderInventoryTable();
-                renderAdminCatalogEditTable();
-                renderCategoryList();
-                renderCategoryDropdowns();
+                updateDashboardMetrics();
             } else {
-                showModal('Authentication Failed', 'Invalid username or PIN code. Please try again.');
+                showModal('Login Error', 'Invalid PIN code. Please try again.');
             }
         }
 
         function logout() {
             currentStaff = null;
-            document.getElementById('mainApp').classList.add('hidden');
-            document.getElementById('loginOverlay').classList.remove('hidden');
             document.getElementById('loginPin').value = '';
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('mainApp').classList.add('hidden');
         }
 
-        function switchView(paneId, navElem, titleText) {
-            document.querySelectorAll('.view-pane').forEach(p => p.classList.remove('active'));
-            const targetPane = document.getElementById(paneId);
-            if (targetPane) targetPane.classList.add('active');
-
-            if (navElem) {
-                document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active'));
-                navElem.classList.add('active');
+        function switchView(paneId, navBtn, titleText) {
+            document.querySelectorAll('.view-pane').forEach(el => el.classList.remove('active'));
+            document.getElementById(paneId).classList.add('active');
+            
+            if (navBtn) {
+                document.querySelectorAll('.bottom-nav .nav-item').forEach(el => el.classList.remove('active'));
+                navBtn.classList.add('active');
             }
+            document.getElementById('currentViewTitle').innerText = titleText;
 
-            if (titleText) {
-                document.getElementById('currentViewTitle').innerText = titleText;
+            if(paneId === 'paneDashboard') {
+                updateDashboardMetrics();
+                renderSalesDonutChart();
             }
-
-            if (paneId === 'paneDashboard') renderDonutChart();
-            if (paneId === 'paneRecon') refreshReconData();
-            if (paneId === 'panePlacedOrders') renderPlacedOrders();
-            if (paneId === 'paneAdminStaff') renderAdminStaffDirectory();
-            if (paneId === 'paneAdminAddProducts') {
+            if(paneId === 'panePlacedOrders') {
+                renderPlacedOrdersList();
+            }
+            if(paneId === 'paneRecon') {
+                refreshReconData();
+            }
+            if(paneId === 'paneAdminAddProducts') {
+                renderAdminCatalogEditTable();
                 renderCategoryList();
                 renderCategoryDropdowns();
-                renderAdminCatalogEditTable();
+            }
+            if(paneId === 'paneAdminStaff') {
+                renderAdminStaffDirectory();
             }
         }
 
-        /* ADMIN STAFF MANAGEMENT WITH EDIT USERNAME FUNCTIONALITY */
+        function renderAccordion() {
+            const container = document.getElementById('accordionContainer');
+            if(!container) return;
+            container.innerHTML = '';
+            
+            categories.forEach((cat, idx) => {
+                const catProducts = products.filter(p => p.cat === cat);
+                if(catProducts.length === 0 && cat !== 'OTHER') return;
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'category-dropdown' + (idx === 0 ? ' active' : '');
+                
+                const header = document.createElement('div');
+                header.className = 'category-header';
+                header.innerHTML = `<span>${cat} (${catProducts.length})</span> <span>▼</span>`;
+                header.onclick = () => wrapper.classList.toggle('active');
+
+                const content = document.createElement('div');
+                content.className = 'category-content';
+
+                catProducts.forEach(prod => {
+                    const btn = document.createElement('button');
+                    btn.className = 'product-btn';
+                    btn.innerHTML = `
+                        <span class="product-name">${prod.name}</span>
+                        <span class="product-price">Rs ${prod.price.toFixed(2)}</span>
+                        <span class="product-stock">Stock: ${prod.stock}</span>
+                    `;
+                    btn.onclick = () => addToCart(prod);
+                    content.appendChild(btn);
+                });
+
+                wrapper.appendChild(header);
+                wrapper.appendChild(content);
+                container.appendChild(wrapper);
+            });
+        }
+
+        function addToCart(prod) {
+            const existing = cart.find(item => item.id === prod.id);
+            if(existing) {
+                existing.qty++;
+            } else {
+                cart.push({ ...prod, qty: 1 });
+            }
+            renderCart();
+        }
+
+        function updateCartQty(id, change) {
+            const item = cart.find(i => i.id === id);
+            if(item) {
+                item.qty += change;
+                if(item.qty <= 0) {
+                    cart = cart.filter(i => i.id !== id);
+                }
+            }
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+            if(cart.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8; text-align: center; font-size: 0.85rem;">Cart is empty</p>';
+                document.getElementById('cartSubtotal').innerText = 'Rs 0.00';
+                document.getElementById('cartVat').innerText = 'Rs 0.00';
+                document.getElementById('cartTotal').innerText = 'Rs 0.00';
+                document.getElementById('changeDueDisplay').innerText = 'Rs 0.00';
+                updateScreenReceiptPreview();
+                return;
+            }
+
+            container.innerHTML = '';
+            let subtotal = 0;
+            cart.forEach(item => {
+                const itemTotal = item.price * item.qty;
+                subtotal += itemTotal;
+                const div = document.createElement('div');
+                div.className = 'cart-item';
+                div.innerHTML = `
+                    <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <strong>${item.name}</strong><br>
+                        <small style="color:#64748b;">Rs ${item.price} x ${item.qty}</small>
+                    </div>
+                    <div style="font-weight: bold; margin: 0 8px;">Rs ${itemTotal.toFixed(2)}</div>
+                    <div class="cart-item-controls" style="display: flex; gap: 4px;">
+                        <button onclick="updateCartQty(${item.id}, -1)">-</button>
+                        <button onclick="updateCartQty(${item.id}, 1)">+</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            const vat = subtotal * 0.15 / 1.15; // VAT inclusive
+            const total = subtotal;
+
+            document.getElementById('cartSubtotal').innerText = `Rs ${(subtotal - vat).toFixed(2)}`;
+            document.getElementById('cartVat').innerText = `Rs ${vat.toFixed(2)}`;
+            document.getElementById('cartTotal').innerText = `Rs ${total.toFixed(2)}`;
+            
+            calculateChange();
+            updateScreenReceiptPreview();
+        }
+
+        function calculateChange() {
+            const totalStr = document.getElementById('cartTotal').innerText.replace('Rs ', '');
+            const total = parseFloat(totalStr) || 0;
+            const cashGiven = parseFloat(document.getElementById('cashGivenInput').value) || 0;
+            const change = cashGiven - total;
+            document.getElementById('changeDueDisplay').innerText = `Rs ${change >= 0 ? change.toFixed(2) : '0.00'}`;
+        }
+
+        function toggleScreenReceipt() {
+            showScreenReceipt = !showScreenReceipt;
+            const btn = document.getElementById('receiptToggleBtn');
+            const box = document.getElementById('screenReceiptBox');
+            if(showScreenReceipt) {
+                btn.innerText = 'ON';
+                btn.className = 'btn btn-success';
+                box.style.display = 'block';
+            } else {
+                btn.innerText = 'OFF';
+                btn.className = 'btn btn-secondary';
+                box.style.display = 'none';
+            }
+        }
+
+        function updateScreenReceiptPreview() {
+            const content = document.getElementById('screenReceiptContent');
+            if(cart.length === 0) {
+                content.innerHTML = 'No items in receipt preview';
+                return;
+            }
+            let html = '';
+            let sub = 0;
+            cart.forEach(i => {
+                const t = i.price * i.qty;
+                sub += t;
+                html += `<div style="display:flex; justify-content:space-between;"><span>${i.name} x${i.qty}</span><span>Rs ${t}</span></div>`;
+            });
+            const vat = sub * 0.15 / 1.15;
+            html += `<div style="border-top:1px dashed #d97706; margin-top:3px; padding-top:2px; display:flex; justify-content:space-between; font-weight:bold;"><span>TOTAL:</span><span>Rs ${sub.toFixed(2)}</span></div>`;
+            html += `<div style="font-size:0.65rem; color:#64748b;">(Incl. VAT 15%: Rs ${vat.toFixed(2)})</div>`;
+            content.innerHTML = html;
+        }
+
+        let bluetoothDevice = null;
+        let bluetoothCharacteristic = null;
+
+        async function connectBluetoothPrinter() {
+            try {
+                const statusEl = document.getElementById('printerStatus');
+                statusEl.innerText = 'connecting...';
+                statusEl.style.color = '#d97706';
+
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
+                    optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+                });
+
+                const server = await bluetoothDevice.gatt.connect();
+                const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+                bluetoothCharacteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+
+                statusEl.innerText = 'JP80M-UE connected';
+                statusEl.style.color = '#059669';
+                showModal('Printer Connected', 'Successfully connected to JP80M-UE Bluetooth thermal printer.');
+            } catch(error) {
+                console.error(error);
+                const statusEl = document.getElementById('printerStatus');
+                statusEl.innerText = 'connection failed';
+                statusEl.style.color = '#dc2626';
+                showModal('Printer Connection Error', 'Could not connect to Bluetooth printer. Ensure Bluetooth is enabled and printer is paired.');
+            }
+        }
+
+        async function openCashDrawerExplicit() {
+            if(bluetoothCharacteristic) {
+                try {
+                    const drawerCommand = new Uint8Array([27, 112, 0, 50, 250]);
+                    await bluetoothCharacteristic.writeValue(drawerCommand);
+                    return;
+                } catch(e) { console.error('Drawer open error:', e); }
+            }
+            showModal('Cash Drawer', 'Cash drawer opened (Simulation / JP80M-UE pulse sent).');
+        }
+
+        async function printReceiptData(orderData) {
+            if(bluetoothCharacteristic) {
+                try {
+                    let esc = '\x1B';
+                    let init = esc + '@';
+                    let alignCenter = esc + 'a\x01';
+                    let alignLeft = esc + 'a\x00';
+                    let boldOn = esc + 'E\x01';
+                    let boldOff = esc + 'E\x00';
+                    let cut = '\x1D\x56\x41';
+
+                    let text = init + alignCenter + boldOn + 'Bubble Time\n' + boldOff;
+                    text += 'Mercury Distribution Ltd\n';
+                    text += 'Louis Pasteur, st\nManhattan Mall, Curepipe\n';
+                    text += 'Tel: 52573727 | VAT: 28237334\nBRN: C24206010\n';
+                    text += '--------------------------------\n';
+                    text += boldOn + 'VAT INVOICE' + boldOff + '\n';
+                    text += `Order #${orderData.id} | ${orderData.date}\n`;
+                    text += `Cashier: ${orderData.cashier}\n`;
+                    text += '--------------------------------\n' + alignLeft;
+
+                    orderData.items.forEach(i => {
+                        let lineTotal = (i.price * i.qty).toFixed(2);
+                        text += `${i.name}\n  ${i.qty} x Rs ${i.price} = Rs ${lineTotal}\n`;
+                    });
+
+                    text += alignCenter + '--------------------------------\n';
+                    text += `SUBTOTAL: Rs ${(orderData.total - orderData.vat).toFixed(2)}\n`;
+                    text += `VAT (15%): Rs ${orderData.vat.toFixed(2)}\n`;
+                    text += boldOn + `TOTAL: Rs ${orderData.total.toFixed(2)}\n` + boldOff;
+                    text += `Payment: ${orderData.paymentMethod}\n`;
+                    if(orderData.cashGiven) {
+                        text += `Cash Given: Rs ${orderData.cashGiven.toFixed(2)}\n`;
+                        text += `Change Due: Rs ${orderData.changeDue.toFixed(2)}\n`;
+                    }
+                    text += '--------------------------------\n';
+                    text += 'Thank you for your visit!\n';
+                    text += 'Please come again.\n\n\n' + cut;
+
+                    const encoder = new TextEncoder();
+                    await bluetoothCharacteristic.writeValue(encoder.encode(text));
+                } catch(e) {
+                    console.error('Print error:', e);
+                }
+            }
+        }
+
+        async function completeSaleAndPrintReceipt() {
+            if(cart.length === 0) {
+                showModal('Cart Empty', 'Please add items to cart before completing sale.');
+                return;
+            }
+
+            let subtotal = 0;
+            cart.forEach(i => subtotal += i.price * i.qty);
+            const vat = subtotal * 0.15 / 1.15;
+            const total = subtotal;
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const cashGiven = parseFloat(document.getElementById('cashGivenInput').value) || 0;
+            const changeDue = cashGiven >= total ? cashGiven - total : 0;
+
+            if(paymentMethod === 'Cash' && cashGiven < total) {
+                showModal('Payment Error', 'Cash given is less than total amount due.');
+                return;
+            }
+
+            const orderId = orderSequenceNumber++;
+            localStorage.setItem('pos_order_seq', orderSequenceNumber);
+
+            const orderData = {
+                id: orderId,
+                date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                cashier: currentStaff ? currentStaff.name : 'Administrator',
+                items: [...cart],
+                subtotal: subtotal - vat,
+                vat: vat,
+                total: total,
+                paymentMethod: paymentMethod,
+                cashGiven: paymentMethod === 'Cash' ? cashGiven : null,
+                changeDue: paymentMethod === 'Cash' ? changeDue : null,
+                status: 'PAID'
+            };
+
+            completedTodaySales.push(orderData);
+            localStorage.setItem('pos_completed_today_sales', JSON.stringify(completedTodaySales));
+
+            // Deduct product stock
+            cart.forEach(cartItem => {
+                const prod = products.find(p => p.id === cartItem.id);
+                if(prod) {
+                    prod.stock = Math.max(0, prod.stock - cartItem.qty);
+                }
+            });
+            localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+
+            await printReceiptData(orderData);
+            await openCashDrawerExplicit();
+
+            cart = [];
+            renderCart();
+            renderAccordion();
+            refreshReconData();
+            updateDashboardMetrics();
+
+            showModal('Success', `Sale completed successfully! Order #${orderId} recorded.`);
+        }
+
+        /* PLACED ORDERS MANAGEMENT */
+        function renderPlacedOrdersList() {
+            const container = document.getElementById('placedOrdersListContainer');
+            if(!container) return;
+            if(placedOrders.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
+                return;
+            }
+            container.innerHTML = '';
+            placedOrders.forEach(ord => {
+                const div = document.createElement('div');
+                div.style.padding = '10px 12px';
+                div.style.borderBottom = '1px solid var(--border)';
+                div.style.cursor = 'pointer';
+                div.style.background = (selectedPlacedOrderId === ord.id) ? '#eff6ff' : 'white';
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:0.85rem;">
+                        <span>Order #${ord.id}</span>
+                        <span style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</span>
+                    </div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">
+                        ${ord.date} | ${ord.cashier}<br>
+                        <strong>Rs ${ord.total.toFixed(2)}</strong> (${ord.paymentMethod || 'Unset'})
+                    </div>
+                `;
+                div.onclick = () => selectPlacedOrder(ord.id);
+                container.appendChild(div);
+            });
+        }
+
+        function selectPlacedOrder(id) {
+            selectedPlacedOrderId = id;
+            renderPlacedOrdersList();
+            const ord = placedOrders.find(o => o.id === id);
+            if(!ord) return;
+
+            const headerEl = document.getElementById('selectedOrderDetailsHeader');
+            headerEl.innerHTML = `
+                <h3 style="margin:0 0 4px 0; font-size:0.95rem;">Order #${ord.id} Details</h3>
+                <p style="margin:0; font-size:0.75rem; color:#64748b;">Placed by: ${ord.cashier} at ${ord.date}</p>
+            `;
+
+            const tableEl = document.getElementById('selectedOrderItemsTable');
+            let tableHtml = '<table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>';
+            ord.items.forEach(i => {
+                tableHtml += `<tr><td>${i.name}</td><td>${i.qty}</td><td>Rs ${i.price}</td><td>Rs ${(i.price * i.qty).toFixed(2)}</td></tr>`;
+            });
+            tableHtml += `</tbody></table><div style="margin-top:10px; font-weight:bold; text-align:right; font-size:0.9rem;">Total: Rs ${ord.total.toFixed(2)}</div>`;
+            tableEl.innerHTML = tableHtml;
+
+            // Highlight status buttons
+            if(ord.status === 'PAID') {
+                document.getElementById('btnStatusPaid').className = 'btn btn-success';
+                document.getElementById('btnStatusUnpaid').className = 'btn btn-secondary';
+            } else {
+                document.getElementById('btnStatusPaid').className = 'btn btn-secondary';
+                document.getElementById('btnStatusUnpaid').className = 'btn btn-danger';
+            }
+        }
+
+        function setPaymentStatus(status) {
+            if(!selectedPlacedOrderId) {
+                showModal('Selection Error', 'Please select an order first.');
+                return;
+            }
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if(ord) {
+                ord.status = status;
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                selectPlacedOrder(ord.id);
+                renderPlacedOrdersList();
+            }
+        }
+
+        async function settleCurrentSelectedOrder(method) {
+            if(!selectedPlacedOrderId) {
+                showModal('Selection Error', 'Please select an order first.');
+                return;
+            }
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if(ord) {
+                ord.paymentMethod = method;
+                ord.status = 'PAID';
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                
+                // Move from placed orders to completed today sales
+                completedTodaySales.push(ord);
+                placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
+                localStorage.setItem('pos_completed_today_sales', JSON.stringify(completedTodaySales));
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+
+                await printReceiptData(ord);
+                selectedPlacedOrderId = null;
+                renderPlacedOrdersList();
+                document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>';
+                document.getElementById('selectedOrderItemsTable').innerHTML = '';
+                refreshReconData();
+                updateDashboardMetrics();
+                showModal('Success', `Order #${ord.id} settled via ${method} and finalized.`);
+            }
+        }
+
+        async function confirmAndFinishOrder() {
+            if(!selectedPlacedOrderId) {
+                showModal('Selection Error', 'Please select an order first.');
+                return;
+            }
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if(ord) {
+                ord.status = 'PAID';
+                completedTodaySales.push(ord);
+                placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
+                localStorage.setItem('pos_completed_today_sales', JSON.stringify(completedTodaySales));
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+
+                await printReceiptData(ord);
+                selectedPlacedOrderId = null;
+                renderPlacedOrdersList();
+                document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>';
+                document.getElementById('selectedOrderItemsTable').innerHTML = '';
+                refreshReconData();
+                updateDashboardMetrics();
+                showModal('Success', `Order finalized and moved to daily sales.`);
+            }
+        }
+
+        function deleteSelectedPlacedOrder() {
+            if(!selectedPlacedOrderId) {
+                showModal('Selection Error', 'Please select an order first.');
+                return;
+            }
+            showModal('Confirm Delete', 'Are you sure you want to delete this placed order?', true, (confirmed) => {
+                if(confirmed) {
+                    const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+                    if(ord) {
+                        deletedOrdersLog.count++;
+                        ord.items.forEach(i => deletedOrdersLog.quantity += i.qty);
+                        deletedOrdersLog.amount += ord.total;
+                        localStorage.setItem('pos_deleted_orders_log', JSON.stringify(deletedOrdersLog));
+                    }
+                    placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
+                    localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                    selectedPlacedOrderId = null;
+                    renderPlacedOrdersList();
+                    document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>';
+                    document.getElementById('selectedOrderItemsTable').innerHTML = '';
+                    updateDashboardMetrics();
+                }
+            });
+        }
+
+        /* DAILY RECON & REPORTING */
+        function refreshReconData() {
+            document.getElementById('reconTimestamp').innerText = new Date().toLocaleString();
+            document.getElementById('reconCashierName').innerText = currentStaff ? currentStaff.name : 'Administrator';
+            document.getElementById('adminReconCashier').innerText = currentStaff ? currentStaff.name : 'Administrator';
+
+            let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
+            let grand = 0;
+            let transCount = completedTodaySales.length;
+
+            completedTodaySales.forEach(ord => {
+                const m = ord.paymentMethod || 'Cash';
+                if(totals[m] !== undefined) {
+                    totals[m] += ord.total;
+                } else {
+                    totals.Cash += ord.total;
+                }
+                grand += ord.total;
+            });
+
+            document.getElementById('reconCashTotal').innerText = totals.Cash.toFixed(2);
+            document.getElementById('reconCardTotal').innerText = totals.Card.toFixed(2);
+            document.getElementById('reconJuiceTotal').innerText = totals.Juice.toFixed(2);
+            document.getElementById('reconMytTotal').innerText = totals['MyT Money'].toFixed(2);
+            document.getElementById('reconBlinkTotal').innerText = totals.Blink.toFixed(2);
+            document.getElementById('reconDelivooTotal').innerText = totals.Delivoo.toFixed(2);
+            document.getElementById('reconHungryDodoTotal').innerText = totals['Hungry Dodo'].toFixed(2);
+            document.getElementById('reconGrandTotal').innerText = grand.toFixed(2);
+            document.getElementById('adminReconTransCount').innerText = transCount;
+
+            // Itemized Sales Breakdown List
+            let itemCounts = {};
+            completedTodaySales.forEach(ord => {
+                ord.items.forEach(i => {
+                    if(!itemCounts[i.name]) itemCounts[i.name] = { qty: 0, total: 0 };
+                    itemCounts[i.name].qty += i.qty;
+                    itemCounts[i.name].total += i.price * i.qty;
+                });
+            });
+
+            const listEl = document.getElementById('reconItemizedSalesList');
+            let listHtml = '<table><thead><tr><th>Item</th><th>Qty</th><th>Total Rs</th></tr></thead><tbody>';
+            for(let name in itemCounts) {
+                listHtml += `<tr><td>${name}</td><td>${itemCounts[name].qty}</td><td>Rs ${itemCounts[name].total.toFixed(2)}</td></tr>`;
+            }
+            if(Object.keys(itemCounts).length === 0) {
+                listHtml += '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No sales recorded yet today</td></tr>';
+            }
+            listHtml += '</tbody></table>';
+            listEl.innerHTML = listHtml;
+        }
+
+        async function printCombinedDailySalesReport() {
+            if(bluetoothCharacteristic) {
+                try {
+                    let esc = '\x1B';
+                    let init = esc + '@';
+                    let alignCenter = esc + 'a\x01';
+                    let boldOn = esc + 'E\x01';
+                    let boldOff = esc + 'E\x00';
+                    let cut = '\x1D\x56\x41';
+
+                    let text = init + alignCenter + boldOn + 'Bubble Time QBC Report\n' + boldOff;
+                    text += 'Mercury Distribution Ltd\n';
+                    text += `Date: ${new Date().toLocaleDateString()}\n`;
+                    text += `Cashier: ${currentStaff ? currentStaff.name : 'Admin'}\n`;
+                    text += '--------------------------------\n';
+
+                    let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
+                    let grand = 0;
+                    completedTodaySales.forEach(ord => {
+                        const m = ord.paymentMethod || 'Cash';
+                        if(totals[m] !== undefined) totals[m] += ord.total;
+                        else totals.Cash += ord.total;
+                        grand += ord.total;
+                    });
+
+                    text += `Cash: Rs ${totals.Cash.toFixed(2)}\n`;
+                    text += `Card: Rs ${totals.Card.toFixed(2)}\n`;
+                    text += `Juice: Rs ${totals.Juice.toFixed(2)}\n`;
+                    text += `MyT Money: Rs ${totals['MyT Money'].toFixed(2)}\n`;
+                    text += `Blink: Rs ${totals.Blink.toFixed(2)}\n`;
+                    text += `Delivoo: Rs ${totals.Delivoo.toFixed(2)}\n`;
+                    text += `Hungry Dodo: Rs ${totals['Hungry Dodo'].toFixed(2)}\n`;
+                    text += '--------------------------------\n';
+                    text += boldOn + `GRAND TOTAL: Rs ${grand.toFixed(2)}\n` + boldOff;
+                    text += `Total Transactions: ${completedTodaySales.length}\n`;
+                    text += '--------------------------------\n\n\n' + cut;
+
+                    const encoder = new TextEncoder();
+                    await bluetoothCharacteristic.writeValue(encoder.encode(text));
+                    showModal('Print Success', 'QBC Daily Sales Report printed successfully.');
+                } catch(e) {
+                    console.error(e);
+                    showModal('Print Error', 'Failed to print QBC report via Bluetooth.');
+                }
+            } else {
+                showModal('Printer Required', 'Please connect JP80M-UE thermal printer first.');
+            }
+        }
+
+        async function printSpecificPlatformReport(platformName) {
+            if(!bluetoothCharacteristic) {
+                showModal('Printer Required', 'Please connect JP80M-UE thermal printer first.');
+                return;
+            }
+            let filtered = completedTodaySales.filter(o => o.paymentMethod === platformName);
+            let sum = 0;
+            filtered.forEach(o => sum += o.total);
+
+            let esc = '\x1B';
+            let init = esc + '@';
+            let alignCenter = esc + 'a\x01';
+            let boldOn = esc + 'E\x01';
+            let boldOff = esc + 'E\x00';
+            let cut = '\x1D\x56\x41';
+
+            let text = init + alignCenter + boldOn + `Bubble Time - ${platformName}\n` + boldOff;
+            text += `Date: ${new Date().toLocaleDateString()}\n`;
+            text += '--------------------------------\n';
+            text += `Total Orders: ${filtered.length}\n`;
+            text += boldOn + `Total Amount: Rs ${sum.toFixed(2)}\n` + boldOff;
+            text += '--------------------------------\n\n\n' + cut;
+
+            try {
+                const encoder = new TextEncoder();
+                await bluetoothCharacteristic.writeValue(encoder.encode(text));
+                showModal('Success', `${platformName} report printed successfully.`);
+            } catch(e) {
+                showModal('Error', 'Failed to print report.');
+            }
+        }
+
+        function approveCloseShiftAndPrintReport() {
+            showModal('Close Shift', 'Are you sure you want to approve and close the shift? This will archive today\'s sales into historical records.', true, (confirmed) => {
+                if(confirmed) {
+                    let grand = 0;
+                    let methods = {};
+                    let itemsSummary = {};
+                    completedTodaySales.forEach(o => {
+                        grand += o.total;
+                        methods[o.paymentMethod || 'Cash'] = (methods[o.paymentMethod || 'Cash'] || 0) + o.total;
+                        o.items.forEach(i => {
+                            itemsSummary[i.name] = (itemsSummary[i.name] || 0) + (i.price * i.qty);
+                        });
+                    });
+
+                    const closedRecord = {
+                        date: new Date().toISOString().split('T')[0],
+                        transactions: completedTodaySales.length,
+                        revenue: grand,
+                        methods: methods,
+                        itemsSummary: itemsSummary
+                    };
+
+                    historicalClosedDailySales.push(closedRecord);
+                    localStorage.setItem('pos_historical_closed_daily_sales', JSON.stringify(historicalClosedDailySales));
+
+                    // Reset today sales
+                    completedTodaySales = [];
+                    localStorage.setItem('pos_completed_today_sales', JSON.stringify(completedTodaySales));
+                    refreshReconData();
+                    updateDashboardMetrics();
+                    showModal('Shift Closed', 'Shift closed successfully and archived to historical records.');
+                }
+            });
+        }
+
+        /* DAILY TEA & TAPIOCA BATCH PREP */
+        function submitBatchPrepInput() {
+            const itemType = document.getElementById('batchItemSelect').value;
+            const gramVal = parseFloat(document.getElementById('batchGramInput').value) || 0;
+            if(gramVal <= 0) {
+                showModal('Validation Error', 'Please enter a valid weight in grams.');
+                return;
+            }
+
+            const record = {
+                date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                item: itemType,
+                grams: gramVal,
+                staff: currentStaff ? currentStaff.name : 'Admin'
+            };
+
+            dailyBatchLogs.push(record);
+            localStorage.setItem('pos_daily_batch_logs', JSON.stringify(dailyBatchLogs));
+            document.getElementById('batchGramInput').value = '';
+            renderBatchPrepSummary();
+            showModal('Success', `Recorded ${gramVal}g of ${itemType} prepared.`);
+        }
+
+        function renderBatchPrepSummary() {
+            let totals = { 'GREEN TEA': 0, 'BLACK TEA': 0, 'TAPIOCA PEARLS': 0 };
+            
+            const historyContainer = document.getElementById('batchHistoryContainer');
+            if(!historyContainer) return;
+            historyContainer.innerHTML = '';
+
+            let hasEntries = false;
+            dailyBatchLogs.forEach((log) => {
+                if(totals[log.item] !== undefined) {
+                    totals[log.item] += log.grams;
+                }
+                hasEntries = true;
+                const div = document.createElement('div');
+                div.style.padding = '3px 0';
+                div.style.borderBottom = '1px solid #f1f5f9';
+                div.innerHTML = `<strong>${log.item}</strong>: +${log.grams}g (${log.staff}) <span style="color:#94a3b8; font-size:0.7rem;">${log.date}</span>`;
+                historyContainer.appendChild(div);
+            });
+
+            if(!hasEntries) {
+                historyContainer.innerHTML = '<span style="color: #94a3b8;">No batches recorded yet today</span>';
+            }
+
+            document.getElementById('totalGreenTeaPreparedDisplay').innerText = totals['GREEN TEA'] + ' g';
+            document.getElementById('totalBlackTeaPreparedDisplay').innerText = totals['BLACK TEA'] + ' g';
+            document.getElementById('totalTapiocaPreparedDisplay').innerText = totals['TAPIOCA PEARLS'] + ' g';
+        }
+
+        /* ADMIN SALES ANALYTICS */
+        function renderAdminSalesRecords(type) {
+            const container = document.getElementById('adminSalesAnalyticsReportContainer');
+            if(!container) return;
+
+            let html = `<h4 style="margin-top:0; color:#0284c7; font-size:0.9rem; text-transform:uppercase;">${type} Sales Report</h4>`;
+            
+            if(type === 'daily') {
+                html += '<table><thead><tr><th>Date</th><th>Transactions</th><th>Revenue (Rs)</th></tr></thead><tbody>';
+                historicalClosedDailySales.forEach(d => {
+                    html += `<tr><td>${d.date}</td><td>${d.transactions}</td><td>Rs ${d.revenue.toFixed(2)}</td></tr>`;
+                });
+                // Include today
+                let todayRev = 0;
+                completedTodaySales.forEach(o => todayRev += o.total);
+                html += `<tr><td><strong>Today (Live)</strong></td><td>${completedTodaySales.length}</td><td><strong>Rs ${todayRev.toFixed(2)}</strong></td></tr>`;
+                html += '</tbody></table>';
+            } else if(type === 'monthly') {
+                html += '<table><thead><tr><th>Month</th><th>Total Revenue (Rs)</th></tr></thead><tbody>';
+                let monthlyMap = {};
+                historicalClosedDailySales.forEach(d => {
+                    let m = d.date.substring(0, 7);
+                    monthlyMap[m] = (monthlyMap[m] || 0) + d.revenue;
+                });
+                for(let m in monthlyMap) {
+                    html += `<tr><td>${m}</td><td>Rs ${monthlyMap[m].toFixed(2)}</td></tr>`;
+                }
+                html += '</tbody></table>';
+            } else if(type === 'yearly') {
+                html += '<table><thead><tr><th>Year</th><th>Total Revenue (Rs)</th></tr></thead><tbody>';
+                let yearlyMap = {};
+                historicalClosedDailySales.forEach(d => {
+                    let y = d.date.substring(0, 4);
+                    yearlyMap[y] = (yearlyMap[y] || 0) + d.revenue;
+                });
+                for(let y in yearlyMap) {
+                    html += `<tr><td>${y}</td><td>Rs ${yearlyMap[y].toFixed(2)}</td></tr>`;
+                }
+                html += '</tbody></table>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        function resetAllSalesAndShiftData() {
+            showModal('Confirm Reset', 'Are you sure you want to clear all sales history and reset the POS shift?', true, (confirmed) => {
+                if(confirmed) {
+                    completedTodaySales = [];
+                    placedOrders = [];
+                    historicalClosedDailySales = [];
+                    dailyBatchLogs = [];
+                    localStorage.removeItem('pos_completed_today_sales');
+                    localStorage.removeItem('pos_placed_orders');
+                    localStorage.removeItem('pos_historical_closed_daily_sales');
+                    localStorage.removeItem('pos_daily_batch_logs');
+                    refreshReconData();
+                    updateDashboardMetrics();
+                    showModal('Reset Complete', 'All sales records and shift data have been cleared.');
+                }
+            });
+        }
+
+        /* ADMIN STAFF MANAGEMENT */
         function renderAdminStaffDirectory() {
             staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
             const container = document.getElementById('homeAdminStaffDirectoryList');
-            if (!container) return;
+            if(!container) return;
             container.innerHTML = '';
 
-            staffList.forEach((s, idx) => {
+            staffList.forEach(s => {
                 const card = document.createElement('div');
-                card.style.cssText = 'background: white; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;';
+                card.style.background = 'white';
+                card.style.border = '1px solid var(--border)';
+                card.style.borderRadius = '8px';
+                card.style.padding = '10px 12px';
                 card.innerHTML = `
-                    <div>
-                        <strong style="font-size: 0.85rem; color: #1e293b; display: block;">${s.name}</strong>
-                        <span style="font-size: 0.75rem; color: #64748b;">Username: <b>${s.username}</b> | PIN: ****</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong>${s.name}</strong>
+                        <span style="font-size:0.75rem; color:#64748b;">PIN: ${s.pin}</span>
                     </div>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.7rem; width: auto; margin:0;" onclick="editStaffUsername(${idx})">Edit Username</button>
-                        ${s.username.toLowerCase() !== 'admin' ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.7rem; width: auto; margin:0;" onclick="deleteStaffMember(${idx})">Delete</button>` : ''}
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">User: ${s.username}</div>
+                    <div style="display:flex; gap:6px; margin-top:8px;">
+                        <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.7rem; width:auto; margin:0;" onclick="viewStaffAudit('${s.name}')">Audit Sales</button>
+                        ${s.username !== 'Admin' ? `<button class="btn btn-danger" style="padding:4px 8px; font-size:0.7rem; width:auto; margin:0;" onclick="deleteStaffMember('${s.username}')">Remove</button>` : ''}
                     </div>
                 `;
                 container.appendChild(card);
             });
-        }
-
-        function editStaffUsername(idx) {
-            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
-            const staff = staffList[idx];
-            const newUsername = prompt(`Enter new username for staff member "${staff.name}":`, staff.username);
-            if (!newUsername || !newUsername.trim()) return;
-
-            const formatted = newUsername.trim();
-            const exists = staffList.some((s, i) => i !== idx && s.username.toLowerCase() === formatted.toLowerCase());
-            if (exists) {
-                showModal('Duplicate Username', 'This username is already taken by another staff member.');
-                return;
-            }
-
-            staff.username = formatted;
-            localStorage.setItem('pos_staff_list', JSON.stringify(staffList));
-            populateLoginDropdown();
-            renderAdminStaffDirectory();
-            showModal('Success', `Username updated to "${formatted}".`);
         }
 
         function createNewStaffMemberFromHome() {
@@ -1598,867 +2279,282 @@
             const username = document.getElementById('homeNewStaffUserInput').value.trim();
             const pin = document.getElementById('homeNewStaffPinInput').value.trim();
 
-            if (!name || !username || !pin) {
-                showModal('Validation Error', 'Please complete all staff fields (Name, Username, PIN).');
+            if(!name || !username || !pin) {
+                showModal('Validation Error', 'Please fill in all staff details.');
                 return;
             }
 
-            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
-            if (staffList.some(s => s.username.toLowerCase() === username.toLowerCase())) {
-                showModal('Duplicate Error', 'Username already exists.');
-                return;
-            }
-
-            staffList.push({ username, name, pin });
+            staffList.push({ name, username, pin });
             localStorage.setItem('pos_staff_list', JSON.stringify(staffList));
-
             document.getElementById('homeNewStaffNameInput').value = '';
             document.getElementById('homeNewStaffUserInput').value = '';
             document.getElementById('homeNewStaffPinInput').value = '';
 
-            populateLoginDropdown();
             renderAdminStaffDirectory();
-            showModal('Success', `Staff member ${name} created successfully.`);
+            populateLoginDropdown();
+            showModal('Success', `Staff member "${name}" added successfully.`);
         }
 
-        function deleteStaffMember(idx) {
-            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
-            const staff = staffList[idx];
-            showModal('Confirm Delete', `Remove staff member ${staff.name}?`, true, (confirmed) => {
-                if (confirmed) {
-                    staffList.splice(idx, 1);
-                    localStorage.setItem('pos_staff_list', JSON.stringify(staffList));
-                    populateLoginDropdown();
-                    renderAdminStaffDirectory();
-                }
+        function deleteStaffMember(username) {
+            staffList = staffList.filter(s => s.username !== username);
+            localStorage.setItem('pos_staff_list', JSON.stringify(staffList));
+            renderAdminStaffDirectory();
+            populateLoginDropdown();
+        }
+
+        function viewStaffAudit(staffName) {
+            const auditBox = document.getElementById('homeAdminStaffAuditBox');
+            auditBox.style.display = 'block';
+            document.getElementById('homeAuditStaffTitleHeading').innerText = `Audit Trail: ${staffName}`;
+
+            let filtered = completedTodaySales.filter(o => o.cashier === staffName);
+            const container = document.getElementById('homeAuditStaffTransactionsContainer');
+            let html = '<table><thead><tr><th>Order ID</th><th>Time</th><th>Total</th><th>Method</th></tr></thead><tbody>';
+            let sum = 0;
+            filtered.forEach(o => {
+                sum += o.total;
+                html += `<tr><td>#${o.id}</td><td>${o.date}</td><td>Rs ${o.total.toFixed(2)}</td><td>${o.paymentMethod}</td></tr>`;
             });
+            if(filtered.length === 0) {
+                html += '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No transactions found for this staff today</td></tr>';
+            }
+            html += `</tbody></table><div style="margin-top:6px; font-weight:bold; text-align:right;">Total Sales: Rs ${sum.toFixed(2)}</div>`;
+            container.innerHTML = html;
         }
 
         function closeHomeStaffAudit() {
             document.getElementById('homeAdminStaffAuditBox').style.display = 'none';
         }
 
-        /* MENU CATALOG & POS REGISTER FUNCTIONS */
-        function renderAccordion() {
-            const container = document.getElementById('accordionContainer');
-            if (!container) return;
-            container.innerHTML = '';
-
-            // Group products by active categories
-            categories.forEach(cat => {
-                const catProducts = products.filter(p => p.cat === cat);
-                if (catProducts.length === 0) return;
-
-                const drop = document.createElement('div');
-                drop.className = 'category-dropdown';
-
-                const header = document.createElement('div');
-                header.className = 'category-header';
-                header.innerHTML = `<span>${cat}</span> <span>(${catProducts.length}) ▾</span>`;
-                header.onclick = () => drop.classList.toggle('active');
-
-                const content = document.createElement('div');
-                content.className = 'category-content';
-
-                catProducts.forEach(prod => {
-                    const btn = document.createElement('div');
-                    btn.className = 'product-btn';
-                    btn.onclick = () => addToCart(prod.id);
-                    btn.innerHTML = `
-                        <span class="product-name">${prod.name}</span>
-                        <span class="product-price">Rs ${prod.price.toFixed(2)}</span>
-                        <span class="product-stock">Stock: ${prod.stock}</span>
-                    `;
-                    content.appendChild(btn);
-                });
-
-                drop.appendChild(header);
-                drop.appendChild(content);
-                container.appendChild(drop);
-            });
-        }
-
-        function addToCart(prodId) {
-            const prod = products.find(p => p.id === prodId);
-            if (!prod) return;
-
-            const existing = cart.find(c => c.id === prodId);
-            if (existing) {
-                existing.qty++;
-            } else {
-                cart.push({ id: prod.id, name: prod.name, price: prod.price, cat: prod.cat, qty: 1 });
-            }
-            renderCart();
-        }
-
-        function updateCartQty(prodId, delta) {
-            const item = cart.find(c => c.id === prodId);
-            if (!item) return;
-            item.qty += delta;
-            if (item.qty <= 0) {
-                cart = cart.filter(c => c.id !== prodId);
-            }
-            renderCart();
-        }
-
-        function renderCart() {
-            const container = document.getElementById('cartItems');
-            const receiptContent = document.getElementById('screenReceiptContent');
-            if (!container) return;
-
-            if (cart.length === 0) {
-                container.innerHTML = `<p style="color: #94a3b8; text-align: center; font-size: 0.85rem;">Cart is empty</p>`;
-                if (receiptContent) receiptContent.innerText = "No items in receipt preview";
-                document.getElementById('cartSubtotal').innerText = 'Rs 0.00';
-                document.getElementById('cartVat').innerText = 'Rs 0.00';
-                document.getElementById('cartTotal').innerText = 'Rs 0.00';
-                calculateChange();
-                return;
-            }
-
-            let subtotal = 0;
-            container.innerHTML = '';
-            let previewLines = '';
-
-            cart.forEach(item => {
-                const itemTotal = item.price * item.qty;
-                subtotal += itemTotal;
-
-                const div = document.createElement('div');
-                div.className = 'cart-item';
-                div.innerHTML = `
-                    <div style="flex:1;">
-                        <strong style="display:block;">${item.name}</strong>
-                        <span style="color:#64748b; font-size:0.7rem;">Rs ${item.price.toFixed(2)} x ${item.qty}</span>
-                    </div>
-                    <div class="cart-item-controls" style="display:flex; align-items:center; gap:4px;">
-                        <button onclick="updateCartQty(${item.id}, -1)">-</button>
-                        <span>${item.qty}</span>
-                        <button onclick="updateCartQty(${item.id}, 1)">+</button>
-                    </div>
-                    <span style="font-weight:bold; margin-left:8px;">Rs ${itemTotal.toFixed(2)}</span>
-                `;
-                container.appendChild(div);
-
-                previewLines += `${item.qty}x ${item.name} = Rs ${itemTotal.toFixed(2)}<br>`;
-            });
-
-            const vat = subtotal * 0.15;
-            const grandTotal = subtotal;
-
-            document.getElementById('cartSubtotal').innerText = `Rs ${(subtotal - vat).toFixed(2)}`;
-            document.getElementById('cartVat').innerText = `Rs ${vat.toFixed(2)}`;
-            document.getElementById('cartTotal').innerText = `Rs ${grandTotal.toFixed(2)}`;
-
-            if (receiptContent) {
-                receiptContent.innerHTML = `${previewLines}<hr style="border-top: 1px dotted #d97706; margin: 3px 0;"><strong>TOTAL: Rs ${grandTotal.toFixed(2)}</strong>`;
-            }
-
-            calculateChange();
-        }
-
-        function calculateChange() {
-            const input = document.getElementById('cashGivenInput');
-            const display = document.getElementById('changeDueDisplay');
-            if (!input || !display) return;
-
-            const totalText = document.getElementById('cartTotal').innerText.replace('Rs ', '');
-            const total = parseFloat(totalText) || 0;
-            const cashGiven = parseFloat(input.value) || 0;
-
-            const change = cashGiven - total;
-            display.innerText = `Rs ${change > 0 ? change.toFixed(2) : '0.00'}`;
-        }
-
-        function toggleScreenReceipt() {
-            showScreenReceipt = !showScreenReceipt;
-            const box = document.getElementById('screenReceiptBox');
-            const btn = document.getElementById('receiptToggleBtn');
-            if (box && btn) {
-                if (showScreenReceipt) {
-                    box.style.display = 'block';
-                    btn.innerText = 'ON';
-                    btn.className = 'btn btn-success';
-                } else {
-                    box.style.display = 'none';
-                    btn.innerText = 'OFF';
-                    btn.className = 'btn btn-secondary';
-                }
-            }
-        }
-
-        function connectBluetoothPrinter() {
-            if (!navigator.bluetooth) {
-                showModal('Bluetooth Error', 'Web Bluetooth API is not supported on this browser/device.');
-                return;
-            }
-            navigator.bluetooth.requestDevice({
-                acceptAllDevices: true,
-                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-            })
-            .then(device => {
-                bluetoothDevice = device;
-                document.getElementById('printerStatus').innerText = 'connected';
-                document.getElementById('printerStatus').style.color = '#059669';
-                showModal('Printer Connected', `Connected to ${device.name || 'JP80M-UE Printer'}.`);
-            })
-            .catch(err => {
-                showModal('Connection Failed', err.message);
-            });
-        }
-
-        function autoConnectPrinterOnStartup() {
-            document.getElementById('printerStatus').innerText = 'no printer';
-        }
-
-        function openCashDrawerExplicit() {
-            showModal('Cash Drawer', 'Drawer trigger signal sent.');
-        }
-
-        function completeSaleAndPrintReceipt() {
-            if (cart.length === 0) {
-                showModal('Empty Order', 'Please add items to cart before completing sale.');
-                return;
-            }
-
-            const method = document.getElementById('paymentMethod').value;
-            let totalAmt = 0;
-            let totalQty = 0;
-
-            cart.forEach(c => {
-                totalAmt += c.price * c.qty;
-                totalQty += c.qty;
-
-                // Update Daily Analytics Summary
-                if (!dailySalesLog.itemsSummary[c.name]) dailySalesLog.itemsSummary[c.name] = { qty: 0, amount: 0, cat: c.cat };
-                dailySalesLog.itemsSummary[c.name].qty += c.qty;
-                dailySalesLog.itemsSummary[c.name].amount += c.price * c.qty;
-            });
-
-            dailySalesLog.totalTransactions++;
-            dailySalesLog.totalQuantity += totalQty;
-            dailySalesLog.totalAmount += totalAmt;
-
-            if (!dailySalesLog.paymentMethods[method]) {
-                dailySalesLog.paymentMethods[method] = { count: 0, amount: 0 };
-            }
-            dailySalesLog.paymentMethods[method].count++;
-            dailySalesLog.paymentMethods[method].amount += totalAmt;
-
-            localStorage.setItem('pos_daily_sales', JSON.stringify(dailySalesLog));
-
-            // Also record Placed Order for Cashier record
-            const newOrder = {
-                id: orderSequenceNumber++,
-                cashier: currentStaff ? currentStaff.name : 'Administrator',
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                items: [...cart],
-                status: 'PAID',
-                paymentMethod: method,
-                total: totalAmt
-            };
-            placedOrders.unshift(newOrder);
-            localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-            localStorage.setItem('pos_order_seq', orderSequenceNumber.toString());
-
-            cart = [];
-            document.getElementById('cashGivenInput').value = '';
-            renderCart();
-            refreshReconData();
-            showModal('Sale Completed', `Order #${newOrder.id} completed successfully with ${method}.`);
-        }
-
-        /* PLACED ORDERS PANEL MANAGEMENT */
-        function renderPlacedOrders() {
-            const container = document.getElementById('placedOrdersListContainer');
-            if (!container) return;
-            placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-
-            if (placedOrders.length === 0) {
-                container.innerHTML = `<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>`;
-                return;
-            }
-
-            container.innerHTML = '';
-            placedOrders.forEach(ord => {
-                const item = document.createElement('div');
-                item.style.cssText = `padding: 10px; border-bottom: 1px solid var(--border); cursor: pointer; background: ${selectedPlacedOrderId === ord.id ? '#eef2ff' : 'white'};`;
-                item.onclick = () => selectPlacedOrder(ord.id);
-                item.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:0.85rem;">
-                        <span>Order #${ord.id}</span>
-                        <span>Rs ${ord.total.toFixed(2)}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; color:#64748b; font-size:0.75rem; margin-top:2px;">
-                        <span>By: ${ord.cashier}</span>
-                        <span>${ord.time} | <strong style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</strong></span>
-                    </div>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        function selectPlacedOrder(ordId) {
-            selectedPlacedOrderId = ordId;
-            renderPlacedOrders();
-
-            const ord = placedOrders.find(o => o.id === ordId);
-            const header = document.getElementById('selectedOrderDetailsHeader');
-            const table = document.getElementById('selectedOrderItemsTable');
-
-            if (!ord || !header || !table) return;
-
-            header.innerHTML = `
-                <h3 style="margin:0 0 4px 0; color:#1e293b;">Order #${ord.id} Details</h3>
-                <p style="margin:0; font-size:0.8rem; color:#64748b;">Cashier: <b>${ord.cashier}</b> | Time: <b>${ord.time}</b> | Payment: <b>${ord.paymentMethod}</b></p>
-            `;
-
-            let rows = '';
-            ord.items.forEach(i => {
-                rows += `<tr><td>${i.name}</td><td>${i.qty}</td><td>Rs ${i.price.toFixed(2)}</td><td>Rs ${(i.price * i.qty).toFixed(2)}</td></tr>`;
-            });
-
-            table.innerHTML = `
-                <table>
-                    <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
-                    <tbody>${rows}</tbody>
-                </table>
-            `;
-        }
-
-        function setPaymentStatus(status) {
-            if (!selectedPlacedOrderId) {
-                showModal('No Order Selected', 'Please select an order first.');
-                return;
-            }
-            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
-            if (ord) {
-                ord.status = status;
-                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-                renderPlacedOrders();
-                selectPlacedOrder(ord.id);
-            }
-        }
-
-        function settleCurrentSelectedOrder(method) {
-            if (!selectedPlacedOrderId) {
-                showModal('No Order Selected', 'Please select an order from the list.');
-                return;
-            }
-            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
-            if (ord) {
-                ord.paymentMethod = method;
-                ord.status = 'PAID';
-                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-                renderPlacedOrders();
-                selectPlacedOrder(ord.id);
-                showModal('Settlement Updated', `Order #${ord.id} updated to ${method} (PAID).`);
-            }
-        }
-
-        function confirmAndFinishOrder() {
-            if (!selectedPlacedOrderId) {
-                showModal('Selection Required', 'Select an order to confirm.');
-                return;
-            }
-            showModal('Order Finished', `Order #${selectedPlacedOrderId} settled and archived.`);
-        }
-
-        function deleteSelectedPlacedOrder() {
-            if (!selectedPlacedOrderId) {
-                showModal('Selection Required', 'Select an order to cancel.');
-                return;
-            }
-            showModal('Confirm Cancel', `Cancel order #${selectedPlacedOrderId}?`, true, (confirmed) => {
-                if (confirmed) {
-                    placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
-                    localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-                    selectedPlacedOrderId = null;
-                    document.getElementById('selectedOrderDetailsHeader').innerHTML = `<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>`;
-                    document.getElementById('selectedOrderItemsTable').innerHTML = '';
-                    renderPlacedOrders();
-                }
-            });
-        }
-
-        /* RECON & DAILY SHIFT SUMMARY */
-        function refreshReconData() {
-            dailySalesLog = JSON.parse(localStorage.getItem('pos_daily_sales')) || dailySalesLog;
-
-            document.getElementById('reconTimestamp').innerText = new Date().toLocaleString();
-            document.getElementById('reconCashTotal').innerText = (dailySalesLog.paymentMethods.Cash?.amount || 0).toFixed(2);
-            document.getElementById('reconCardTotal').innerText = (dailySalesLog.paymentMethods.Card?.amount || 0).toFixed(2);
-            document.getElementById('reconJuiceTotal').innerText = (dailySalesLog.paymentMethods.Juice?.amount || 0).toFixed(2);
-            document.getElementById('reconMytTotal').innerText = (dailySalesLog.paymentMethods['MyT Money']?.amount || 0).toFixed(2);
-            document.getElementById('reconBlinkTotal').innerText = (dailySalesLog.paymentMethods.Blink?.amount || 0).toFixed(2);
-            document.getElementById('reconDelivooTotal').innerText = (dailySalesLog.paymentMethods.Delivoo?.amount || 0).toFixed(2);
-            document.getElementById('reconHungryDodoTotal').innerText = (dailySalesLog.paymentMethods['Hungry Dodo']?.amount || 0).toFixed(2);
-
-            document.getElementById('reconGrandTotal').innerText = dailySalesLog.totalAmount.toFixed(2);
-            document.getElementById('adminReconTransCount').innerText = dailySalesLog.totalTransactions;
-
-            const container = document.getElementById('reconItemizedSalesList');
-            if (!container) return;
-
-            const items = dailySalesLog.itemsSummary;
-            const keys = Object.keys(items);
-
-            if (keys.length === 0) {
-                container.innerHTML = `<span style="color:#94a3b8;">No item sales recorded today yet.</span>`;
-                return;
-            }
-
-            let html = `<table><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead><tbody>`;
-            keys.forEach(k => {
-                html += `<tr><td>${k}</td><td>${items[k].qty}</td><td>Rs ${items[k].amount.toFixed(2)}</td></tr>`;
-            });
-            html += `</tbody></table>`;
-            container.innerHTML = html;
-        }
-
-        function printCombinedDailySalesReport() {
-            showModal('Print Report', 'Daily Reconciliation Report sent to printer.');
-        }
-
-        function printSpecificPlatformReport(platform) {
-            showModal('Print Report', `${platform} platform daily sales report sent to printer.`);
-        }
-
-        function approveCloseShiftAndPrintReport() {
-            showModal('Close Shift', 'Approve and close current active shift?', true, (confirmed) => {
-                if (confirmed) {
-                    const closedRecord = {
-                        date: new Date().toISOString().split('T')[0],
-                        transactions: dailySalesLog.totalTransactions,
-                        revenue: dailySalesLog.totalAmount,
-                        methods: {
-                            Cash: dailySalesLog.paymentMethods.Cash?.amount || 0,
-                            Card: dailySalesLog.paymentMethods.Card?.amount || 0,
-                            Juice: dailySalesLog.paymentMethods.Juice?.amount || 0,
-                            'MyT Money': dailySalesLog.paymentMethods['MyT Money']?.amount || 0,
-                            Blink: dailySalesLog.paymentMethods.Blink?.amount || 0,
-                            Delivoo: dailySalesLog.paymentMethods.Delivoo?.amount || 0,
-                            'Hungry Dodo': dailySalesLog.paymentMethods['Hungry Dodo']?.amount || 0
-                        },
-                        itemsSummary: {}
-                    };
-
-                    Object.keys(dailySalesLog.itemsSummary).forEach(k => {
-                        const cat = dailySalesLog.itemsSummary[k].cat || 'OTHER';
-                        if (!closedRecord.itemsSummary[cat]) closedRecord.itemsSummary[cat] = 0;
-                        closedRecord.itemsSummary[cat] += dailySalesLog.itemsSummary[k].amount;
-                    });
-
-                    historicalClosedDailySales.push(closedRecord);
-                    localStorage.setItem('pos_historical_closed_daily_sales', JSON.stringify(historicalClosedDailySales));
-
-                    // Reset current shift
-                    dailySalesLog = {
-                        totalTransactions: 0, totalQuantity: 0, totalAmount: 0,
-                        paymentMethods: { Cash: { count: 0, amount: 0 }, Card: { count: 0, amount: 0 }, Juice: { count: 0, amount: 0 }, 'MyT Money': { count: 0, amount: 0 }, Blink: { count: 0, amount: 0 }, Delivoo: { count: 0, amount: 0 }, 'Hungry Dodo': { count: 0, amount: 0 } },
-                        itemsSummary: {}
-                    };
-                    localStorage.setItem('pos_daily_sales', JSON.stringify(dailySalesLog));
-                    placedOrders = [];
-                    localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-
-                    refreshReconData();
-                    renderPlacedOrders();
-                    showModal('Shift Closed', 'Active shift successfully closed and archived.');
-                }
-            });
-        }
-
-        /* GROSS SALES ANALYTICS ENGINE WITH TABLET & CATALOG UPDATES MERGING */
-        function renderAdminSalesRecords(period) {
-            const container = document.getElementById('adminSalesAnalyticsReportContainer');
-            if (!container) return;
-
-            historicalClosedDailySales = JSON.parse(localStorage.getItem('pos_historical_closed_daily_sales')) || historicalClosedDailySales;
-            dailySalesLog = JSON.parse(localStorage.getItem('pos_daily_sales')) || dailySalesLog;
-
-            const allDailyRecords = [...historicalClosedDailySales];
-            const todayStr = new Date().toISOString().split('T')[0];
-
-            if (dailySalesLog.totalAmount > 0 || dailySalesLog.totalTransactions > 0) {
-                const activeCatSummary = {};
-                Object.keys(dailySalesLog.itemsSummary).forEach(k => {
-                    const cat = dailySalesLog.itemsSummary[k].cat || 'OTHER';
-                    if (!activeCatSummary[cat]) activeCatSummary[cat] = 0;
-                    activeCatSummary[cat] += dailySalesLog.itemsSummary[k].amount;
-                });
-
-                allDailyRecords.push({
-                    date: todayStr,
-                    transactions: dailySalesLog.totalTransactions,
-                    revenue: dailySalesLog.totalAmount,
-                    methods: {
-                        Cash: dailySalesLog.paymentMethods.Cash?.amount || 0,
-                        Card: dailySalesLog.paymentMethods.Card?.amount || 0,
-                        Juice: dailySalesLog.paymentMethods.Juice?.amount || 0,
-                        'MyT Money': dailySalesLog.paymentMethods['MyT Money']?.amount || 0,
-                        Blink: dailySalesLog.paymentMethods.Blink?.amount || 0,
-                        Delivoo: dailySalesLog.paymentMethods.Delivoo?.amount || 0,
-                        'Hungry Dodo': dailySalesLog.paymentMethods['Hungry Dodo']?.amount || 0
-                    },
-                    itemsSummary: activeCatSummary
-                });
-            }
-
-            let totalRev = 0;
-            let totalTrans = 0;
-            const categoryTotals = {};
-
-            categories.forEach(c => { categoryTotals[c] = 0; });
-
-            allDailyRecords.forEach(rec => {
-                totalRev += rec.revenue || 0;
-                totalTrans += rec.transactions || 0;
-                if (rec.itemsSummary) {
-                    Object.keys(rec.itemsSummary).forEach(cat => {
-                        categoryTotals[cat] = (categoryTotals[cat] || 0) + rec.itemsSummary[cat];
-                    });
-                }
-            });
-
-            let reportHeader = '';
-            let detailsTable = '';
-
-            if (period === 'daily') {
-                reportHeader = `<h3>📅 Daily Gross Sales Analysis</h3>`;
-                let rows = '';
-                allDailyRecords.forEach(rec => {
-                    rows += `
-                        <tr>
-                            <td><b>${rec.date}</b></td>
-                            <td>${rec.transactions}</td>
-                            <td>Rs ${(rec.methods?.Cash || 0).toFixed(2)}</td>
-                            <td>Rs ${(rec.methods?.Card || 0).toFixed(2)}</td>
-                            <td>Rs ${(rec.methods?.Delivoo || 0 + rec.methods?.['Hungry Dodo'] || 0).toFixed(2)}</td>
-                            <td><b>Rs ${rec.revenue.toFixed(2)}</b></td>
-                        </tr>
-                    `;
-                });
-                detailsTable = `
-                    <table>
-                        <thead><tr><th>Date</th><th>Orders</th><th>Cash</th><th>Card</th><th>Delivery</th><th>Total Revenue</th></tr></thead>
-                        <tbody>${rows || '<tr><td colspan="6" style="text-align:center;">No records available</td></tr>'}</tbody>
-                    </table>
-                `;
-            } else if (period === 'monthly') {
-                reportHeader = `<h3>📅 Monthly Gross Sales Aggregate</h3>`;
-                const monthlyMap = {};
-                allDailyRecords.forEach(rec => {
-                    const mKey = rec.date.substring(0, 7); // YYYY-MM
-                    if (!monthlyMap[mKey]) monthlyMap[mKey] = { rev: 0, trans: 0 };
-                    monthlyMap[mKey].rev += rec.revenue;
-                    monthlyMap[mKey].trans += rec.transactions;
-                });
-                let rows = '';
-                Object.keys(monthlyMap).forEach(m => {
-                    rows += `<tr><td><b>${m}</b></td><td>${monthlyMap[m].trans}</td><td><b>Rs ${monthlyMap[m].rev.toFixed(2)}</b></td></tr>`;
-                });
-                detailsTable = `
-                    <table>
-                        <thead><tr><th>Month (YYYY-MM)</th><th>Total Orders</th><th>Total Gross Sales</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                `;
-            } else if (period === 'yearly') {
-                reportHeader = `<h3>📅 Yearly Gross Sales Aggregate</h3>`;
-                const yearlyMap = {};
-                allDailyRecords.forEach(rec => {
-                    const yKey = rec.date.substring(0, 4); // YYYY
-                    if (!yearlyMap[yKey]) yearlyMap[yKey] = { rev: 0, trans: 0 };
-                    yearlyMap[yKey].rev += rec.revenue;
-                    yearlyMap[yKey].trans += rec.transactions;
-                });
-                let rows = '';
-                Object.keys(yearlyMap).forEach(y => {
-                    rows += `<tr><td><b>${y}</b></td><td>${yearlyMap[y].trans}</td><td><b>Rs ${yearlyMap[y].rev.toFixed(2)}</b></td></tr>`;
-                });
-                detailsTable = `
-                    <table>
-                        <thead><tr><th>Year</th><th>Total Orders</th><th>Total Gross Sales</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                `;
-            }
-
-            let categoryBreakdownHtml = `<div style="margin-top:12px; font-size:0.8rem;"><strong>Category Sales Contribution (Tablet Catalog Merged):</strong><div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">`;
-            Object.keys(categoryTotals).forEach(cat => {
-                if (categoryTotals[cat] > 0) {
-                    categoryBreakdownHtml += `<span style="background:#eef2ff; border:1px solid #c7d2fe; padding:4px 8px; border-radius:6px;"><b>${cat}:</b> Rs ${categoryTotals[cat].toFixed(2)}</span>`;
-                }
-            });
-            categoryBreakdownHtml += `</div></div>`;
-
-            container.innerHTML = `
-                ${reportHeader}
-                <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
-                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:6px; flex:1;">
-                        <span style="font-size:0.75rem; color:#15803d; font-weight:bold;">Total Gross Sales</span>
-                        <h2 style="margin:2px 0 0 0; color:#16a34a; border:none;">Rs ${totalRev.toFixed(2)}</h2>
-                    </div>
-                    <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:10px; border-radius:6px; flex:1;">
-                        <span style="font-size:0.75rem; color:#1d4ed8; font-weight:bold;">Total Transactions</span>
-                        <h2 style="margin:2px 0 0 0; color:#2563eb; border:none;">${totalTrans}</h2>
-                    </div>
-                </div>
-                ${categoryBreakdownHtml}
-                <div style="margin-top:12px;">${detailsTable}</div>
-            `;
-        }
-
-        function resetAllSalesAndShiftData() {
-            showModal('RESET DATA', 'Are you sure you want to clear all sales analytics and shift records? This action cannot be undone.', true, (confirmed) => {
-                if (confirmed) {
-                    localStorage.removeItem('pos_daily_sales');
-                    localStorage.removeItem('pos_placed_orders');
-                    localStorage.removeItem('pos_historical_closed_daily_sales');
-
-                    dailySalesLog = {
-                        totalTransactions: 0, totalQuantity: 0, totalAmount: 0,
-                        paymentMethods: { Cash: { count: 0, amount: 0 }, Card: { count: 0, amount: 0 }, Juice: { count: 0, amount: 0 }, 'MyT Money': { count: 0, amount: 0 }, Blink: { count: 0, amount: 0 }, Delivoo: { count: 0, amount: 0 }, 'Hungry Dodo': { count: 0, amount: 0 } },
-                        itemsSummary: {}
-                    };
-                    historicalClosedDailySales = [];
-                    placedOrders = [];
-
-                    refreshReconData();
-                    renderPlacedOrders();
-                    renderAdminSalesRecords('daily');
-                    showModal('Reset Complete', 'All sales history and active shift metrics reset to zero.');
-                }
-            });
-        }
-
-        /* ADMIN CATALOG PRODUCT & PRICE EDITING */
+        /* ADMIN CATALOG EDIT TABLE & ADD PRODUCTS */
         function addNewMenuCatalogProductFromHomePane() {
             const cat = document.getElementById('homeNewProdCategory').value;
             const name = document.getElementById('homeNewProdName').value.trim();
-            const price = parseFloat(document.getElementById('homeNewProdPrice').value);
+            const price = parseFloat(document.getElementById('homeNewProdPrice').value) || 0;
             const stock = parseInt(document.getElementById('homeNewProdStock').value) || 50;
 
-            if (!name || isNaN(price) || price <= 0) {
+            if(!name || price <= 0) {
                 showModal('Validation Error', 'Please enter a valid product name and price.');
                 return;
             }
 
-            const newProd = { id: Date.now(), name, price, cat, stock };
-            products.push(newProd);
+            const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
+            products.push({ id: newId, name, price, cat, stock });
             localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
 
             document.getElementById('homeNewProdName').value = '';
             document.getElementById('homeNewProdPrice').value = '';
-
-            renderAccordion();
             renderAdminCatalogEditTable();
-            showModal('Product Added', `"${name}" added to category ${cat}.`);
+            renderAccordion();
+            showModal('Success', `Product "${name}" added to menu catalog.`);
         }
 
         function renderAdminCatalogEditTable() {
             const container = document.getElementById('adminCatalogEditTableContainer');
-            const searchFilter = document.getElementById('catalogSearchFilter')?.value.toLowerCase() || '';
-            if (!container) return;
+            if(!container) return;
+            const filter = document.getElementById('catalogSearchFilter') ? document.getElementById('catalogSearchFilter').value.toLowerCase() : '';
 
-            const filtered = products.filter(p => p.name.toLowerCase().includes(searchFilter) || p.cat.toLowerCase().includes(searchFilter));
-
-            let rows = '';
+            let filtered = products.filter(p => p.name.toLowerCase().includes(filter) || p.cat.toLowerCase().includes(filter));
+            let html = '<table><thead><tr><th>Category</th><th>Name</th><th>Price (Rs)</th><th>Stock</th><th>Action</th></tr></thead><tbody>';
             filtered.forEach(p => {
-                rows += `
+                html += `
                     <tr>
-                        <td><span class="category-chip" style="font-size:0.7rem; padding:2px 6px;">${p.cat}</span></td>
-                        <td><input type="text" value="${p.name}" onchange="updateProductName(${p.id}, this.value)" style="width:100%; font-size:0.75rem; padding:2px; border:1px solid #cbd5e1; border-radius:4px;"></td>
-                        <td><input type="number" value="${p.price}" onchange="updateProductPrice(${p.id}, this.value)" style="width:65px; font-size:0.75rem; padding:2px; border:1px solid #cbd5e1; border-radius:4px;"></td>
-                        <td><button class="btn btn-danger" style="padding:2px 6px; font-size:0.7rem; width:auto; margin:0;" onclick="deleteProduct(${p.id})">✕</button></td>
+                        <td>${p.cat}</td>
+                        <td><input type="text" value="${p.name}" id="edit_name_${p.id}" style="width:100%; padding:2px; font-size:0.75rem;"></td>
+                        <td><input type="number" value="${p.price}" id="edit_price_${p.id}" style="width:60px; padding:2px; font-size:0.75rem;"></td>
+                        <td><input type="number" value="${p.stock}" id="edit_stock_${p.id}" style="width:50px; padding:2px; font-size:0.75rem;"></td>
+                        <td>
+                            <button class="btn btn-success" style="padding:2px 6px; font-size:0.7rem; width:auto; margin:0;" onclick="saveProductEdit(${p.id})">Save</button>
+                            <button class="btn btn-danger" style="padding:2px 6px; font-size:0.7rem; width:auto; margin:0; margin-left:2px;" onclick="deleteCatalogProduct(${p.id})">Del</button>
+                        </td>
                     </tr>
                 `;
             });
-
-            container.innerHTML = `
-                <table>
-                    <thead><tr><th>Cat</th><th>Name</th><th>Rs</th><th>Del</th></tr></thead>
-                    <tbody>${rows || '<tr><td colspan="4" style="text-align:center;">No items found</td></tr>'}</tbody>
-                </table>
-            `;
+            html += '</tbody></table>';
+            container.innerHTML = html;
         }
 
-        function updateProductName(id, newName) {
+        function saveProductEdit(id) {
+            const nameInput = document.getElementById(`edit_name_${id}`);
+            const priceInput = document.getElementById(`edit_price_${id}`);
+            const stockInput = document.getElementById(`edit_stock_${id}`);
+
             const prod = products.find(p => p.id === id);
-            if (prod && newName.trim()) {
-                prod.name = newName.trim();
+            if(prod) {
+                prod.name = nameInput.value.trim();
+                prod.price = parseFloat(priceInput.value) || 0;
+                prod.stock = parseInt(stockInput.value) || 0;
                 localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
                 renderAccordion();
+                showModal('Success', 'Product updated successfully.');
             }
         }
 
-        function updateProductPrice(id, newPrice) {
-            const prod = products.find(p => p.id === id);
-            const val = parseFloat(newPrice);
-            if (prod && !isNaN(val) && val >= 0) {
-                prod.price = val;
-                localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
-                renderAccordion();
-            }
-        }
-
-        function deleteProduct(id) {
-            showModal('Confirm Delete', 'Delete this item from catalog?', true, (confirmed) => {
-                if (confirmed) {
+        function deleteCatalogProduct(id) {
+            showModal('Confirm Delete', 'Are you sure you want to delete this product from the catalog?', true, (confirmed) => {
+                if(confirmed) {
                     products = products.filter(p => p.id !== id);
                     localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
-                    renderAccordion();
                     renderAdminCatalogEditTable();
+                    renderAccordion();
                 }
             });
         }
 
-        /* BATCH PREP MANAGEMENT */
-        function submitBatchPrepInput() {
-            const item = document.getElementById('batchItemSelect').value;
-            const grams = parseFloat(document.getElementById('batchGramInput').value);
-
-            if (isNaN(grams) || grams <= 0) {
-                showModal('Validation Error', 'Please enter a valid gram quantity.');
-                return;
-            }
-
-            dailyBatchLogs.unshift({ time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), item, grams });
-            localStorage.setItem('pos_daily_batch_logs', JSON.stringify(dailyBatchLogs));
-            document.getElementById('batchGramInput').value = '';
-            renderBatchPrepUI();
-            showModal('Batch Recorded', `Recorded ${grams}g of ${item}.`);
-        }
-
-        function renderBatchPrepUI() {
-            let totalGreen = 0, totalBlack = 0, totalTapioca = 0;
-            dailyBatchLogs = JSON.parse(localStorage.getItem('pos_daily_batch_logs')) || [];
-
-            dailyBatchLogs.forEach(b => {
-                if (b.item === 'GREEN TEA') totalGreen += b.grams;
-                if (b.item === 'BLACK TEA') totalBlack += b.grams;
-                if (b.item === 'TAPIOCA PEARLS') totalTapioca += b.grams;
-            });
-
-            document.getElementById('totalGreenTeaPreparedDisplay').innerText = `${totalGreen} g`;
-            document.getElementById('totalBlackTeaPreparedDisplay').innerText = `${totalBlack} g`;
-            document.getElementById('totalTapiocaPreparedDisplay').innerText = `${totalTapioca} g`;
-
-            const historyBox = document.getElementById('batchHistoryContainer');
-            if (historyBox) {
-                if (dailyBatchLogs.length === 0) {
-                    historyBox.innerHTML = `<span style="color: #94a3b8;">No batches recorded yet today</span>`;
-                } else {
-                    let lines = '';
-                    dailyBatchLogs.forEach(l => {
-                        lines += `<div><b>${l.time}</b> - ${l.item}: ${l.grams}g</div>`;
-                    });
-                    historyBox.innerHTML = lines;
-                }
-            }
-        }
-
-        /* DASHBOARD DONUT CHART */
-        function renderDonutChart() {
-            const ctx = document.getElementById('salesDonutChart')?.getContext('2d');
-            if (!ctx) return;
-
-            dailySalesLog = JSON.parse(localStorage.getItem('pos_daily_sales')) || dailySalesLog;
-
-            const categorySales = {};
-            categories.forEach(c => { categorySales[c] = 0; });
-
-            Object.keys(dailySalesLog.itemsSummary).forEach(k => {
-                const cat = dailySalesLog.itemsSummary[k].cat || 'OTHER';
-                categorySales[cat] = (categorySales[cat] || 0) + dailySalesLog.itemsSummary[k].amount;
-            });
-
-            const labels = Object.keys(categorySales).filter(k => categorySales[k] > 0);
-            const data = labels.map(k => categorySales[k]);
-
-            if (donutChartInstance) donutChartInstance.destroy();
-
-            donutChartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels.length > 0 ? labels : ['No Sales Yet'],
-                    datasets: [{
-                        data: data.length > 0 ? data : [1],
-                        backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6', '#6366f1', '#14b8a6', '#f97316']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
-
-            document.getElementById('dashPendingCount').innerText = placedOrders.filter(o => o.status === 'UNPAID').length;
-            document.getElementById('dashRevenue').innerText = `Rs ${dailySalesLog.totalAmount.toFixed(2)}`;
-        }
-
-        /* INVENTORY & STOCK MANAGEMENT */
+        /* INVENTORY STOCK MANAGEMENT */
         function renderInventoryTable() {
             const tbody = document.querySelector('#inventoryTable tbody');
-            if (!tbody) return;
-
-            inventoryList = JSON.parse(localStorage.getItem('pos_exact_inventory_items')) || defaultInventoryList;
+            if(!tbody) return;
             tbody.innerHTML = '';
-
-            inventoryList.forEach((item, idx) => {
+            inventory.forEach(item => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><span class="category-chip" style="font-size:0.7rem;">${item.cat}</span></td>
-                    <td><b>${item.name}</b></td>
-                    <td><input type="number" value="${item.stock}" onchange="updateInventoryQty('${item.id}', this.value)" style="width:70px; padding:3px; border:1px solid #cbd5e1; border-radius:4px;"></td>
-                    <td><button class="btn btn-danger" style="padding:2px 6px; font-size:0.7rem; width:auto; margin:0;" onclick="deleteInventoryItem('${item.id}')">✕</button></td>
+                    <td>${item.cat}</td>
+                    <td>${item.name}</td>
+                    <td><input type="number" value="${item.stock}" style="width:70px; padding:2px; font-size:0.8rem;" onchange="updateInventoryStock('${item.id}', this.value)"></td>
+                    <td><button class="btn btn-danger" style="padding:2px 6px; font-size:0.7rem; width:auto; margin:0;" onclick="deleteInventoryItem('${item.id}')">Del</button></td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        function updateInventoryQty(id, qty) {
-            const item = inventoryList.find(i => i.id === id);
-            if (item) {
-                item.stock = parseFloat(qty) || 0;
-                localStorage.setItem('pos_exact_inventory_items', JSON.stringify(inventoryList));
-            }
-        }
-
         function addNewInventoryItem() {
             const cat = document.getElementById('stockCategory').value;
-            const name = document.getElementById('stockName').value.trim();
+            const name = document.getElementById('stockName').value.trim().toUpperCase();
             const qty = parseFloat(document.getElementById('stockQty').value) || 0;
 
-            if (!name) {
-                showModal('Validation Error', 'Please enter stock item name.');
+            if(!name) {
+                showModal('Validation Error', 'Please enter an item name.');
                 return;
             }
 
-            inventoryList.push({ id: 'custom_' + Date.now(), cat, name, stock: qty });
-            localStorage.setItem('pos_exact_inventory_items', JSON.stringify(inventoryList));
+            const newItem = {
+                id: 'inv_' + Date.now(),
+                cat: cat,
+                name: name,
+                stock: qty
+            };
 
+            inventory.push(newItem);
+            localStorage.setItem('pos_store_inventory', JSON.stringify(inventory));
             document.getElementById('stockName').value = '';
             document.getElementById('stockQty').value = '';
-
             renderInventoryTable();
-            showModal('Item Added', `${name} added to stock inventory.`);
+            showModal('Success', `Added ${name} to store inventory.`);
+        }
+
+        function updateInventoryStock(id, val) {
+            const item = inventory.find(i => i.id === id);
+            if(item) {
+                item.stock = parseFloat(val) || 0;
+                localStorage.setItem('pos_store_inventory', JSON.stringify(inventory));
+            }
         }
 
         function deleteInventoryItem(id) {
-            showModal('Confirm Delete', 'Delete this stock item?', true, (confirmed) => {
-                if (confirmed) {
-                    inventoryList = inventoryList.filter(i => i.id !== id);
-                    localStorage.setItem('pos_exact_inventory_items', JSON.stringify(inventoryList));
-                    renderInventoryTable();
-                }
-            });
+            inventory = inventory.filter(i => i.id !== id);
+            localStorage.setItem('pos_store_inventory', JSON.stringify(inventory));
+            renderInventoryTable();
         }
 
-        function printStoreStockReport() {
-            showModal('Print Report', 'Store stock inventory report sent to thermal printer.');
+        async function printStoreStockReport() {
+            if(!bluetoothCharacteristic) {
+                showModal('Printer Required', 'Please connect JP80M-UE thermal printer first.');
+                return;
+            }
+            let esc = '\x1B';
+            let init = esc + '@';
+            let alignCenter = esc + 'a\x01';
+            let boldOn = esc + 'E\x01';
+            let boldOff = esc + 'E\x00';
+            let cut = '\x1D\x56\x41';
+
+            let text = init + alignCenter + boldOn + 'Bubble Time Stock Report\n' + boldOff;
+            text += `Date: ${new Date().toLocaleDateString()}\n`;
+            text += '--------------------------------\n';
+
+            inventory.forEach(i => {
+                text += `${i.name} (${i.cat}): ${i.stock}\n`;
+            });
+
+            text += '--------------------------------\n\n\n' + cut;
+            try {
+                const encoder = new TextEncoder();
+                await bluetoothCharacteristic.writeValue(encoder.encode(text));
+                showModal('Success', 'Store stock report printed.');
+            } catch(e) {
+                showModal('Error', 'Failed to print stock report.');
+            }
+        }
+
+        /* DASHBOARD & CHARTS */
+        function updateDashboardMetrics() {
+            document.getElementById('dashStaffName').innerText = currentStaff ? currentStaff.name : 'Administrator';
+            document.getElementById('dashPendingCount').innerText = placedOrders.length;
+
+            let rev = 0;
+            completedTodaySales.forEach(o => rev += o.total);
+            document.getElementById('dashRevenue').innerText = `Rs ${rev.toFixed(2)}`;
+        }
+
+        function renderSalesDonutChart() {
+            const ctx = document.getElementById('salesDonutChart');
+            if(!ctx) return;
+
+            let catRevenue = {};
+            categories.forEach(c => catRevenue[c] = 0);
+
+            completedTodaySales.forEach(o => {
+                o.items.forEach(i => {
+                    if(catRevenue[i.cat] !== undefined) {
+                        catRevenue[i.cat] += i.price * i.qty;
+                    } else {
+                        catRevenue['OTHER'] = (catRevenue['OTHER'] || 0) + (i.price * i.qty);
+                    }
+                });
+            });
+
+            let labels = [];
+            let data = [];
+            for(let c in catRevenue) {
+                if(catRevenue[c] > 0) {
+                    labels.push(c);
+                    data.push(catRevenue[c]);
+                }
+            }
+
+            if(data.length === 0) {
+                labels = ['No Sales Yet'];
+                data = [1];
+            }
+
+            if(donutChartInstance) {
+                donutChartInstance.destroy();
+            }
+
+            donutChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            '#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6',
+                            '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 12, font: { size: 10 } }
+                        }
+                    }
+                }
+            });
         }
     </script>
 </body>
