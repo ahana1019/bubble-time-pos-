@@ -1451,22 +1451,36 @@
         }
 
         function printStoreStockReport() {
-            let report = "==============================\n";
-            report += "      BUBBLE TIME MD LTD       \n";
-            report += "     STORE STOCK REPORT        \n";
-            report += "==============================\n";
-            report += "Date: " + new Date().toLocaleString() + "\n\n";
-            inventoryList.forEach(item => {
-                report += `${item.name} (${item.cat}): ${item.stock}\n`;
+    let report = "--------------------------------\n";
+    report += "       BUBBLE TIME MD LTD       \n";
+    report += "       STORE STOCK REPORT       \n";
+    report += "================================\n";
+    report += "Date: " + new Date().toLocaleDateString() + "\n";
+    report += "--------------------------------\n";
+    
+    const categories = ["SYRUPS (ml)", "POWDER (g)", "POPPING BOBA", "JELLY", "OTHERS"];
+    
+    categories.forEach(cat => {
+        const itemsInCat = inventoryList.filter(i => i.category === cat);
+        if(itemsInCat.length > 0) {
+            report += `\n** ${cat} **\n`;
+            report += "================================\n";
+            itemsInCat.forEach(item => {
+                report += `${item.name.padEnd(23, ' ')} | _____\n`;
             });
-            report += "==============================\n";
-            if (bluetoothCharacteristic) {
-                sendToPrinter(report);
-            } else {
-                showModal("Stock Report", report);
-            }
         }
+    });
 
+    report += "\n================================\n";
+    report += "   END OF STORE STOCK REPORT    \n";
+    report += "================================\n";
+
+    if (bluetoothCharacteristic) {
+        sendToPrinter(report);
+    } else {
+        showModal("Stock Report", report);
+    }
+}
         // Bluetooth Thermal Printer Integration
         let bluetoothDevice = null;
         let bluetoothCharacteristic = null;
@@ -2294,11 +2308,160 @@
             document.getElementById('loginOverlay').style.display = 'flex';
             document.getElementById('mainApp').classList.add('hidden');
         }
+function printReceipt() {
+    var receiptHTML = [
+        "<!DOCTYPE html>",
+        "<html lang='en'>",
+        "<head>",
+        "    <meta charset='UTF-8'>",
+        "    <title>Receipt</title>",
+        "    <style>",
+        "        * { box-sizing: border-box; padding: 0; margin: 0; }",
+        "        body {",
+        "            font-family: 'Courier New', Courier, monospace;",
+        "            font-size: 11px;",
+        "            line-height: 1.2;",
+        "            color: #000;",
+        "            background: #fff;",
+        "            width: 80mm;",
+        "            padding: 2mm;",
+        "        }",
+        "        pre {",
+        "            font-family: 'Courier New', Courier, monospace;",
+        "            white-space: pre-wrap;",
+        "            word-wrap: break-word;",
+        "        }",
+        "        @media print {",
+        "            body { width: 80mm; }",
+        "            @page { margin: 0; }",
+        "        }",
+        "    </style>",
+        "</head>",
+        "<body>",
+        "<pre>",
+        "       Bubble Time",
+        "Mercury Distribution Ltd",
+        "   Louis Pasteur, st",
+        " Manhattan Mall, Curepipe",
+        "Tel: 52573727 | VAT: 28237334",
+        "     BRN: C24206010",
+        "",
+        "      VAT INVOICE",
+        "",
+        "Choco Choc Cookies Rs 150.00",
+        "Subtotal          Rs 150.00",
+        "--------------------------------",
+        "1 Total           Rs 150.00",
+        "Vat 15%           Rs  19.57",
+        "NET Sales         Rs 130.43",
+        "",
+        "Tendered          Rs 150.00",
+        "Cash              Rs 150.00",
+        "Change            Rs    0.00",
+        "",
+        "Sun 13-09-2026 15:11:58",
+        "#000201 L0001",
+        "Cashier 1  Salesperson 1",
+        "",
+        "        THANK YOU",
+        "     FOR YOUR VISIT",
+        "</pre>",
+        "</body>",
+        "</html>"
+    ].join("\n");
 
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+}
+function printQBCReport() {
+    var reportHTML = [
+        "<!DOCTYPE html>",
+        "<html lang='en'>",
+        "<head>",
+        "    <meta charset='UTF-8'>",
+        "    <title>QBC Department Report</title>",
+        "    <style>",
+        "        * {",
+        "            box-sizing: border-box;",
+        "            padding: 0;",
+        "            margin: 0;",
+        "        }",
+        "        body {",
+        "            font-family: 'Courier New', Courier, monospace;",
+        "            font-size: 11px;",
+        "            line-height: 1.2;",
+        "            color: #000;",
+        "            background: #fff;",
+        "            width: 80mm;",
+        "            padding: 2mm;",
+        "        }",
+        "        pre {",
+        "            font-family: 'Courier New', Courier, monospace;",
+        "            white-space: pre-wrap;",
+        "            word-wrap: break-word;",
+        "        }",
+        "        @media print {",
+        "            body {",
+        "                width: 80mm;",
+        "            }",
+        "            @page {",
+        "                margin: 0;",
+        "            }",
+        "        }",
+        "    </style>",
+        "</head>",
+        "<body>",
+        "<pre>",
+        "--------------------------------",
+        "    BUBBLE TIME MD LTD",
+        "     QBC DAILY REPORT",
+        "================================",
+        "Date: 16/09/2026",
+        "Timestamp: 21:12:30",
+        "Cashier: Ahana",
+        "Total Transactions: 15",
+        "--------------------------------",
+        "          Departments",
+        "================================",
+        "MILK TEA",
+        "Quantity                      5",
+        "Amount               Rs  650.00",
+        "--------------------------------",
+        "FRUITS TEA",
+        "Quantity                     12",
+        "Amount             Rs 1,620.00",
+        "--------------------------------",
+        "FRESH TEA",
+        "Quantity                      1",
+        "Amount               Rs  120.00",
+        "--------------------------------",
+        "TOPPINGS",
+        "Quantity                     30",
+        "Amount               Rs  715.00",
+        "================================",
+        "Date: 16/09/2026 21:12:30",
+        "        END OF QBC REPORT",
+        "================================",
+        "</pre>",
+        "</body>",
+        "</html>"
+    ].join("\n");
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(reportHTML);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+}
         window.onload = function() {
             populateLoginDropdown();
             renderBatchPrepSummary();
         };
     </script>
 </body>
-</html>
+                                </html>
