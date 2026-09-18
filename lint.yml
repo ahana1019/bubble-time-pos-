@@ -1,0 +1,20 @@
+name: Web Code Linter
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint:
+    name: Check HTML Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run HTML Hint Scan
+        uses: htmlhint/action@v0.5.0
+        with:
+          path: index.html
