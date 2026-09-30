@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,6 +38,24 @@
             -webkit-text-size-adjust: 100%;
             touch-action: manipulation;
         }
+.order-item-card {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.order-item-card:hover {
+    background-color: #f8fafc;
+}
+
+.order-item-card.active {
+    background-color: #e0f2fe !important;
+    border-left: 4px solid #0284c7;
+}
 
         /* Custom Modal Box */
         #customModalOverlay {
@@ -901,47 +918,57 @@
             </div>
 
             <!-- VIEW 2: PLACED ORDERS -->
-            <div id="panePlacedOrders" class="view-pane">
-                <div style="margin-bottom: 8px;">
-                    <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
-                </div>
-                <div class="placed-orders-layout" style="flex: 1; height: calc(100% - 35px);">
-                    <div class="orders-list-panel" style="background: white; border: 1px solid var(--border); border-radius: 8px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-                        <div style="padding: 10px 12px; font-weight: bold; border-bottom: 1px solid var(--border); background: #f1f5f9; font-size: 0.9rem;">Placed Orders</div>
-                        <div id="placedOrdersListContainer">
-                            <p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>
-                        </div>
-                    </div>
-                    <div class="order-details-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-                        <div id="selectedOrderDetailsHeader" style="margin-bottom: 12px;">
-                            <p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>
-                        </div>
-                        <div id="selectedOrderItemsTable" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
-                    </div>
-                    <div class="order-settlement-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-                        <h2 style="font-size: 1rem;">Settlement</h2>
-                        <div style="margin-top: 10px;">
-                            <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Status</label>
-                            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                                <button id="btnStatusPaid" class="btn btn-success" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0;" onclick="setPaymentStatus('PAID')">PAID</button>
-                                <button id="btnStatusUnpaid" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0; background:#64748b;" onclick="setPaymentStatus('UNPAID')">UNPAID</button>
-                            </div>
-                            <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Type</label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 15px;">
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Cash')">💵 CASH</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Card')">💳 CARD</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Juice')">🧃 JUICE</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('MyT Money')">📱 MYT</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Blink')">📱 BLINK</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Delivoo')">🛵 DELIVOO</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0; grid-column: span 2;" onclick="settleCurrentSelectedOrder('Hungry Dodo')">🍔 HUNGRY DODO</button>
-                            </div>
-                            <button class="btn btn-success" style="margin-bottom: 8px; background-color: #0284c7; padding: 9px; font-size: 0.85rem;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
-                            <button class="btn btn-danger" style="margin-top: auto; padding: 9px; font-size: 0.85rem;" onclick="deleteSelectedPlacedOrder()">Delete Order (Cancel)</button>
-                        </div>
-                    </div>
-                </div>
+<div id="panePlacedOrders" class="view-pane">
+    <div style="margin-bottom: 8px;">
+        <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
+    </div>
+    <div class="placed-orders-layout" style="flex: 1; height: calc(100% - 35px); display: flex; gap: 12px;">
+        
+        <!-- Left Panel: Orders List -->
+        <div class="orders-list-panel" style="flex: 1; background: white; border: 1px solid var(--border, #cbd5e1); border-radius: 8px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+            <div style="padding: 10px 12px; font-weight: bold; border-bottom: 1px solid var(--border, #cbd5e1); background: #f1f5f9; font-size: 0.9rem;">Placed Orders</div>
+            <div id="placedOrdersListContainer">
+                <p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>
             </div>
+        </div>
+
+        <!-- Middle Panel: Selected Order Details -->
+        <div class="order-details-panel" style="flex: 2; background: white; border-radius: 8px; border: 1px solid var(--border, #cbd5e1); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+            <div id="selectedOrderDetailsHeader" style="margin-bottom: 12px;">
+                <p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>
+            </div>
+            <div id="selectedOrderItemsTable" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
+        </div>
+
+        <!-- Right Panel: Settlement -->
+        <div class="order-settlement-panel" style="flex: 1; background: white; border-radius: 8px; border: 1px solid var(--border, #cbd5e1); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+            <h2 style="font-size: 1rem; margin-top: 0;">Settlement</h2>
+            <div style="margin-top: 10px;">
+                <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Status</label>
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <button id="btnStatusPaid" class="btn btn-success" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0;" onclick="setPaymentStatus('PAID')">PAID</button>
+                    <button id="btnStatusUnpaid" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0; background:#64748b;" onclick="setPaymentStatus('UNPAID')">UNPAID</button>
+                </div>
+
+                <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Type</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 15px;">
+                    <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Cash')">💵 CASH</button>
+                    <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Card')">💳 CARD</button>
+                    <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Juice')">🧃 JUICE</button>
+                    <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('MyT Money')">📱 MYT</button>
+                    <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Blink')">📱 BLINK</button>
+                    <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Delivoo')">🛵 DELIVOO</button>
+                    <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0; grid-column: span 2;" onclick="settleCurrentSelectedOrder('Hungry Dodo')">🍔 HUNGRY DODO</button>
+                </div>
+
+                <button class="btn btn-success" style="width: 100%; margin-bottom: 8px; background-color: #0284c7; padding: 9px; font-size: 0.85rem;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
+                <button class="btn btn-danger" style="width: 100%; margin-top: auto; padding: 9px; font-size: 0.85rem;" onclick="deleteSelectedPlacedOrder()">Delete Order (Cancel)</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
 
             <!-- VIEW 3: DAILY RECON REPORT -->
             <div id="paneRecon" class="view-pane">
@@ -1815,68 +1842,6 @@
             preview.innerHTML = html;
         }
 
-        function completeSaleAndPrintReceipt() {
-            if(cart.length === 0) {
-                showModal("Cart Empty", "Please add items to cart before completing sale.");
-                return;
-            }
-
-            const method = document.getElementById('paymentMethod').value;
-            const totalText = document.getElementById('cartTotal').innerText.replace('Rs ', '');
-            const total = parseFloat(totalText);
-
-            const order = {
-                id: 'ORD-' + orderSequenceNumber++,
-                cashier: currentStaff ? currentStaff.name : 'Administrator',
-                timestamp: new Date().toLocaleString(),
-                items: [...cart],
-                total: total,
-                method: method,
-                status: 'PAID'
-            };
-
-            localStorage.setItem('pos_order_seq', orderSequenceNumber);
-
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-            placedOrders.push(order);
-            localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-
-            // Record to Daily Sales
-            let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-            dailySales.push(order);
-            localStorage.setItem('pos_daily_sales_history', JSON.stringify(dailySales));
-
-            // Print Receipt if Connected
-            if(bluetoothCharacteristic) {
-                let rText = "================================\n";
-                rText += "          BUBBLE TIME           \n";
-                rText += "       BUBBLE TIME MD LTD       \n";
-                rText += "  Louis Pasteur st, Curepipe    \n";
-                rText += "   Tel: 52573727 | BRN: C24206010 \n";
-                rText += "================================\n";
-                rText += `Order: ${order.id}\n`;
-                rText += `Cashier: ${order.cashier}\n`;
-                rText += `Date: ${order.timestamp}\n`;
-                rText += "--------------------------------\n";
-                cart.forEach(i => {
-                    rText += `${i.qty}x ${i.name.padEnd(18, ' ')} Rs ${(i.price*i.qty).toFixed(2)}\n`;
-                });
-                rText += "--------------------------------\n";
-                rText += `TOTAL: Rs ${order.total.toFixed(2)}\n`;
-                rText += `Payment: ${order.method}\n`;
-                rText += "================================\n";
-                rText += "    Thank you for visiting!     \n\n";
-                sendToPrinter(rText);
-            }
-
-            showModal("Sale Complete", `Order ${order.id} finished successfully!`);
-            cart = [];
-            document.getElementById('cashGivenInput').value = '';
-            renderCart();
-            renderPlacedOrders();
-            refreshReconData();
-            updateDashboardMetrics();
-        }
 
         /* PLACED ORDERS & SETTLEMENT */
         function renderPlacedOrders() {
@@ -2133,22 +2098,98 @@
             }
         }
 
-        function printCombinedDailySalesReport() {
+                function printCombinedDailySalesReport() {
             let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-            let total = dailySales.reduce((sum, s) => sum + s.total, 0);
+            let grandTotal = dailySales.reduce((sum, s) => sum + s.total, 0);
 
+            // 1. Tally sales by payment method (matching target report layout)
+            let methodTotals = {};
+            dailySales.forEach(s => {
+                let m = s.method || 'Cash';
+                if(m === 'Blink') m = 'Blinks'; // Normalize naming if needed
+                methodTotals[m] = (methodTotals[m] || 0) + s.total;
+            });
+
+            // 2. Tally items/departments and their amounts from stored sale items
+            let itemSummary = {};
+            dailySales.forEach(s => {
+                if(s.items && Array.isArray(s.items)) {
+                    s.items.forEach(i => {
+                        let key = i.category || i.name || 'Item';
+                        if(!itemSummary[key]) {
+                            itemSummary[key] = { qty: 0, amount: 0 };
+                        }
+                        let qty = i.qty || 1;
+                        let price = i.price ? (i.price * qty) : (i.total || 0);
+                        itemSummary[key].qty += qty;
+                        itemSummary[key].amount += price;
+                    });
+                }
+            });
+
+            let now = new Date();
+            let dateStr = now.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+            let timeStr = now.toTimeString().split(' ')[0]; // HH:MM:SS
+            let cashierName = currentStaff ? currentStaff.name : 'Ahana';
+
+            // 3. Construct the formatted receipt text matching the second picture layout
             let rText = "================================\n";
-            rText += "     BUBBLE TIME DAILY RECON    \n";
+            rText += "      BUBBLE TIME MD LTD      \n";
+            rText += "       QBC DAILY REPORT       \n";
+            rText += "================================\n\n";
+
+            rText += "SALES OF THE DAY\n";
+            rText += "--------------------------------\n";
+            for(let m in methodTotals) {
+                rText += `${m.padEnd(14)} Rs ${methodTotals[m].toFixed(2).padStart(10)}\n`;
+            }
+            rText += `Total          Rs ${grandTotal.toFixed(2).padStart(10)}\n\n`;
+
             rText += "================================\n";
-            rText += `Date: ${new Date().toLocaleDateString()}\n`;
-            rText += `Cashier: ${currentStaff ? currentStaff.name : 'Admin'}\n`;
-            rText += `Total Sales: Rs ${total.toFixed(2)}\n`;
-            rText += `Transactions: ${dailySales.length}\n`;
+            rText += "     DEPARTMENT SALES ITEMS     \n";
+            rText += "================================\n\n";
+
+            if(Object.keys(itemSummary).length === 0) {
+                rText += "No items sold today\n\n";
+            } else {
+                for(let item in itemSummary) {
+                    rText += `${item.toUpperCase()}\n`;
+                    rText += `Quantity                      ${itemSummary[item].qty}\n`;
+                    rText += `Amount             Rs ${itemSummary[item].amount.toFixed(2).padStart(8)}\n\n`;
+                }
+            }
+
+            rText += "================================\n";
+            rText += "         DATE AND TIME          \n";
+            rText += "--------------------------------\n";
+            rText += `Date: ${dateStr}\n`;
+            rText += `Timestamp: ${timeStr}\n`;
+            rText += `Cashier: ${cashierName}\n`;
+            rText += `Total Transactions: ${dailySales.length}\n`;
+            rText += "================================\n";
+            rText += "      END OF QBC REPORT       \n";
             rText += "================================\n";
 
             if(bluetoothCharacteristic) sendToPrinter(rText);
-            else showModal("Daily Recon Report", rText);
+            else showModal("QBC Daily Report", rText);
         }
+let isScreenReceiptEnabled = true;
+
+function toggleScreenReceipt() {
+    isScreenReceiptEnabled = !isScreenReceiptEnabled;
+    let box = document.getElementById('screenReceiptBox');
+    let btn = document.getElementById('receiptToggleBtn');
+    
+    if (isScreenReceiptEnabled) {
+        box.style.display = 'block';
+        btn.innerText = 'ON';
+        btn.className = 'btn btn-success';
+    } else {
+        box.style.display = 'none';
+        btn.innerText = 'OFF';
+        btn.className = 'btn btn-secondary';
+    }
+}
 
         function printSpecificPlatformReport(platformName) {
             let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
@@ -2304,6 +2345,106 @@
         function closeHomeStaffAudit() {
             document.getElementById('homeAdminStaffAuditBox').style.display = 'none';
         }
+window.onload = () => {
+    populateLoginDropdown();
+    renderInventoryTable();
+    renderBatchPrepUI();
+    saveCategories();
+    if (typeof placedOrdersArray !== 'undefined') renderPlacedOrdersList(placedOrdersArray);
+};
+
+      let currentSelectedOrderId = null;
+
+function renderPlacedOrdersList(orders) {
+    const container = document.getElementById('placedOrdersListContainer');
+    if (!orders || orders.length === 0) {
+        container.innerHTML = `<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>`;
+        return;
+    }
+
+    container.innerHTML = orders.map(order => `
+        <div id="order-item-${order.id}" 
+             class="order-item-card ${currentSelectedOrderId === order.id ? 'active' : ''}" 
+             onclick="selectPlacedOrder('${order.id}')">
+            <div>
+                <div style="font-weight: bold; font-size: 0.85rem; color: #1e293b;">${order.id}</div>
+                <div style="font-size: 0.75rem; color: #64748b;">${order.customerName || 'Customer'} | Rs ${order.total.toFixed(2)} (${order.paymentType || 'Pending'})</div>
+            </div>
+            <span style="font-size: 0.75rem; font-weight: bold; color: ${order.status === 'PAID' ? '#16a34a' : '#dc2626'};">
+                ${order.status}
+            </span>
+        </div>
+    `).join('');
+}
+
+function selectPlacedOrder(orderId) {
+    currentSelectedOrderId = orderId;
+
+    // Searches global order list
+    const order = (window.placedOrdersArray || []).find(o => o.id === orderId);
+    if (!order) return;
+
+    // Highlight active card
+    document.querySelectorAll('.order-item-card').forEach(el => el.classList.remove('active'));
+    const activeEl = document.getElementById(`order-item-${orderId}`);
+    if (activeEl) activeEl.classList.add('active');
+
+    // Update middle panel header
+    const header = document.getElementById('selectedOrderDetailsHeader');
+    header.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">${order.id}</h3>
+                <span style="font-size: 0.8rem; color: #64748b;">Customer: <strong>${order.customerName || 'N/A'}</strong></span>
+            </div>
+            <div style="text-align: right;">
+                <span style="font-size: 0.8rem; font-weight: bold; padding: 4px 8px; border-radius: 4px; background: ${order.status === 'PAID' ? '#dcfce7' : '#fee2e2'}; color: ${order.status === 'PAID' ? '#15803d' : '#991b1b'};">
+                    ${order.status}
+                </span>
+                <div style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">Method: ${order.paymentType || 'Unassigned'}</div>
+            </div>
+        </div>
+    `;
+
+    // Render items table
+    const tableContainer = document.getElementById('selectedOrderItemsTable');
+    let itemsHtml = `
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px;">
+            <thead>
+                <tr style="border-bottom: 2px solid #e2e8f0; color: #475569; text-align: left;">
+                    <th style="padding: 8px;">Item</th>
+                    <th style="padding: 8px; text-align: center;">Qty</th>
+                    <th style="padding: 8px; text-align: right;">Price</th>
+                    <th style="padding: 8px; text-align: right;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    (order.items || []).forEach(item => {
+        itemsHtml += `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px; color: #334155;">${item.name}</td>
+                <td style="padding: 8px; text-align: center; color: #334155;">${item.qty}</td>
+                <td style="padding: 8px; text-align: right; color: #334155;">Rs ${item.price.toFixed(2)}</td>
+                <td style="padding: 8px; text-align: right; color: #0f172a; font-weight: 600;">Rs ${(item.qty * item.price).toFixed(2)}</td>
+            </tr>
+        `;
+    });
+
+    itemsHtml += `
+            </tbody>
+            <tfoot>
+                <tr style="font-weight: bold; border-top: 2px solid #e2e8f0;">
+                    <td colspan="3" style="padding: 12px 8px; text-align: right; font-size: 0.9rem;">Grand Total:</td>
+                    <td style="padding: 12px 8px; text-align: right; font-size: 1rem; color: #0284c7;">Rs ${(order.total || 0).toFixed(2)}</td>
+                </tr>
+            </tfoot>
+        </table>
+    `;
+
+    tableContainer.innerHTML = itemsHtml;
+}
 
         /* INITIALIZATION */
         window.onload = () => {
