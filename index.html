@@ -1873,30 +1873,35 @@
             });
         }
 
-        function selectPlacedOrder(orderId) {
+                function selectPlacedOrder(orderId) {
             selectedPlacedOrderId = orderId;
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
             const ord = placedOrders.find(o => o.id === orderId);
             if(!ord) return;
 
-            renderPlacedOrders();
+            const headerContainer = document.getElementById('selectedOrderDetailsHeader');
+            if(headerContainer) {
+                headerContainer.innerHTML = `
+                    <h3 style="margin:0 0 4px 0; font-size:1rem;">${ord.id} Details</h3>
+                    <div style="font-size:0.8rem; color:#64748b;">
+                        <strong>Cashier:</strong> ${ord.cashier || 'Hanaa'}<br>
+                        <strong>Time:</strong> ${ord.timestamp || ''}<br>
+                        <strong>Payment:</strong> ${ord.method || 'Cash'} (${ord.status})
+                    </div>
+                `;
+            }
 
-            document.getElementById('selectedOrderDetailsHeader').innerHTML = `
-                <h3 style="margin:0 0 4px 0; font-size:1rem;">${ord.id} Details</h3>
-                <div style="font-size:0.8rem; color:#64748b;">
-                    <strong>Cashier:</strong> ${ord.cashier}<br>
-                    <strong>Time:</strong> ${ord.timestamp}<br>
-                    <strong>Payment:</strong> ${ord.method} (${ord.status})
-                </div>
-            `;
-
-            let tableHtml = '<table><thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead><tbody>';
-            ord.items.forEach(i => {
-                tableHtml += `<tr><td>${i.name}</td><td>${i.qty}</td><td>Rs ${(i.price*i.qty).toFixed(2)}</td></tr>`;
-            });
-            tableHtml += `</tbody></table><div style="text-align:right; font-weight:bold; margin-top:8px; font-size:0.9rem;">Total: Rs ${ord.total.toFixed(2)}</div>`;
-            document.getElementById('selectedOrderItemsTable').innerHTML = tableHtml;
+            const itemsContainer = document.getElementById('selectedOrderItemsTable');
+            if(itemsContainer) {
+                let tableHtml = '<table><thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead><tbody>';
+                (ord.items || []).forEach(i => {
+                    tableHtml += `<tr><td>${i.name}</td><td>${i.qty}</td><td>Rs ${(i.price*i.qty).toFixed(2)}</td></tr>`;
+                });
+                tableHtml += `</tbody></table><div style="text-align:right; font-weight:bold; margin-top:8px; font-size:0.9rem;">Total: Rs ${ord.total.toFixed(2)}</div>`;
+                itemsContainer.innerHTML = tableHtml;
+            }
         }
+
 
         function setPaymentStatus(status) {
             if(!selectedPlacedOrderId) return;
@@ -1921,13 +1926,30 @@
             }
         }
 
-        function confirmAndFinishOrder() {
+                function confirmAndFinishOrder() {
             if(!selectedPlacedOrderId) {
                 showModal("Notice", "Please select an order to confirm.");
                 return;
             }
-            showModal("Order Confirmed", `Order ${selectedPlacedOrderId} updated and finalized.`);
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            if(ord) {
+                ord.status = 'PAID';
+                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                renderPlacedOrders();
+                if (typeof refreshReconData === 'function') {
+                    refreshReconData();
+                }
+                showModal("Success", `Order ${selectedPlacedOrderId} completed and finalized.`);
+                selectedPlacedOrderId = null;
+                
+                const headerEl = document.getElementById('selectedOrderDetailsHeader');
+                const itemsEl = document.getElementById('selectedOrderItemsTable');
+                if(headerEl) headerEl.innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details.</p>';
+                if(itemsEl) itemsEl.innerHTML = '';
+            }
         }
+
 
         function deleteSelectedPlacedOrder() {
             if(!selectedPlacedOrderId) return;
