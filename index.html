@@ -1842,7 +1842,59 @@
             preview.innerHTML = html;
         }
 
+function completeSaleAndPrintReceipt() {
+    // 1. Get current cart items and details from your register state/DOM
+    let cart = typeof currentCart !== 'undefined' ? currentCart : [];
+    if (cart.length === 0) {
+        showModal("Notice", "Your cart is empty.");
+        return;
+    }
 
+    // 2. Generate unique order ID and timestamp
+    const orderId = 'ORD-' + Date.now().toString().slice(-6);
+    const timestamp = new Date().toLocaleString();
+    
+    // 3. Calculate total
+    let total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    
+    // 4. Get selected payment method if dropdown exists
+    const paymentMethodEl = document.getElementById('paymentMethod');
+    const method = paymentMethodEl ? paymentMethodEl.value : 'Cash';
+
+    const newOrder = {
+        id: orderId,
+        cashier: typeof currentCashier !== 'undefined' ? currentCashier : 'Hanaa',
+        timestamp: timestamp,
+        items: cart,
+        total: total,
+        method: method,
+        status: 'PAID'
+    };
+
+    // 5. Save to placed orders in localStorage
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+    placedOrders.push(newOrder);
+    localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+
+    // 6. Trigger print receipt if function exists
+    if (typeof printReceipt === 'function') {
+        printReceipt(newOrder);
+    }
+
+    // 7. Clear cart and refresh views
+    if (typeof clearCart === 'function') {
+        clearCart();
+    }
+    if (typeof renderPlacedOrders === 'function') {
+        renderPlacedOrders();
+    }
+    if (typeof refreshReconData === 'function') {
+        refreshReconData();
+    }
+    showModal("Success", `Sale completed successfully! Order ${orderId} saved.`);
+}
+
+    
         /* PLACED ORDERS & SETTLEMENT */
         function renderPlacedOrders() {
             const container = document.getElementById('placedOrdersListContainer');
