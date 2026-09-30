@@ -1847,13 +1847,11 @@ function completeSaleAndPrintReceipt() {
         showModal("Notice", "Your cart is empty.");
         return;
     }
-
     // 2. Generate unique order ID and timestamp
     const orderId = 'ORD-' + Date.now().toString().slice(-6);
     const timestamp = new Date().toLocaleString();
-    
-    // 3. Calculate total
-        let total = cart.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+        // 3. Calculate total
+    let total = cart.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
 
     // 4. Get selected payment method if dropdown exists
     const paymentMethodEl = document.getElementById('paymentMethod');
