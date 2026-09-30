@@ -1843,8 +1843,7 @@
         }
 
 function completeSaleAndPrintReceipt() {
-    // 1. Get current cart items and details from your register state/DOM
-    if (cart.length === 0) {
+    if (!cart || cart.length === 0) {
         showModal("Notice", "Your cart is empty.");
         return;
     }
