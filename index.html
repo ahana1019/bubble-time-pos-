@@ -438,31 +438,49 @@
         .btn:hover { background: #d97706; }
         .btn-secondary { background: #64748b; }
         .btn-secondary:hover { background: #475569; }
-        .btn-danger { background: #dc2626; }
-        .btn-danger:hover { background: #b91c1c; }
-        .btn-success { background: #059669; color: white; }
-        .btn-success:hover { background: #047857; }
+          .btn-danger { background: #dc2626; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-success { background: #059669; }
+  .btn-success:hover { background: #047857; }
+</style>
 
-        /* Placed Orders Layout */
-        .placed-orders-layout {
-            display: grid;
-            grid-template-columns: 280px 1fr 280px;
-            gap: 12px;
-            height: 100%;
-            box-sizing: border-box;
-        }
-
-        @media (max-width: 900px) {
-            .placed-orders-layout {
-                grid-template-columns: 1fr;
-                overflow-y: auto;
-                height: auto;
-            }
-            .placed-orders-layout > div {
-                min-height: 300px;
-            }
-        }
-
+<!-- VIEW 2: PLACED ORDERS -->
+            <div id="panePlacedOrders" class="view-pane">
+                <div class="placed-orders-layout">
+                    <div class="orders-list-panel" style="background: white; border: 1px solid var(--border); border-radius: 8px; max-height: 70vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <div style="padding: 12px 15px; font-weight: bold; border-bottom: 1px solid var(--border); background: #f1f5f9; position: sticky; top:0;">Placed Orders</div>
+                        <div id="placedOrdersListContainer">
+                            <p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.85rem;">No placed orders</p>
+                        </div>
+                    </div>
+                    <div class="order-details-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; max-height: 70vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <div id="selectedOrderDetailsHeader" style="margin-bottom: 15px;">
+                            <p style="color: #94a3b8; font-size: 0.9rem;">Select an order from the left to view details and settlement status.</p>
+                        </div>
+                        <div id="selectedOrderItemsTable" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
+                    </div>
+                    <div class="order-settlement-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; box-sizing: border-box;">
+                        <h2>Settlement</h2>
+                        <div style="margin-top: 15px;">
+                            <label style="font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Payment Status</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <button id="btnStatusPaid" class="btn btn-success" style="flex: 1; padding: 10px; font-size: 0.85rem; margin:0;" onclick="setPaymentStatus('PAID')">PAID</button>
+                                <button id="btnStatusUnpaid" class="btn btn-secondary" style="flex: 1; padding: 10px; font-size: 0.85rem; margin:0; background:#64748b;" onclick="setPaymentStatus('UNPAID')">UNPAID</button>
+                            </div>
+                            <label style="font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Payment Type</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px;">
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Cash')">💵 CASH</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Card')">💳 CARD</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Blinks')">📱 BLINKS</button>
+                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Delivoo')">🛵 DELIVOO</button>
+                            </div>
+                            <button class="btn btn-success" style="margin-bottom: 8px; background-color: #0284c7;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
+                            <button class="btn btn-danger" style="margin-top: 10px;" onclick="deleteSelectedPlacedOrder()">Discard / Delete Order</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+<style>
         /* Daily Recon Layout */
         .recon-layout {
             display: grid;
@@ -523,23 +541,26 @@
         .category-chip button:hover { color: #dc2626; }
 
         .hidden { display: none !important; }
-    </style>
+      </style>
 </head>
-<body>   
-<>
-            function updateInventoryTileVisibility() {
-        const role = currentCashier && currentCashier.role ? String(currentCashier.role).trim().toLowerCase() : '';
-        const isAdmin = role === 'admin' || role === 'administrator';
-        const tile = document.getElementById('homeInventoryTile');
-        if (tile) {
-            tile.style.display = isAdmin ? 'block' : 'none';
-        }
-    }
-    document.addEventListener("DOMContentLoaded", updateInventoryTileVisibility);
+<body>
 
-    <!-- Custom Modal Dialog Box -->
-    <div id="customModalOverlay">
-        <div class="custom-modal-card">
+<script>
+  function updateInventoryTitleVisibility() {
+      const role = (typeof currentCashier !== 'undefined' && currentCashier) ? currentCashier.role : '';
+      const isAdmin = role === 'admin' || role === 'manager';
+      const tile = document.getElementById('homeInventoryTile');
+      if (tile) {
+          tile.style.display = isAdmin ? 'block' : 'none';
+      }
+  }
+
+  document.addEventListener('DOMContentLoaded', updateInventoryTitleVisibility);
+</script>
+
+<!-- Custom Modal Dialog Box -->
+<div id="customModalOverlay">
+  <div class="custom-modal-card">
             <h3 id="customModalTitle">Notice</h3>
             <p id="customModalMessage">Message text here...</p>
             <div id="customModalButtons" class="custom-modal-buttons">
@@ -840,7 +861,8 @@
             </div>
 
             <!-- VIEW 1: POS REGISTER -->
-            < id="paneRegister" class="view-pane">
+            <div id="paneRegister" class="view-pane">
+
                 <div style="margin-bottom: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
                     <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
                         <button class="btn btn-secondary" style="width: auto; padding: 5px 10px; font-size: 0.75rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
@@ -930,6 +952,7 @@
 
 <!-- VIEW 2: PLACED ORDERS -->
 <div id="panePlacedOrders" class="view-pane">
+
     <div style="margin-bottom: 8px;">
         <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin: 0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0])">
             &larr; Back
