@@ -526,23 +526,16 @@
     </style>
 </head>
 <body>   
-<script>
-        function updateInventoryTileVisibility() {
-        const isAdmin = typeof currentCashier !== 'undefined' && currentCashier.role === 'admin';
+<>
+            function updateInventoryTileVisibility() {
+        const role = currentCashier && currentCashier.role ? String(currentCashier.role).trim().toLowerCase() : '';
+        const isAdmin = role === 'admin' || role === 'administrator';
         const tile = document.getElementById('homeInventoryTile');
         if (tile) {
-            tile.style.display = isAdmin ? '' : 'none';
+            tile.style.display = isAdmin ? 'block' : 'none';
         }
     }
     document.addEventListener("DOMContentLoaded", updateInventoryTileVisibility);
-</script>
-
-        if (tile) {
-            tile.style.display = isAdmin ? '' : 'none';
-        }
-    }
-document.addEventListener("DOMContentLoaded", updateInventoryTileVisibility);
-</script>
 
     <!-- Custom Modal Dialog Box -->
     <div id="customModalOverlay">
@@ -847,7 +840,7 @@ document.addEventListener("DOMContentLoaded", updateInventoryTileVisibility);
             </div>
 
             <!-- VIEW 1: POS REGISTER -->
-            <div id="paneRegister" class="view-pane">
+            < id="paneRegister" class="view-pane">
                 <div style="margin-bottom: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
                     <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
                         <button class="btn btn-secondary" style="width: auto; padding: 5px 10px; font-size: 0.75rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
@@ -927,20 +920,25 @@ document.addEventListener("DOMContentLoaded", updateInventoryTileVisibility);
                                 <option value="Delivoo">Delivoo</option>
                                 <option value="Hungry Dodo">Hungry Dodo</option>
                             </select>
-                        </div>
+                            </div>
+    <button class="btn" style="padding: 10px; font-size: 0.9rem; margin-bottom: 0;" onclick="completeSaleAndPrintReceipt()">
+        Complete Sale &amp; Print Receipt
+    </button>
+</div>
+</div>
+</div>
 
-                        <button class="btn" style="padding: 10px; font-size: 0.9rem; margin-bottom:0;" onclick="completeSaleAndPrintReceipt()">Complete Sale & Print Receipt</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- VIEW 2: PLACED ORDERS -->
+<!-- VIEW 2: PLACED ORDERS -->
 <div id="panePlacedOrders" class="view-pane">
     <div style="margin-bottom: 8px;">
-        <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
+        <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin: 0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0])">
+            &larr; Back
+        </button>
     </div>
+
+
     <div class="placed-orders-layout" style="flex: 1; height: calc(100% - 35px); display: flex; gap: 12px;">
-        
+
         <!-- Left Panel: Orders List -->
         <div class="orders-list-panel" style="flex: 1; background: white; border: 1px solid var(--border, #cbd5e1); border-radius: 8px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
             <div style="padding: 10px 12px; font-weight: bold; border-bottom: 1px solid var(--border, #cbd5e1); background: #f1f5f9; font-size: 0.9rem;">Placed Orders</div>
