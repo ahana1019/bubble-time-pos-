@@ -525,7 +525,24 @@
         .hidden { display: none !important; }
     </style>
 </head>
-<body>
+<body>   
+<script>
+        function updateInventoryTileVisibility() {
+        const isAdmin = typeof currentCashier !== 'undefined' && currentCashier.role === 'admin';
+        const tile = document.getElementById('homeInventoryTile');
+        if (tile) {
+            tile.style.display = isAdmin ? '' : 'none';
+        }
+    }
+    document.addEventListener("DOMContentLoaded", updateInventoryTileVisibility);
+</script>
+
+        if (tile) {
+            tile.style.display = isAdmin ? '' : 'none';
+        }
+    }
+document.addEventListener("DOMContentLoaded", updateInventoryTileVisibility);
+</script>
 
     <!-- Custom Modal Dialog Box -->
     <div id="customModalOverlay">
@@ -1850,8 +1867,15 @@ function completeSaleAndPrintReceipt() {
     // 2. Generate unique order ID and timestamp
     const orderId = 'ORD-' + Date.now().toString().slice(-6);
     const timestamp = new Date().toLocaleString();
-        // 3. Calculate total
-    let total = cart.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+    // 3. Calculate total
+    let total = 0;
+    if (cart && cart.length > 0) {
+        for (let i = 0; i < cart.length; i++) {
+            let p = cart[i].price || 0;
+            let q = cart[i].qty || 1;
+            total += p * q;
+        }
+    }
 
     // 4. Get selected payment method if dropdown exists
     const paymentMethodEl = document.getElementById('paymentMethod');
