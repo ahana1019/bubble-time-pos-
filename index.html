@@ -271,77 +271,178 @@
             font-size: 0.9rem; 
             letter-spacing: 0.2px; 
             text-align: left;
-  
-                flex: 1;
-}
+            flex: 1;
+        }
+
+        /* POS Register Layout */
+        .pos-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 12px;
+            height: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        @media (max-width: 900px) {
+            .pos-grid {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+                height: auto;
+            }
+            .pos-grid .card {
+                min-height: 380px;
+                overflow: visible !important;
+            }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        h2 { margin-top: 0; font-size: 1.05rem; color: #1e293b; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+
+        .catalog-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 2px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .category-dropdown {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .category-header {
+            background: #f1f5f9;
+            padding: 10px 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            font-size: 0.85rem;
+        }
+
+        .category-header:hover { background: #e2e8f0; }
+
+        .category-content {
+            display: none;
+            padding: 8px;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 6px;
+            background: #fafafa;
+            border-top: 1px solid var(--border);
+        }
+
+        .category-dropdown.active .category-content {
+            display: grid;
+        }
+
+        .product-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .product-btn:hover {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+
+        .product-name { font-weight: 600; display: block; margin-bottom: 2px; font-size: 0.75rem; }
+        .product-price { color: #64748b; font-size: 0.7rem; }
+        .product-stock { color: #059669; font-size: 0.6rem; font-weight: bold; display: block; margin-top: 2px; }
+
+        .cart-items {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+            max-height: 180px;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+        }
+
+        .cart-item-controls button {
+            background: var(--border);
+            border: none;
+            padding: 2px 6px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .totals-box {
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+            background: #f1f5f9;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+
+        .totals-row.grand {
+            font-weight: bold;
+            font-size: 0.95rem;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 4px;
+            margin-top: 3px;
+        }
+
+        .btn {
+            width: 100%;
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 6px;
+            box-sizing: border-box;
+        }
+
+        .btn:hover { background: #d97706; }
+        .btn-secondary { background: #64748b; }
+        .btn-secondary:hover { background: #475569; }
+          .btn-danger { background: #dc2626; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-success { background: #059669; }
+  .btn-success:hover { background: #047857; }
 </style>
-
-<!-- VIEW 1: POS REGISTER -->
-<div id="paneRegister" class="view-pane">
-                <div style="margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-                        <button id="connectPrinterBtn" class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin:0;" onclick="connectPrinter()">🔗 Connect Printer</button>
-                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem; margin:0;" onclick="openCashDrawerExplicit()">🔓 Open Drawer</button>
-                        <span id="printerStatus" style="font-size: 0.8rem; color: #dc2626;">Printer Disconnected</span>
-                    </div>
-                    <!-- On-Screen Receipt Toggle Switch -->
-                    <div style="display: flex; align-items: center; gap: 8px; background: #e2e8f0; padding: 4px 10px; border-radius: 6px;">
-                        <span style="font-size: 0.8rem; font-weight: 600;">Receipt on Screen:</span>
-                        <button id="receiptToggleBtn" class="btn btn-success" style="width: auto; padding: 2px 8px; font-size: 0.75rem; margin:0;" onclick="toggleScreenReceipt()">ON</button>
-                    </div>
-                </div>
-
-                <div class="pos-grid">
-                    <!-- Left: Menu Catalog -->
-                    <div class="card">
-                        <h2>Menu Catalog</h2>
-                        <div id="accordionContainer" class="catalog-scroll"></div>
-                    </div>
-
-                    <!-- Right: Cart & Checkout -->
-                    <div class="card">
-                        <h2>Current Order</h2>
-                        <div id="cartItems" class="cart-items">
-                            <p style="color: #94a3b8; text-align: center;">Cart is empty</p>
-                        </div>
-
-                        <!-- On-Screen Receipt Preview Container -->
-                        <div id="screenReceiptBox" style="background: #fffbeb; border: 1px dashed #d97706; padding: 8px; border-radius: 6px; margin-bottom: 10px; font-family: monospace; font-size: 0.75rem; max-height: 120px; overflow-y: auto;">
-                            <div style="text-align: center; font-weight: bold;">BUBBLE TIME VALENTINA</div>
-                            <div style="text-align: center; color: #64748b;">Receipt Preview (Active)</div>
-                            <div id="screenReceiptContent">No items in receipt preview</div>
-                        </div>
-
-                        <div class="totals-box">
-                            <div class="totals-row">
-                                <span>Subtotal:</span>
-                                <span id="cartSubtotal">Rs 0.00</span>
-                            </div>
-                            <div class="totals-row">
-                                <span>VAT (15%):</span>
-                                <span id="cartVat">Rs 0.00</span>
-                            </div>
-                            <div class="totals-row grand">
-                                <span>Total:</span>
-                                <span id="cartTotal">Rs 0.00</span>
-                            </div>
-                        </div>
-
-                        <div style="margin-bottom: 10px;">
-                            <label style="font-size: 0.85rem; font-weight: 600;">Payment Method:</label>
-                            <select id="paymentMethod" style="width: 100%; padding: 6px; margin-top: 4px; border-radius: 6px; border: 1px solid var(--border);">
-                                <option value="Cash">Cash</option>
-                                <option value="Card">Card</option>
-                                <option value="Blinks">Blinks</option>
-                                <option value="Delivoo">Delivoo</option>
-                                <option value="Hungry Dodo">Hungry Dodo</option>
-                            </select>
-                        </div>
-
-                        <button class="btn" onclick="completeSaleAndPlaceOrder()">Complete Sale & Place Order</button>
-                    </div>
-                </div>
-            </div>
 
 <!-- VIEW 2: PLACED ORDERS -->
             <div id="panePlacedOrders" class="view-pane">
@@ -441,7 +542,7 @@
 
         .hidden { display: none !important; }
       </style>
-</>
+</head>
 <body>
 
 <script>
