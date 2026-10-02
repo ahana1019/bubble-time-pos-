@@ -444,43 +444,81 @@
   .btn-success:hover { background: #047857; }
 </style>
 
-<!-- VIEW 2: PLACED ORDERS -->
+            <!-- VIEW 2: PLACED ORDERS -->
             <div id="panePlacedOrders" class="view-pane">
-                <div class="placed-orders-layout">
-                    <div class="orders-list-panel" style="background: white; border: 1px solid var(--border); border-radius: 8px; max-height: 70vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-                        <div style="padding: 12px 15px; font-weight: bold; border-bottom: 1px solid var(--border); background: #f1f5f9; position: sticky; top:0;">Placed Orders</div>
-                        <div id="placedOrdersListContainer">
-                            <p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.85rem;">No placed orders</p>
+                <div style="margin-bottom: 8px;">
+                    <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin: 0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0])">
+                        &larr; Back
+                    </button>
+                </div>
+
+                <div class="placed-orders-layout" style="flex: 1; height: calc(100% - 35px); display: flex; gap: 12px;">
+
+                    <!-- Left Panel: Orders List -->
+                    <div class="orders-list-panel" style="flex: 1; background: white; border: 1px solid var(--border, #cbd5e1); border-radius: 8px; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column;">
+                        <div style="padding: 10px 12px; font-weight: bold; border-bottom: 1px solid var(--border, #cbd5e1); background: #f1f5f9; font-size: 0.9rem; position: sticky; top: 0; z-index: 10;">Placed Orders</div>
+                        <div id="placedOrdersListContainer" style="flex: 1; overflow-y: auto;">
+                            <p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>
                         </div>
                     </div>
-                    <div class="order-details-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; max-height: 70vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-                        <div id="selectedOrderDetailsHeader" style="margin-bottom: 15px;">
-                            <p style="color: #94a3b8; font-size: 0.9rem;">Select an order from the left to view details and settlement status.</p>
+
+                    <!-- Middle Panel: Selected Order Details -->
+                    <div class="order-details-panel" style="flex: 2; background: white; border-radius: 8px; border: 1px solid var(--border, #cbd5e1); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <div id="selectedOrderDetailsHeader" style="margin-bottom: 12px;">
+                            <p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>
                         </div>
                         <div id="selectedOrderItemsTable" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
                     </div>
-                    <div class="order-settlement-panel" style="background: white; border-radius: 8px; border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; box-sizing: border-box;">
-                        <h2>Settlement</h2>
-                        <div style="margin-top: 15px;">
-                            <label style="font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Payment Status</label>
-                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                                <button id="btnStatusPaid" class="btn btn-success" style="flex: 1; padding: 10px; font-size: 0.85rem; margin:0;" onclick="setPaymentStatus('PAID')">PAID</button>
-                                <button id="btnStatusUnpaid" class="btn btn-secondary" style="flex: 1; padding: 10px; font-size: 0.85rem; margin:0; background:#64748b;" onclick="setPaymentStatus('UNPAID')">UNPAID</button>
+
+                    <!-- Right Panel: Settlement -->
+                    <div class="order-settlement-panel" style="flex: 1; background: white; border-radius: 8px; border: 1px solid var(--border, #cbd5e1); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                        <h2 style="font-size: 1rem; margin-top: 0; border-bottom: 1px solid var(--border, #e2e8f0); padding-bottom: 6px;">Settlement</h2>
+                        <div style="margin-top: 10px; display: flex; flex-direction: column; flex: 1;">
+                            <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Status</label>
+                            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                <button id="btnStatusPaid" class="btn btn-success" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0;" onclick="setPaymentStatus('PAID')">PAID</button>
+                                <button id="btnStatusUnpaid" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0; background:#64748b;" onclick="setPaymentStatus('UNPAID')">UNPAID</button>
                             </div>
-                            <label style="font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Payment Type</label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px;">
-                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Cash')">💵 CASH</button>
-                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Card')">💳 CARD</button>
-                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Blinks')">📱 BLINKS</button>
-                                <button class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; margin:0;" onclick="settleCurrentSelectedOrder('Delivoo')">🛵 DELIVOO</button>
+
+                            <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Type</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 15px;">
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Cash')">💵 CASH</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Card')">💳 CARD</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Juice')">🧃 JUICE</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('MyT Money')">📱 MYT</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrent_SelectedOrder('Blink')">📱 BLINK</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Delivoo')">🛵 DELIVOO</button>
+                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0; grid-column: span 2;" onclick="settleCurrentSelectedOrder('Hungry Dodo')">🍔 HUNGRY DODO</button>
                             </div>
-                            <button class="btn btn-success" style="margin-bottom: 8px; background-color: #0284c7;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
-                            <button class="btn btn-danger" style="margin-top: 10px;" onclick="deleteSelectedPlacedOrder()">Discard / Delete Order</button>
+
+                            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+                                <button class="btn btn-success" style="width: 100%; margin: 0; background-color: #0284c7; padding: 9px; font-size: 0.85rem;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
+                                <button class="btn btn-danger" style="width: 100%; margin: 0; padding: 9px; font-size: 0.85rem;" onclick="deleteSelectedPlacedOrder()">Delete Order (Cancel)</button>
+                            </div>
                         </div>
                     </div>
+
                 </div>
             </div>
+
 <style>
+
+        /* Placed Orders Responsive Layout */
+        .placed-orders-layout {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+  
+                @media (max-width: 900px) {
+            .placed-orders-layout {
+                grid-template-columns: 1fr;
+            }
+            .placed-orders-layout > div {
+                min-height: 350px;
+            }
+
         /* Daily Recon Layout */
         .recon-layout {
             display: grid;
@@ -505,16 +543,16 @@
             padding: 16px;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             box-sizing: border-box;
         }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.8rem; }
-        th, td { border: 1px solid var(--border); padding: 6px; text-align: left; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid var(--border); padding: 8px; }
         th { background: #f1f5f9; }
-
+</style
         .category-chip {
             display: inline-flex;
             align-items: center;
@@ -1119,13 +1157,13 @@
                                 <option value="JELLY">JELLY</option>
                                 <option value="OTHERS">OTHERS</option>
                             </select>
-                            <input type="text" id="stockName" placeholder="Item Name" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; flex: 2; min-width: 110px; font-size: 0.8rem;">
-                            <input type="number" id="stockQty" placeholder="Qty (g/ml)" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; width: 90px; font-size: 0.8rem;">
-                            <button class="btn-success" style="padding: 6px 14px; border: none; border-radius: 6px; color:white; cursor:pointer; font-weight:bold; font-size: 0.8rem;" onclick="addNewInventoryItem()">Add</button>
+                            <input type="text" id="stockName" placeholder="Item Name">
+                            <input type="number" id="stockQty" placeholder="Quantity">
+                            
                         </div>
                     </div>
 
-                    <div style="margin-top: 12px; flex: 1; overflow-y: auto;">
+                            <div> style="margin-top: 12px; flex: 1; overflow-y: auto;">
                         <table id="inventoryTable">
                             <thead>
                                 <tr><th>Category</th><th>Item</th><th>Stock</th><th>Action</th></tr>
@@ -2596,4 +2634,3 @@ function selectPlacedOrder(orderId) {
 </body>
 </html>
 ```
-
