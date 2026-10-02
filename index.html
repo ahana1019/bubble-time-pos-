@@ -905,19 +905,21 @@
                         </div>
 
                         <div class="totals-box">
-                            <div class="totals-row">
-                                <span>Subtotal:</span>
-                                <span id="cartSubtotal">Rs 0.00</span>
-                            </div>
-                            <div class="totals-row">
-                                <span>VAT (15%):</span>
-                                <span id="cartVat">Rs 0.00</span>
-                            </div>
-                            <div class="totals-row grand">
-                                <span>Total:</span>
-                                <span id="cartTotal">Rs 0.00</span>
-                            </div>
-                        </div>
+    <div class="totals-row">
+        <span>Subtotal (Excl. VAT):</span>
+        <span id="cartSubtotal">Rs 0.00</span>
+    </div>
+    <div class="totals-row">
+        <span>VAT (15% included):</span>
+        <span id="cartVat">Rs 0.00</span>
+    </div>
+    <div class="totals-row grand">
+        <span>Total:</span>
+        <span id="cartTotal">Rs 0.00</span>
+    </div>
+</div>
+
+
 
                         <!-- Cash Given & Change Calculation Section -->
                         <div style="background: #f8fafc; border: 1px solid var(--border); padding: 6px; border-radius: 6px; margin-bottom: 8px;">
@@ -1830,12 +1832,13 @@
                 container.appendChild(div);
             });
 
-            const vat = total * 0.15;
-            const subtotal = total - vat;
+                const grandTotal = total;
+    const vatAmount = grandTotal - (grandTotal / 1.15);
+    const netSubtotal = grandTotal - vatAmount;
 
-            document.getElementById('cartSubtotal').innerText = `Rs ${subtotal.toFixed(2)}`;
-            document.getElementById('cartVat').innerText = `Rs ${vat.toFixed(2)}`;
-            document.getElementById('cartTotal').innerText = `Rs ${total.toFixed(2)}`;
+    document.getElementById('cartSubtotal').innerText = `Rs ${netSubtotal.toFixed(2)}`;
+    document.getElementById('cartVat').innerText = `Rs ${vatAmount.toFixed(2)}`;
+    document.getElementById('cartTotal').innerText = `Rs ${grandTotal.toFixed(2)}`;
 
             calculateChange();
             updateScreenReceipt();
@@ -1864,21 +1867,37 @@
             }
         }
 
-        function updateScreenReceipt() {
-            const preview = document.getElementById('screenReceiptContent');
-            if(!preview) return;
-            if(cart.length === 0) {
-                preview.innerHTML = 'No items in receipt preview';
-                return;
-            }
-            let html = '';
-            cart.forEach(item => {
-                html += `<div style="display:flex; justify-content:space-between;"><span>${item.qty}x ${item.name}</span><span>Rs ${(item.price*item.qty).toFixed(2)}</span></div>`;
-            });
-            const grandTotal = document.getElementById('cartTotal').innerText;
-            html += `<div style="border-top:1px dashed #d97706; margin-top:4px; padding-top:2px; font-weight:bold; display:flex; justify-content:space-between;"><span>TOTAL:</span><span>${grandTotal}</span></div>`;
-            preview.innerHTML = html;
+            function updateScreenReceipt() {
+        const preview = document.getElementById('screenReceiptContent');
+        if (!preview) return;
+        
+        if (cart.length === 0) {
+            preview.innerHTML = 'No items in receipt preview';
+            return;
         }
+
+        let subtotal = 0;
+        let html = '';
+        
+        cart.forEach(item => {
+            const itemTotal = item.price * item.qty;
+            subtotal += itemTotal;
+            html += `<div style="display:flex; justify-content:space-between;"><span>${item.name} x${item.qty}</span><span>Rs ${itemTotal.toFixed(2)}</span></div>`;
+        });
+
+        const grandTotal = subtotal;
+        const vatAmount = grandTotal - (grandTotal / 1.15);
+        const netSubtotal = grandTotal - vatAmount;
+
+        html += `<div style="border-top: 1px dashed #d97706; margin-top: 6px; padding-top: 4px;">`;
+        html += `<div style="display:flex; justify-content:space-between; font-size: 0.85rem;"><span>Subtotal:</span><span>Rs ${netSubtotal.toFixed(2)}</span></div>`;
+        html += `<div style="display:flex; justify-content:space-between; font-size: 0.85rem;"><span>VAT (15% Inc.):</span><span>Rs ${vatAmount.toFixed(2)}</span></div>`;
+        html += `<div style="display:flex; justify-content:space-between; font-weight:bold; margin-top:2px;"><span>TOTAL:</span><span>Rs ${grandTotal.toFixed(2)}</span></div>`;
+        html += `</div>`;
+
+        preview.innerHTML = html;
+    }
+
 
 function completeSaleAndPrintReceipt() {
     if (!cart || cart.length === 0) {
@@ -2258,11 +2277,16 @@ function completeSaleAndPrintReceipt() {
             for(let m in methodTotals) {
                 rText += `${m.padEnd(14)} Rs ${methodTotals[m].toFixed(2).padStart(10)}\n`;
             }
-            rText += `Total          Rs ${grandTotal.toFixed(2).padStart(10)}\n\n`;
+                      const vat = grandTotal - (grandTotal / 1.15);
+             const net = grandTotal - vat;
 
-            rText += "================================\n";
-            rText += "     DEPARTMENT SALES ITEMS     \n";
-            rText += "================================\n\n";
+             rText += ` Subtotal (Excl. VAT): Rs ${net.toFixed(2)}\n`;
+             rText += ` VAT (15% Included):   Rs ${vat.toFixed(2)}\n`;
+             rText += "--------------------------------\n";
+             rText += ` Total         Rs ${grandTotal.toFixed(2)}\n`;
+             rText += "================================\n";
+             rText += "     DEPARTMENT SALES ITEMS     \n";
+             rText += "================================\n\n";
 
             if(Object.keys(itemSummary).length === 0) {
                 rText += "No items sold today\n\n";
@@ -2572,42 +2596,4 @@ function selectPlacedOrder(orderId) {
 </body>
 </html>
 ```
-
-.totals-box
-.totals-box
-.totals-box
-.totals-box
-.totals-box
-
-
-
-
-
-
-updateCart
-
-
-
-
-
-
-
-
-
-
-
-
-updateCart
-
-
-
-
-
-
-
-
-
-
-
-
 
