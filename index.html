@@ -1677,8 +1677,7 @@
                 if(prodsInCat.length === 0) return;
 
                 const drop = document.createElement('div');
-                drop.className = 'category-dropdown active';
-
+                drop.className = 'category-dropdown';
                 const header = document.createElement('div');
                 header.className = 'category-header';
                 header.innerHTML = `<span>${cat}</span> <span>▼</span>`;
@@ -1863,9 +1862,9 @@ function completeSaleAndPrintReceipt() {
     localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
 
     // 6. Trigger print receipt if function exists
-    if (typeof printReceipt === 'function') {
-        printReceipt(newOrder);
-    }
+    if (showScreenReceipt && typeof printReceipt === 'function') {
+    printReceipt(newOrder);
+}
 
     // Clear cart array and UI directly
 cart = [];
@@ -2178,7 +2177,12 @@ showModal("Success", "Sale completed successfully!");
             }
         }
     });
-          
+      const salesBreakdownArray = Object.keys(itemCounts).map(name => ({
+        name: name,
+        quantity: itemCounts[name]
+    }));
+    loadReconSalesBreakdown(salesBreakdownArray);
+
     if (document.getElementById('adminReconTransCount')) document.getElementById('adminReconTransCount').innerText = totalTransactionsCount;
     if (document.getElementById('reconCashTotal')) document.getElementById('reconCashTotal').innerText = totals.Cash.toFixed(2);
     if (document.getElementById('reconCardTotal')) document.getElementById('reconCardTotal').innerText = totals.Card.toFixed(2);
@@ -2577,6 +2581,33 @@ document.addEventListener("click", e => {
     }
 });
 
+// Function to populate the Daily Sales Breakdown list
+function loadReconSalesBreakdown(salesData) {
+    const listContainer = document.getElementById('reconItemizedSalesList');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '';
+
+    if (!salesData || salesData.length === 0) {
+        listContainer.innerHTML = '<div style="padding: 5px; color: #666;">No items recorded.</div>';
+        return;
+    }
+
+    salesData.forEach(item => {
+        const itemRow = document.createElement('div');
+        itemRow.style.display = 'flex';
+        itemRow.style.justifyContent = 'space-between';
+        itemRow.style.padding = '4px 0';
+        itemRow.style.fontSize = '0.85rem';
+        itemRow.style.borderBottom = '1px dashed rgba(0,0,0,0.05)';
+
+        itemRow.innerHTML = `
+            <span>${item.name}</span>
+            <span>${item.quantity} pcs</span>
+        `;
+        listContainer.appendChild(itemRow);
+    });
+}
 
     </script>
   
