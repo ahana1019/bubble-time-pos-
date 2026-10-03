@@ -174,7 +174,7 @@
             min-height: 56px;
             background: #fbbf24;
             display: flex;
-            justify-style: space-around;
+            justify-content: space-around;
             align-items: center;
             border-top: 1px solid #f59e0b;
             flex-shrink: 0;
@@ -442,128 +442,7 @@
   .btn-danger:hover { background: #b91c1c; }
   .btn-success { background: #059669; }
   .btn-success:hover { background: #047857; }
-</style>
-
-            <!-- VIEW 2: PLACED ORDERS -->
-            <div id="panePlacedOrders" class="view-pane">
-                <div style="margin-bottom: 8px;">
-                    <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin: 0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0])">
-                        &larr; Back
-                    </button>
-                </div>
-
-                <div class="placed-orders-layout" style="flex: 1; height: calc(100% - 35px); display: flex; gap: 12px;">
-
-                    <!-- Left Panel: Orders List -->
-                    <div class="orders-list-panel" style="flex: 1; background: white; border: 1px solid var(--border, #cbd5e1); border-radius: 8px; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column;">
-                        <div style="padding: 10px 12px; font-weight: bold; border-bottom: 1px solid var(--border, #cbd5e1); background: #f1f5f9; font-size: 0.9rem; position: sticky; top: 0; z-index: 10;">Placed Orders</div>
-                        <div id="placedOrdersListContainer" style="flex: 1; overflow-y: auto;">
-                            <p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>
-                        </div>
-                    </div>
-
-                    <!-- Middle Panel: Selected Order Details -->
-                    <div class="order-details-panel" style="flex: 2; background: white; border-radius: 8px; border: 1px solid var(--border, #cbd5e1); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-                        <div id="selectedOrderDetailsHeader" style="margin-bottom: 12px;">
-                            <p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>
-                        </div>
-                        <div id="selectedOrderItemsTable" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
-                    </div>
-
-                    <!-- Right Panel: Settlement -->
-                    <div class="order-settlement-panel" style="flex: 1; background: white; border-radius: 8px; border: 1px solid var(--border, #cbd5e1); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-                        <h2 style="font-size: 1rem; margin-top: 0; border-bottom: 1px solid var(--border, #e2e8f0); padding-bottom: 6px;">Settlement</h2>
-                        <div style="margin-top: 10px; display: flex; flex-direction: column; flex: 1;">
-                            <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Status</label>
-                            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                                <button id="btnStatusPaid" class="btn btn-success" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0;" onclick="setPaymentStatus('PAID')">PAID</button>
-                                <button id="btnStatusUnpaid" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.8rem; margin:0; background:#64748b;" onclick="setPaymentStatus('UNPAID')">UNPAID</button>
-                            </div>
-
-                            <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Payment Type</label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 15px;">
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Cash')">💵 CASH</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Card')">💳 CARD</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Juice')">🧃 JUICE</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('MyT Money')">📱 MYT</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrent_SelectedOrder('Blink')">📱 BLINK</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Delivoo')">🛵 DELIVOO</button>
-                                <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0; grid-column: span 2;" onclick="settleCurrentSelectedOrder('Hungry Dodo')">🍔 HUNGRY DODO</button>
-                            </div>
-
-                            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
-                                <button class="btn btn-success" style="width: 100%; margin: 0; background-color: #0284c7; padding: 9px; font-size: 0.85rem;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
-                                <button class="btn btn-danger" style="width: 100%; margin: 0; padding: 9px; font-size: 0.85rem;" onclick="deleteSelectedPlacedOrder()">Delete Order (Cancel)</button>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-<style>
-
-        /* Placed Orders Responsive Layout */
-        .placed-orders-layout {
-            display: flex;
-            gap: 12px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-  
-                @media (max-width: 900px) {
-            .placed-orders-layout {
-                grid-template-columns: 1fr;
-            }
-            .placed-orders-layout > div {
-                min-height: 350px;
-            }
-
-        /* Daily Recon Layout */
-        .recon-layout {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            height: 100%;
-            box-sizing: border-box;
-        }
-
-        @media (max-width: 900px) {
-            .recon-layout {
-                grid-template-columns: 1fr;
-                overflow-y: auto;
-                height: auto;
-            }
-        }
-
-        .recon-panel {
-            background: #ffffff;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            box-sizing: border-box;
-        }
-        
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid var(--border); padding: 8px; }
-        th { background: #f1f5f9; }
-</style
-        .category-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #f1f5f9;
-            border: 1px solid #cbd5e1;
-            padding: 4px 10px;
-            border-radius: 16px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
+          
 
         .category-chip button {
             background: none;
@@ -665,7 +544,14 @@
                         </div>
                         <span class="tile-label" style="color: #7c3aed;">ADMIN SETTINGS & STAFF MANAGEMENT</span>
                     </div>
-                    
+                    <!-- ADMIN ONLY: RAW STOCK INVENTORY TILE -->
+    <div id="homeInventoryTile" class="dashboard-tile" onclick="switchPane('paneInventory')" style="display: none;">
+        <div class="tile-icon-box" style="background: #eef2ff;">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        </div>
+        <span class="tile-label" style="color: #312e81;">RAW STOCK INVENTORY</span>
+    </div>
+
                     <!-- Tile 1: Place Order -->
                     <div class="dashboard-tile" style="background: #eff6ff; border-color: #bfdbfe;" onclick="switchView('paneRegister', document.querySelectorAll('.bottom-nav .nav-item')[1], 'POS REGISTER')">
                         <div class="tile-icon-box" style="background: #dbeafe; border-color: #93c5fd;">
@@ -1113,7 +999,7 @@
                         <div style="background: #eef2ff; padding: 12px; border-radius: 8px; border: 1px solid #c7d2fe;">
                             <h4 style="margin: 0 0 6px 0; color: #4f46e5; font-size: 0.8rem;">Active Shift Staff</h4>
                             <p id="dashStaffName" style="font-size: 1rem; font-weight: bold; margin: 0;">-</p>
-                        </div>
+                        </div> 
                         <div style="background: #ecfdf5; padding: 12px; border-radius: 8px; border: 1px solid #a7f3d0;">
                             <h4 style="margin: 0 0 6px 0; color: #059669; font-size: 0.8rem;">Pending Placed Orders</h4>
                             <p id="dashPendingCount" style="font-size: 1rem; font-weight: bold; margin: 0;">0</p>
@@ -1157,13 +1043,13 @@
                                 <option value="JELLY">JELLY</option>
                                 <option value="OTHERS">OTHERS</option>
                             </select>
-                            <input type="text" id="stockName" placeholder="Item Name">
-                            <input type="number" id="stockQty" placeholder="Quantity">
-                            
+                            <input type="text" id="stockName" placeholder="Item Name" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; flex: 2; min-width: 110px; font-size: 0.8rem;">
+                            <input type="number" id="stockQty" placeholder="Qty (g/ml)" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; width: 90px; font-size: 0.8rem;">
+                            <button class="btn-success" style="padding: 6px 14px; border: none; border-radius: 6px; color:white; cursor:pointer; font-weight:bold; font-size: 0.8rem;" onclick="addNewInventoryItem()">Add</button>
                         </div>
                     </div>
 
-                            <div> style="margin-top: 12px; flex: 1; overflow-y: auto;">
+                    <div style="margin-top: 12px; flex: 1; overflow-y: auto;">
                         <table id="inventoryTable">
                             <thead>
                                 <tr><th>Category</th><th>Item</th><th>Stock</th><th>Action</th></tr>
@@ -1607,6 +1493,7 @@
             saveInventory();
         }
 
+      
         function addNewInventoryItem() {
             const cat = document.getElementById('stockCategory').value;
             const name = document.getElementById('stockName').value.trim();
@@ -1620,7 +1507,7 @@
             document.getElementById('stockQty').value = '';
             saveInventory();
         }
-
+   
         function printStoreStockReport() {
             let report = "--------------------------------\n";
             report += "       BUBBLE TIME MD LTD       \n";
@@ -1738,6 +1625,7 @@
                 document.getElementById('adminAddNewProductsCard').style.display = isAdmin ? 'flex' : 'none';
                 document.getElementById('adminGrossSalesAnalyticsCard').style.display = isAdmin ? 'flex' : 'none';
                 document.getElementById('adminHomeSettingsSection').style.display = isAdmin ? 'flex' : 'none';
+                document.getElementById('homeInventoryTile').style.display = isAdmin ? 'block' : 'none';
 
                 switchView('paneRegister', document.querySelectorAll('.bottom-nav .nav-item')[1], 'POS REGISTER');
                 renderAccordion();
@@ -1979,16 +1867,23 @@ function completeSaleAndPrintReceipt() {
         printReceipt(newOrder);
     }
 
-    // 7. Clear cart and refresh views
-    if (typeof clearCart === 'function') {
-        clearCart();
-    }
-    if (typeof renderPlacedOrders === 'function') {
-        renderPlacedOrders();
-    }
-    if (typeof refreshReconData === 'function') {
-        refreshReconData();
-    }
+    // Clear cart array and UI directly
+cart = [];
+if (typeof renderCart === 'function') {
+    renderCart();
+}
+
+// Refresh placed orders and daily recon views directly
+if (typeof renderPlacedOrders === 'function') {
+    renderPlacedOrders();
+}
+
+if (typeof refreshReconData === 'function') {
+    refreshReconData();
+}
+
+showModal("Success", "Sale completed successfully!");
+
     showModal("Success", `Sale completed successfully! Order ${orderId} saved.`);
 }
 
@@ -2231,44 +2126,69 @@ function completeSaleAndPrintReceipt() {
 
         /* DAILY RECON REPORTS */
         function refreshReconData() {
-            let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-            document.getElementById('reconTimestamp').innerText = new Date().toLocaleString();
-            document.getElementById('reconCashierName').innerText = currentStaff ? currentStaff.name : 'Administrator';
-            document.getElementById('adminReconCashier').innerText = currentStaff ? currentStaff.name : 'Administrator';
-            document.getElementById('adminReconTransCount').innerText = dailySales.length;
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    
+    const nowStr = new Date().toLocaleString();
+    if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
+    
+    let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
+    let staffName = currentStaff.name || 'Ahana Lead';
+    if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = staffName;
+    if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = staffName;
 
-            let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
-            let grandTotal = 0;
-            let itemCounts = {};
+    let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
+    let grandTotal = 0;
+    let itemCounts = {};
+    let totalTransactionsCount = 0;
 
-            dailySales.forEach(s => {
-                grandTotal += s.total;
-                if(totals[s.method] !== undefined) totals[s.method] += s.total;
-                s.items.forEach(i => {
-                    itemCounts[i.name] = (itemCounts[i.name] || 0) + i.qty;
-                });
-            });
+        placedOrders.forEach(order => {
+        if (order.status === 'PAID' || order.paymentStatus === 'PAID') {
+            let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
+            let mStr = String(rawM).toLowerCase();
+            let m = 'Cash';
 
-            document.getElementById('reconCashTotal').innerText = totals.Cash.toFixed(2);
-            document.getElementById('reconCardTotal').innerText = totals.Card.toFixed(2);
-            document.getElementById('reconJuiceTotal').innerText = totals.Juice.toFixed(2);
-            document.getElementById('reconMytTotal').innerText = totals['MyT Money'].toFixed(2);
-            document.getElementById('reconBlinkTotal').innerText = totals.Blink.toFixed(2);
-            document.getElementById('reconDelivooTotal').innerText = totals.Delivoo.toFixed(2);
-            document.getElementById('reconHungryDodoTotal').innerText = totals['Hungry Dodo'].toFixed(2);
-            document.getElementById('reconGrandTotal').innerText = grandTotal.toFixed(2);
+            if (mStr.includes("blink")) m = "Blink";
+            else if (mStr.includes("card")) m = "Card";
+            else if (mStr.includes("juice")) m = "Juice";
+            else if (mStr.includes("myt") || mStr.includes("my t")) m = "MyT Money";
+            else if (mStr.includes("delivoo")) m = "Delivoo";
+            else if (mStr.includes("hungry")) m = "Hungry Dodo";
+            else if (mStr.includes("cash")) m = "Cash";
+            else m = "Cash";
 
-            const listContainer = document.getElementById('reconItemizedSalesList');
-            if(Object.keys(itemCounts).length === 0) {
-                listContainer.innerHTML = '<span style="color:#94a3b8;">No items sold today</span>';
+            let amt = parseFloat(
+                order.total || order.subtotal || order.amount || 0
+            );
+
+            grandTotal += amt;
+            totalTransactionsCount++;
+
+            if (totals[m] !== undefined) {
+                totals[m] += amt;
             } else {
-                let html = '';
-                for(let item in itemCounts) {
-                    html += `<div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>${item}</span><strong>${itemCounts[item]} pcs</strong></div>`;
-                }
-                listContainer.innerHTML = html;
+                totals.Cash += amt;
+            }
+
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach(i => {
+                    let n = i.name || i.title || i.item || 'Item';
+                    let q = parseInt(i.qty || i.quantity || 1);
+                    itemCounts[n] = (itemCounts[n] || 0) + q;
+                });
             }
         }
+    });
+          
+    if (document.getElementById('adminReconTransCount')) document.getElementById('adminReconTransCount').innerText = totalTransactionsCount;
+    if (document.getElementById('reconCashTotal')) document.getElementById('reconCashTotal').innerText = totals.Cash.toFixed(2);
+    if (document.getElementById('reconCardTotal')) document.getElementById('reconCardTotal').innerText = totals.Card.toFixed(2);
+    if (document.getElementById('reconJuiceTotal')) document.getElementById('reconJuiceTotal').innerText = totals.Juice.toFixed(2);
+    if (document.getElementById('reconMytTotal')) document.getElementById('reconMytTotal').innerText = totals['MyT Money'].toFixed(2);
+    if (document.getElementById('reconBlinkTotal')) document.getElementById('reconBlinkTotal').innerText = totals.Blink.toFixed(2);
+    if (document.getElementById('reconDelivooTotal')) document.getElementById('reconDelivooTotal').innerText = totals.Delivoo.toFixed(2);
+    if (document.getElementById('reconHungryDodoTotal')) document.getElementById('reconHungryDodoTotal').innerText = totals['Hungry Dodo'].toFixed(2);
+    if (document.getElementById('reconGrandTotal')) document.getElementById('reconGrandTotal').innerText = grandTotal.toFixed(2);
+}
 
                 function printCombinedDailySalesReport() {
             let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
@@ -2555,10 +2475,11 @@ function renderPlacedOrdersList(orders) {
 }
 
 function selectPlacedOrder(orderId) {
-    currentSelectedOrderId = orderId;
+    selectedPlacedOrderId = orderId;
 
-    // Searches global order list
-    const order = (window.placedOrdersArray || []).find(o => o.id === orderId);
+        // Searches local storage for the order
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    const order = placedOrders.find(o => o.id === orderId);
     if (!order) return;
 
     // Highlight active card
@@ -2630,7 +2551,35 @@ function selectPlacedOrder(orderId) {
             renderBatchPrepUI();
             saveCategories();
         };
+              // Automatically updates the hidden payment method dropdown when clicking payment buttons
+document.addEventListener("click", e => {
+    if (e.target.tagName !== 
+        "BUTTON") return;
+    const t = e.target.innerText;
+    const el = document.getElementById(
+        "paymentMethod"
+    );
+    if (!el) return;
+    const m = {
+        Blink: "Blink",
+        Card: "Card",
+        Cash: "Cash",
+        Juice: "Juice",
+        MyT: "MyT Money",
+        Delivoo: "Delivoo",
+        Hungry: "Hungry Dodo"
+    };
+    for (let k in m) {
+        if (t.includes(k)) {
+            el.value = m[k];
+            break;
+        }
+    }
+});
+
+
     </script>
+  
 </body>
 </html>
 ```
