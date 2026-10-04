@@ -2194,86 +2194,108 @@ showModal("Success", "Sale completed successfully!");
     if (document.getElementById('reconGrandTotal')) document.getElementById('reconGrandTotal').innerText = grandTotal.toFixed(2);
 }
 
-                function printCombinedDailySalesReport() {
-            let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-            let grandTotal = dailySales.reduce((sum, s) => sum + s.total, 0);
+function printCombinedDailySalesReport() {
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    
+    let dailySales = placedOrders.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID').map(order => {
+        let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
+        let mStr = String(rawM).toLowerCase();
+        let m = 'Cash';
 
-            // 1. Tally sales by payment method (matching target report layout)
-            let methodTotals = {};
-            dailySales.forEach(s => {
-                let m = s.method || 'Cash';
-                if(m === 'Blink') m = 'Blinks'; // Normalize naming if needed
-                methodTotals[m] = (methodTotals[m] || 0) + s.total;
-            });
+        if (mStr.includes("blink")) m = "Blink";
+        else if (mStr.includes("card")) m = "Card";
+        else if (mStr.includes("juice")) m = "Juice";
+        else if (mStr.includes("myt") || mStr.includes("my t")) m = "MyT Money";
+        else if (mStr.includes("delivoo")) m = "Delivoo";
+        else if (mStr.includes("hungry")) m = "Hungry Dodo";
+        else m = "Cash";
 
-            // 2. Tally items/departments and their amounts from stored sale items
-            let itemSummary = {};
-            dailySales.forEach(s => {
-                if(s.items && Array.isArray(s.items)) {
-                    s.items.forEach(i => {
-                        let key = i.category || i.name || 'Item';
-                        if(!itemSummary[key]) {
-                            itemSummary[key] = { qty: 0, amount: 0 };
-                        }
-                        let qty = i.qty || 1;
-                        let price = i.price ? (i.price * qty) : (i.total || 0);
-                        itemSummary[key].qty += qty;
-                        itemSummary[key].amount += price;
-                    });
+        let amt = parseFloat(order.total || order.subtotal || order.amount || 0);
+
+        return {
+            total: amt,
+            method: m,
+            items: order.items || []
+        };
+    });
+
+    let grandTotal = dailySales.reduce((sum, s) => sum + s.total, 0);
+
+    let methodTotals = {};
+    dailySales.forEach(s => {
+        let m = s.method || 'Cash';
+        methodTotals[m] = (methodTotals[m] || 0) + s.total;
+    });
+
+    let itemSummary = {};
+    dailySales.forEach(s => {
+        if(s.items && Array.isArray(s.items)) {
+            s.items.forEach(i => {
+                let key = i.name || i.title || i.item || i.category || 'Item';
+                if(!itemSummary[key]) {
+                    itemSummary[key] = { qty: 0, amount: 0 };
                 }
+                let qty = parseInt(i.qty || i.quantity || 1);
+                let price = i.price ? (i.price * qty) : (i.total || 0);
+                itemSummary[key].qty += qty;
+                itemSummary[key].amount += price;
             });
-
-            let now = new Date();
-            let dateStr = now.toLocaleDateString('en-GB'); // DD/MM/YYYY format
-            let timeStr = now.toTimeString().split(' ')[0]; // HH:MM:SS
-            let cashierName = currentStaff ? currentStaff.name : 'Ahana';
-
-            // 3. Construct the formatted receipt text matching the second picture layout
-            let rText = "================================\n";
-            rText += "      BUBBLE TIME MD LTD      \n";
-            rText += "       QBC DAILY REPORT       \n";
-            rText += "================================\n\n";
-
-            rText += "SALES OF THE DAY\n";
-            rText += "--------------------------------\n";
-            for(let m in methodTotals) {
-                rText += `${m.padEnd(14)} Rs ${methodTotals[m].toFixed(2).padStart(10)}\n`;
-            }
-                      const vat = grandTotal - (grandTotal / 1.15);
-             const net = grandTotal - vat;
-
-             rText += ` Subtotal (Excl. VAT): Rs ${net.toFixed(2)}\n`;
-             rText += ` VAT (15% Included):   Rs ${vat.toFixed(2)}\n`;
-             rText += "--------------------------------\n";
-             rText += ` Total         Rs ${grandTotal.toFixed(2)}\n`;
-             rText += "================================\n";
-             rText += "     DEPARTMENT SALES ITEMS     \n";
-             rText += "================================\n\n";
-
-            if(Object.keys(itemSummary).length === 0) {
-                rText += "No items sold today\n\n";
-            } else {
-                for(let item in itemSummary) {
-                    rText += `${item.toUpperCase()}\n`;
-                    rText += `Quantity                      ${itemSummary[item].qty}\n`;
-                    rText += `Amount             Rs ${itemSummary[item].amount.toFixed(2).padStart(8)}\n\n`;
-                }
-            }
-
-            rText += "================================\n";
-            rText += "         DATE AND TIME          \n";
-            rText += "--------------------------------\n";
-            rText += `Date: ${dateStr}\n`;
-            rText += `Timestamp: ${timeStr}\n`;
-            rText += `Cashier: ${cashierName}\n`;
-            rText += `Total Transactions: ${dailySales.length}\n`;
-            rText += "================================\n";
-            rText += "      END OF QBC REPORT       \n";
-            rText += "================================\n";
-
-            if(bluetoothCharacteristic) sendToPrinter(rText);
-            else showModal("QBC Daily Report", rText);
         }
+    });
+
+    let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
+    let now = new Date();
+    let dateStr = now.toLocaleDateString('en-GB'); 
+    let timeStr = now.toTimeString().split(' ')[0]; 
+    let cashierName = currentStaff.name || 'Ahana Lead';
+
+    let rText = "================================\n";
+    rText += "      BUBBLE TIME MD LTD      \n";
+    rText += "       QBC DAILY REPORT       \n";
+    rText += "================================\n\n";
+
+    rText += "SALES OF THE DAY\n";
+    rText += "--------------------------------\n";
+    for(let m in methodTotals) {
+        rText += `${m.padEnd(14)} Rs ${methodTotals[m].toFixed(2).padStart(10)}\n`;
+    }
+    
+    const vat = grandTotal - (grandTotal / 1.15);
+    const net = grandTotal - vat;
+
+    rText += ` Subtotal (Excl. VAT): Rs ${net.toFixed(2)}\n`;
+    rText += ` VAT (15% Included):   Rs ${vat.toFixed(2)}\n`;
+    rText += "--------------------------------\n";
+    rText += ` Total         Rs ${grandTotal.toFixed(2)}\n`;
+    rText += "================================\n";
+    rText += "     DEPARTMENT SALES ITEMS     \n";
+    rText += "================================\n\n";
+
+    if(Object.keys(itemSummary).length === 0) {
+        rText += "No items sold today\n\n";
+    } else {
+        for(let item in itemSummary) {
+            rText += `${item.toUpperCase()}\n`;
+            rText += `Quantity                      ${itemSummary[item].qty}\n`;
+            rText += `Amount             Rs ${itemSummary[item].amount.toFixed(2).padStart(8)}\n\n`;
+        }
+    }
+
+    rText += "================================\n";
+    rText += "         DATE AND TIME          \n";
+    rText += "--------------------------------\n";
+    rText += `Date: ${dateStr}\n`;
+    rText += `Timestamp: ${timeStr}\n`;
+    rText += `Cashier: ${cashierName}\n`;
+    rText += `Total Transactions: ${dailySales.length}\n`;
+    rText += "================================\n";
+    rText += "      END OF QBC REPORT       \n";
+    rText += "================================\n";
+
+    if(typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) sendToPrinter(rText);
+    else showModal("QBC Daily Report", rText);
+}
+
 let isScreenReceiptEnabled = true;
 
 function toggleScreenReceipt() {
@@ -2292,34 +2314,120 @@ function toggleScreenReceipt() {
     }
 }
 
-        function printSpecificPlatformReport(platformName) {
-            let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-            let platformSales = dailySales.filter(s => s.method.toLowerCase() === platformName.toLowerCase());
-            let total = platformSales.reduce((sum, s) => sum + s.total, 0);
+function printSpecificPlatformReport(platformName) {
+    let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
+    let platformSales = dailySales.filter(s => s.method.toLowerCase() === platformName.toLowerCase());
+    let total = platformSales.reduce((sum, s) => sum + s.total, 0);
 
-            let rText = "================================\n";
-            rText += `     ${platformName.toUpperCase()} SALES REPORT     \n`;
-            rText += "================================\n";
-            rText += `Date: ${new Date().toLocaleDateString()}\n`;
-            rText += `Orders: ${platformSales.length}\n`;
-            rText += `Total Revenue: Rs ${total.toFixed(2)}\n`;
-            rText += "================================\n";
+    let rText = "================================\n";
+    rText += `     ${platformName.toUpperCase()} SALES REPORT     \n`;
+    rText += "================================\n";
+    rText += `Date: ${new Date().toLocaleDateString()}\n`;
+    rText += `Orders: ${platformSales.length}\n`;
+    rText += `Total Revenue: Rs ${total.toFixed(2)}\n`;
+    rText += "================================\n";
 
-            if(bluetoothCharacteristic) sendToPrinter(rText);
-            else showModal(`${platformName} Report`, rText);
-        }
+    if(typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) sendToPrinter(rText);
+    else showModal(`${platformName} Report`, rText);
+}
 
-        function approveCloseShiftAndPrintReport() {
-            showModal("Close Shift", "Are you sure you want to approve and close the current shift?", true, (confirm) => {
-                if(confirm) {
-                    printCombinedDailySalesReport();
-                    localStorage.removeItem('pos_daily_sales_history');
-                    refreshReconData();
-                    showModal("Shift Closed", "Current shift has been closed and daily tally reset.");
-                }
+// Google Sheets Web App Sync URL
+const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycsby3TGVsBaQYliiNMMclAaKwi4cc_LAoXRegTkB92oRJbq2l1klw9ktux-M1jknOLETc";
+
+function syncShiftToGoogleSheets(shiftData) {
+    fetch(GOOGLE_SHEETS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(shiftData)
+    })
+    .then(() => {
+        console.log('Shift report successfully sent to Google Sheets!');
+    })
+    .catch(error => {
+        console.error('Error sending shift report:', error);
+    });
+}
+
+function approveCloseShiftAndPrintReport() {
+    showModal("Close Shift", "Are you sure you want to approve and close the current shift?", true, (confirm) => {
+        if(confirm) {
+            // 1. Calculate shift breakdown values
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+            let paidOrders = placedOrders.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID');
+            
+            let methodTotals = {
+                'Cash': 0,
+                'Card': 0,
+                'Juice': 0,
+                'MyT Money': 0,
+                'Blink': 0,
+                'Delivoo': 0,
+                'Hungry Dodo': 0
+            };
+
+            let grandTotal = 0;
+
+            paidOrders.forEach(order => {
+                let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
+                let mStr = String(rawM).toLowerCase();
+                let m = 'Cash';
+
+                if (mStr.includes("blink")) m = "Blink";
+                else if (mStr.includes("card")) m = "Card";
+                else if (mStr.includes("juice")) m = "Juice";
+                else if (mStr.includes("myt") || mStr.includes("my t")) m = "MyT Money";
+                else if (mStr.includes("delivoo")) m = "Delivoo";
+                else if (mStr.includes("hungry")) m = "Hungry Dodo";
+                else m = "Cash";
+
+                let amt = parseFloat(order.total || order.subtotal || order.amount || 0);
+                methodTotals[m] = (methodTotals[m] || 0) + amt;
+                grandTotal += amt;
             });
-        }
 
+            let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
+            let now = new Date();
+            let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+            let dateStr = now.toLocaleDateString('en-GB');
+            let shiftId = "SHIFT-" + Date.now().toString().slice(-4);
+            let cashierName = currentStaff.name || 'Ahana Lead';
+
+            // 2. Build payload matching Google Sheet 12 columns
+            let sheetPayload = {
+                day: dayName,
+                date: dateStr,
+                shiftId: shiftId,
+                delivoo: methodTotals['Delivoo'],
+                hungryDodo: methodTotals['Hungry Dodo'],
+                juice: methodTotals['Juice'],
+                mytMoney: methodTotals['MyT Money'],
+                card: methodTotals['Card'],
+                blinks: methodTotals['Blink'],
+                cash: methodTotals['Cash'],
+                totalSales: grandTotal,
+                closedBy: cashierName
+            };
+
+            // 3. Send to Google Sheets
+            syncShiftToGoogleSheets(sheetPayload);
+
+            // 4. Print thermal receipt
+            printCombinedDailySalesReport();
+            
+            // 5. Reset local shift tally
+            localStorage.removeItem('pos_daily_sales_history');
+            let remainingOrders = placedOrders.filter(order => !(order.status === 'PAID' || order.paymentStatus === 'PAID'));
+            localStorage.setItem('pos_placed_orders', JSON.stringify(remainingOrders));
+
+            refreshReconData();
+            showModal("Shift Closed", "Current shift has been closed and daily tally reset.");
+        }
+    });
+}
+      
         /* DONUT CHART & DASHBOARD METRICS */
         function updateDashboardMetrics() {
             document.getElementById('dashStaffName').innerText = currentStaff ? currentStaff.name : 'Administrator';
