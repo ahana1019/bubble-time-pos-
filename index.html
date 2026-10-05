@@ -1084,6 +1084,7 @@
     </div>
 
     <script>
+    
         let modalCallback = null;
         function showModal(title, message, isConfirm = false, callback = null) {
             document.getElementById('customModalTitle').innerText = title;
@@ -1824,15 +1825,18 @@
     }
 
 
-function completeSaleAndPrintReceipt() {
+const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3TGVSbaQYIiINMMcIAaKwi4cc_LAoXrEgTkB92oRJBq2l1kIw9ktux-M1jknOLETc/exec";
+
+async function completeSaleAndPrintReceipt() {
     if (!cart || cart.length === 0) {
         showModal("Notice", "Your cart is empty.");
         return;
     }
-    // 2. Generate unique order ID and timestamp
+
+    // 1. Order details
     const orderId = 'ORD-' + Date.now().toString().slice(-6);
     const timestamp = new Date().toLocaleString();
-    // 3. Calculate total
+
     let total = 0;
     if (cart && cart.length > 0) {
         for (let i = 0; i < cart.length; i++) {
@@ -1842,55 +1846,60 @@ function completeSaleAndPrintReceipt() {
         }
     }
 
-    // 4. Get selected payment method if dropdown exists
-    const paymentMethodEl = document.getElementById('paymentMethod');
+    const paymentMethodEl = document.getElementById('paymentMethodSelect') || document.getElementById('paymentMethod');
     const method = paymentMethodEl ? paymentMethodEl.value : 'Cash';
 
     const newOrder = {
         id: orderId,
-        cashier: typeof currentCashier !== 'undefined' ? currentCashier : 'Hanaa',
+        cashier: typeof currentCashier !== 'undefined' ? currentCashier : 'Staff',
         timestamp: timestamp,
-        items: cart,
+        items: [...cart],
         total: total,
         method: method,
         status: 'PAID'
     };
 
-    // 5. Save to placed orders in localStorage
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+    // 2. Save locally
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
     placedOrders.push(newOrder);
     localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
 
-    // 6. Trigger print receipt if function exists
-    if (showScreenReceipt && typeof printReceipt === 'function') {
-    printReceipt(newOrder);
+    // 3. Send automatically to Google Sheets
+    try {
+        fetch(GOOGLE_SHEET_WEB_APP_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(newOrder)
+        });
+    } catch (err) {
+        console.error("Error sending to Google Sheets:", err);
+    }
+
+    // 4. Check print toggle & trigger Bluetooth Thermal Printing directly
+    const printToggle = document.getElementById('autoPrintReceipt') || document.getElementById('printReceiptToggle');
+    const shouldPrint = printToggle ? printToggle.checked : true;
+
+    if (shouldPrint) {
+        if (typeof printThermalReceipt === 'function') {
+            await printThermalReceipt(newOrder);
+        } else if (typeof printReceipt === 'function') {
+            printReceipt(newOrder);
+        }
+    }
+
+    // 5. Clear cart and refresh UI
+    cart = [];
+    if (typeof renderCart === 'function') renderCart();
+    if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+    if (typeof refreshReconData === 'function') refreshReconData();
+
+                showModal("Success", "Sale completed successfully!");
 }
 
-    // Clear cart array and UI directly
-cart = [];
-if (typeof renderCart === 'function') {
-    renderCart();
-}
-
-// Refresh placed orders and daily recon views directly
-if (typeof renderPlacedOrders === 'function') {
-    renderPlacedOrders();
-}
-
-if (typeof refreshReconData === 'function') {
-    refreshReconData();
-}
-
-showModal("Success", "Sale completed successfully!");
-
-    showModal("Success", `Sale completed successfully! Order ${orderId} saved.`);
-}
-
-    
-        /* PLACED ORDERS & SETTLEMENT */
-        function renderPlacedOrders() {
-            const container = document.getElementById('placedOrdersListContainer');
-            if(!container) return;
+/* PLACED ORDERS & SETTLEMENT */
+function renderPlacedOrders() {
+    const container = document.getElementById('placedOrdersList');
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
 
             if(placedOrders.length === 0) {
@@ -2356,7 +2365,12 @@ function approveCloseShiftAndPrintReport() {
         if(confirm) {
             // 1. Calculate shift breakdown values
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-            let paidOrders = placedOrders.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID');
+            
+            // Filter paid or completed orders flexible with casing
+            let paidOrders = placedOrders.filter(order => {
+                let s = String(order.status || order.paymentStatus || '').toUpperCase();
+                return s === 'PAID' || s === 'COMPLETED' || s === '' || !order.status; 
+            });
             
             let methodTotals = {
                 'Cash': 0,
@@ -2395,7 +2409,7 @@ function approveCloseShiftAndPrintReport() {
             let shiftId = "SHIFT-" + Date.now().toString().slice(-4);
             let cashierName = currentStaff.name || 'Ahana Lead';
 
-            // 2. Build payload matching Google Sheet 12 columns
+            // 2. Build payload matching Google Sheet columns
             let sheetPayload = {
                 day: dayName,
                 date: dateStr,
@@ -2419,7 +2433,10 @@ function approveCloseShiftAndPrintReport() {
             
             // 5. Reset local shift tally
             localStorage.removeItem('pos_daily_sales_history');
-            let remainingOrders = placedOrders.filter(order => !(order.status === 'PAID' || order.paymentStatus === 'PAID'));
+            let remainingOrders = placedOrders.filter(order => {
+                let s = String(order.status || order.paymentStatus || '').toUpperCase();
+                return s !== 'PAID' && s !== 'COMPLETED';
+            });
             localStorage.setItem('pos_placed_orders', JSON.stringify(remainingOrders));
 
             refreshReconData();
