@@ -13,6 +13,7 @@
     <!-- Include Chart.js for Donut Chart -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+      
         :root {
             --primary: #f59e0b;
             --primary-hover: #d97706;
@@ -472,10 +473,10 @@
       }
   }
 
-  document.addEventListener('DOMContentLoaded', updateInventoryTitleVisibility);
-</script>
-
+  
 <!-- Custom Modal Dialog Box -->
+  </script>
+
 <div id="customModalOverlay">
   <div class="custom-modal-card">
             <h3 id="customModalTitle">Notice</h3>
@@ -496,6 +497,34 @@
             </select>
             <input type="password" id="loginPin" class="login-input" placeholder="PIN Code">
             <button class="btn" onclick="handleLogin()">Login & Open Register</button>
+      <!-- ATTENDANCE TRACKER INSIDE LOGIN CARD -->
+<hr style="border: none; border-top: 1px dashed #cbd5e1; margin: 20px 0;">
+
+<div style="text-align: center;">
+  <h3 style="margin-top:0; color: #1e293b; font-size: 1.05rem;">🕒 Staff Attendance Clock</h3>
+
+  <!-- Outlet Selector -->
+  <select id="attOutletSelect" style="width:100%; padding:10px; margin-bottom:10px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#1e293b; font-size:0.9rem;">
+    <option value="Mahebourge">Mahebourge</option>
+    <option value="Port Louis">Port Louis</option>
+    <option value="Valentina">Valentina</option>
+  </select>
+
+  <select id="attStaffSelect" style="width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#1e293b; font-size:0.9rem;">
+  <option value="">-- Select Staff --</option>
+</select>
+
+  <!-- Action Buttons -->
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+    <button onclick="recordAttendance('CLOCK IN')" style="background:#16a34a; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:0.85rem;">🟢 Clock In</button>
+    <button onclick="recordAttendance('BREAK OUT')" style="background:#eab308; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:0.85rem;">☕ Break Out</button>
+    <button onclick="recordAttendance('BREAK IN')" style="background:#0284c7; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:0.85rem;">🔄 Break In</button>
+    <button onclick="recordAttendance('CLOCK OUT')" style="background:#dc2626; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:0.85rem;">🔴 Clock Out</button>
+  </div>
+
+  <p id="attStatusMsg" style="font-size:0.8rem; color:#64748b; margin-top:10px; font-weight:600;"></p>
+</div>
+
         </div>
     </div>
 
@@ -544,13 +573,6 @@
                         </div>
                         <span class="tile-label" style="color: #7c3aed;">ADMIN SETTINGS & STAFF MANAGEMENT</span>
                     </div>
-                    <!-- ADMIN ONLY: RAW STOCK INVENTORY TILE -->
-    <div id="homeInventoryTile" class="dashboard-tile" onclick="switchPane('paneInventory')" style="display: none;">
-        <div class="tile-icon-box" style="background: #eef2ff;">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-        </div>
-        <span class="tile-label" style="color: #312e81;">RAW STOCK INVENTORY</span>
-    </div>
 
                     <!-- Tile 1: Place Order -->
                     <div class="dashboard-tile" style="background: #eff6ff; border-color: #bfdbfe;" onclick="switchView('paneRegister', document.querySelectorAll('.bottom-nav .nav-item')[1], 'POS REGISTER')">
@@ -593,7 +615,8 @@
                     </div>
 
                     <!-- Tile 6: Inventory & Stock -->
-                    <div id="homeInventoryTile" class="dashboard-tile" style="background: #fefce8; border-color: #fef08a;" onclick="switchView('paneInventory', null, 'STORE STOCK')">
+                   <div id="homeInventoryTile" class="dashboard-tile" style="display: none; background: #fefce8; border-color: #fde047;">
+
                         <div class="tile-icon-box" style="background: #fef9c3; border-color: #fde047;">
                             <svg viewBox="0 0 24 24" style="fill: #ca8a04;"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4zm10 15H4V8h16v11z"/></svg>
                         </div>
@@ -933,58 +956,58 @@
     </div>
 </div>
 
-
             <!-- VIEW 3: DAILY RECON REPORT -->
-            <div id="paneRecon" class="view-pane">
-                <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #0284c7;" onclick="printCombinedDailySalesReport()">🖨️ PRINT QBC</button>
-                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #d97706;" onclick="printSpecificPlatformReport('Delivoo')">🖨️ DELIVOO</button>
-                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #e11d48;" onclick="printSpecificPlatformReport('Hungry Dodo')">🖨️ HUNGRY DODO</button>
-                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #059669;" onclick="refreshReconData()">🔄 UPDATE</button>
-                    </div>
+<div id="paneRecon" class="view-pane">
+    <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #0284c7;" onclick="printCombinedDailySalesReport()">🖨️ PRINT QBC</button>
+            <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #d97706;" onclick="printSpecificPlatformReport('Delivoo')">🖨️ DELIVOO</button>
+            <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #e11d48;" onclick="printSpecificPlatformReport('Hungry Dodo')">🖨️ HUNGRY DODO</button>
+            <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #059669;" onclick="refreshReconData()">🔄 UPDATE</button>
+        </div>
+    </div>
+
+    <div class="recon-layout" style="display: flex; gap: 12px; flex: 1; height: calc(100% - 35px);">
+        <!-- Left Panel: Reconciliation Summary -->
+        <div class="recon-panel" style="flex: 1; min-width: 0;">
+            <h4 style="margin-top: 0; color: #f59e0b; border-bottom: 1px solid var(--border); padding-bottom: 6px; font-size: 0.95rem;">Reconciliation Summary</h4>
+            <div style="font-size: 0.85rem; line-height: 1.5; margin-top: 8px;">
+                <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">Timestamp: <span id="reconTimestamp">-</span></div>
+                <div style="font-weight: bold; margin-bottom: 10px;">CASHIER: <span id="reconCashierName">Administrator</span></div>
+
+                <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>CASH RS:</span> <strong id="reconCashTotal">0</strong></div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>CARD RS:</span> <strong id="reconCardTotal">0</strong></div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>JUICE RS:</span> <strong id="reconJuiceTotal">0</strong></div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>MyT MONEY RS:</span> <strong id="reconMytTotal">0</strong></div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>BLINK RS:</span> <strong id="reconBlinkTotal">0</strong></div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>DELIVOO RS:</span> <strong id="reconDelivooTotal">0</strong></div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>HUNGRY DODO RS:</span> <strong id="reconHungryDodoTotal">0</strong></div>
                 </div>
 
-                <div class="recon-layout" style="flex: 1; height: calc(100% - 35px);">
-                    <!-- Left Panel: Reconciliation Summary -->
-                    <div class="recon-panel">
-                        <h4 style="margin-top: 0; color: #f59e0b; border-bottom: 1px solid var(--border); padding-bottom: 6px; font-size: 0.95rem;">Reconciliation Summary</h4>
-                        <div style="font-size: 0.85rem; line-height: 1.5; margin-top: 8px;">
-                            <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">Timestamp: <span id="reconTimestamp">-</span></div>
-                            <div style="font-weight: bold; margin-bottom: 10px;">CASHIER: <span id="reconCashierName">Administrator</span></div>
-
-                            <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 10px;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>CASH RS:</span> <strong id="reconCashTotal">0</strong></div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>CARD RS:</span> <strong id="reconCardTotal">0</strong></div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>JUICE RS:</span> <strong id="reconJuiceTotal">0</strong></div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>MyT MONEY RS:</span> <strong id="reconMytTotal">0</strong></div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>BLINK RS:</span> <strong id="reconBlinkTotal">0</strong></div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>DELIVOO RS:</span> <strong id="reconDelivooTotal">0</strong></div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span>HUNGRY DODO RS:</span> <strong id="reconHungryDodoTotal">0</strong></div>
-                            </div>
-
-                            <div style="font-weight: bold; background: #eef2ff; color: #4f46e5; padding: 8px 10px; border-radius: 6px; display: flex; justify-content: space-between; border: 1px solid #c7d2fe;">
-                                <span>TOTAL OF THE DAY:</span>
-                                <span>Rs <span id="reconGrandTotal">0</span></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right Panel: Daily Sales & Shift Info -->
-                    <div class="recon-panel">
-                        <h4 style="margin-top: 0; color: #f59e0b; border-bottom: 1px solid var(--border); padding-bottom: 6px; font-size: 0.95rem;">Daily Sales Breakdown</h4>
-                        <div id="reconItemizedSalesList" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: 0.8rem; margin-top: 8px; max-height: 190px; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: #f8fafc;">
-                        </div>
-
-                        <div style="margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px;">
-                            <div style="font-size: 0.8rem; margin-bottom: 3px;"><strong>Active Cashier:</strong> <span id="adminReconCashier">Administrator</span></div>
-                            <div style="font-size: 0.8rem; margin-bottom: 8px;"><strong>Total Transactions:</strong> <span id="adminReconTransCount">0</span></div>
-                            <button class="btn btn-success" style="width: 100%; margin: 0; padding: 9px; font-size: 0.85rem;" onclick="approveCloseShiftAndPrintReport()">Approve & Close Shift</button>
-                        </div>
-                    </div>
+                <div style="font-weight: bold; background: #eef2ff; color: #4f46e5; padding: 8px 10px; border-radius: 6px; display: flex; justify-content: space-between; border: 1px solid #c7d2fe;">
+                    <span>TOTAL OF THE DAY:</span>
+                    <span>Rs <span id="reconGrandTotal">0</span></span>
                 </div>
             </div>
+        </div>
+
+        <!-- Right Panel: Daily Sales & Shift Info -->
+        <div class="recon-panel" style="flex: 1; min-width: 0;">
+            <h4 style="margin-top: 0; color: #f59e0b; border-bottom: 1px solid var(--border); padding-bottom: 6px; font-size: 0.95rem;">Daily Sales Breakdown</h4>
+            <div id="reconItemizedSalesList" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: 0.8rem; margin-top: 8px; max-height: 190px; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: #f8fafc;">
+            </div>
+
+            <div style="margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px;">
+                <div style="font-size: 0.8rem; margin-bottom: 3px;"><strong>Active Cashier:</strong> <span id="adminReconCashier">Administrator</span></div>
+                <div style="font-size: 0.8rem; margin-bottom: 8px;"><strong>Total Transactions:</strong> <span id="adminReconTransCount">0</span></div>
+                <button class="btn btn-success" style="width: 100%; margin: 0; padding: 9px; font-size: 0.85rem;" onclick="approveCloseShiftAndPrintReport()">Approve & Close Shift</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
             <!-- VIEW 4: DASHBOARD / CHARTS -->
             <div id="paneDashboard" class="view-pane">
@@ -1141,6 +1164,7 @@
         let selectedPlacedOrderId = null;
         let donutChartInstance = null;
         let showScreenReceipt = true;
+        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
         let cart = [];
         let orderSequenceNumber = parseInt(localStorage.getItem('pos_order_seq')) || 11;
         let deletedOrdersLog = JSON.parse(localStorage.getItem('pos_deleted_orders_log')) || { count: 0, quantity: 0, amount: 0 };
@@ -1859,7 +1883,7 @@ async function completeSaleAndPrintReceipt() {
         status: 'PAID'
     };
 
-    // 2. Save locally
+    // 2. Save locally FIRST
     let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
     placedOrders.push(newOrder);
     localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
@@ -1876,55 +1900,66 @@ async function completeSaleAndPrintReceipt() {
         console.error("Error sending to Google Sheets:", err);
     }
 
-    // 4. Check print toggle & trigger Bluetooth Thermal Printing directly
+    // 4. Safely attempt printing without crashing if printer is missing
     const printToggle = document.getElementById('autoPrintReceipt') || document.getElementById('printReceiptToggle');
     const shouldPrint = printToggle ? printToggle.checked : true;
 
     if (shouldPrint) {
-        if (typeof printThermalReceipt === 'function') {
-            await printThermalReceipt(newOrder);
-        } else if (typeof printReceipt === 'function') {
-            printReceipt(newOrder);
+        try {
+            if (typeof printThermalReceipt === 'function') {
+                await printThermalReceipt(newOrder);
+            } else if (typeof printReceipt === 'function') {
+                printReceipt(newOrder);
+            }
+        } catch (printErr) {
+            console.warn("Thermal receipt printing skipped or failed:", printErr);
         }
     }
 
-    // 5. Clear cart and refresh UI
+    // 5. Clear cart and refresh UI regardless of print status
     cart = [];
     if (typeof renderCart === 'function') renderCart();
     if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
     if (typeof refreshReconData === 'function') refreshReconData();
 
-                showModal("Success", "Sale completed successfully!");
+    showModal("Success", "Sale completed successfully!");
 }
+
 
 /* PLACED ORDERS & SETTLEMENT */
 function renderPlacedOrders() {
-    const container = document.getElementById('placedOrdersList');
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+    const container = document.getElementById('placedOrdersListContainer');
+    if (!container) return;
+    
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
 
-            if(placedOrders.length === 0) {
-                container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
-                document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details.</p>';
-                document.getElementById('selectedOrderItemsTable').innerHTML = '';
-                selectedPlacedOrderId = null;
-                return;
-            }
+    if (placedOrders.length === 0) {
+        container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
+        document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details.</p>';
+        document.getElementById('selectedOrderItemsTable').innerHTML = '';
+        selectedPlacedOrderId = null;
+        return;
+    }
 
-            container.innerHTML = '';
-            placedOrders.slice().reverse().forEach(ord => {
-                const div = document.createElement('div');
-                div.style.cssText = `padding: 10px; border-bottom: 1px solid var(--border); cursor: pointer; background: ${ord.id === selectedPlacedOrderId ? '#eff6ff' : 'white'};`;
-                div.onclick = () => selectPlacedOrder(ord.id);
-                div.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:0.85rem;">
-                        <span>${ord.id}</span>
-                        <span style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</span>
-                    </div>
-                    <div style="font-size:0.75rem; color:#64748b;">${ord.cashier} | Rs ${ord.total.toFixed(2)} (${ord.method})</div>
-                `;
-                container.appendChild(div);
-            });
-        }
+    container.innerHTML = '';
+    placedOrders.slice().reverse().forEach(ord => {
+        const div = document.createElement('div');
+        div.id = `order-item-${ord.id}`;
+        div.className = `order-item-card ${ord.id === selectedPlacedOrderId ? 'active' : ''}`;
+        div.onclick = () => selectPlacedOrder(ord.id);
+        div.innerHTML = `
+            <div style="width: 100%;">
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:0.85rem;">
+                    <span>${ord.id}</span>
+                    <span style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</span>
+                </div>
+                <div style="font-size:0.75rem; color:#64748b; margin-top: 2px;">${ord.cashier?.name || ord.cashier || 'Staff'} | Rs ${ord.total.toFixed(2)} (${ord.method || 'Cash'})</div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
 
                 function selectPlacedOrder(orderId) {
             selectedPlacedOrderId = orderId;
@@ -2339,24 +2374,125 @@ function printSpecificPlatformReport(platformName) {
     if(typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) sendToPrinter(rText);
     else showModal(`${platformName} Report`, rText);
 }
+      function updateAttendanceStaffDropdown() {
+    const attSelect = document.getElementById('attStaffSelect');
+    const loginSelect = document.getElementById('loginUser');
+    if (!attSelect) return;
+
+    attSelect.innerHTML = '<option value="">-- Select Staff --</option>';
+
+    // 1. Try reading directly from saved POS staff list in localStorage
+    let savedStaff = localStorage.getItem('staffList') || localStorage.getItem('users') || localStorage.getItem('staffData');
+    if (savedStaff) {
+        try {
+            let parsed = JSON.parse(savedStaff);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                parsed.forEach(s => {
+                    let name = typeof s === 'object' ? (s.name || s.username || s.staffName) : s;
+                    if (name) {
+                        let opt = document.createElement('option');
+                        opt.value = name;
+                        opt.textContent = name;
+                        attSelect.appendChild(opt);
+                    }
+                });
+                return;
+            }
+        } catch(e) {}
+    }
+
+    // 2. Fallback: Copy options dynamically from loginUser dropdown
+    if (loginSelect && loginSelect.options.length > 1) {
+        for (let i = 0; i < loginSelect.options.length; i++) {
+            let opt = loginSelect.options[i];
+            if (opt.value && opt.value !== "") {
+                let newOpt = document.createElement('option');
+                newOpt.value = opt.value;
+                newOpt.textContent = opt.textContent;
+                attSelect.appendChild(newOpt);
+            }
+        }
+    }
+}
+
+// Run immediately and retry after load to catch async options
+document.addEventListener('DOMContentLoaded', () => {
+    updateAttendanceStaffDropdown();
+    setTimeout(updateAttendanceStaffDropdown, 500);
+});
+
+// Auto-run on page load
+document.addEventListener('DOMContentLoaded', updateAttendanceStaffDropdown);
 
 // Google Sheets Web App Sync URL
-const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycsby3TGVsBaQYliiNMMclAaKwi4cc_LAoXRegTkB92oRJbq2l1klw9ktux-M1jknOLETc";
+const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyaNNQQBrfdn44OW0Ta3159gBdx6PodF-Ol6KMP4P6kL6epeCh7OhDfSX8G03jxkbfy/exec";
 
 function syncShiftToGoogleSheets(shiftData) {
     fetch(GOOGLE_SHEETS_SCRIPT_URL, {
         method: 'POST',
-        mode: 'no-cors',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'text/plain;charset=utf-8'
         },
         body: JSON.stringify(shiftData)
     })
-    .then(() => {
-        console.log('Shift report successfully sent to Google Sheets!');
+    .then(response => response.json())
+    .then(data => {
+        console.log('Shift report successfully sent to Google Sheets!', data);
     })
     .catch(error => {
         console.error('Error sending shift report:', error);
+    });
+}
+      // Attendance Google Sheets Web App Sync URL
+const ATTENDANCE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTA7MWI2k2zVvrSjvf0iUTnJgj7u2paWdWgkobPFUCAJ8C3T-xD87VL6uzvC26xvY9/exec";
+
+function recordAttendance(actionType) {
+    const staffName = document.getElementById('attStaffSelect').value;
+    const outletName = document.getElementById('attOutletSelect').value;
+    const statusMsg = document.getElementById('attStatusMsg');
+
+    if (!staffName) {
+        alert("Please select a staff member first!");
+        return;
+    }
+
+    const now = new Date();
+    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+    const dateStr = now.toLocaleDateString('en-GB'); // DD/MM/YYYY
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+    const payload = {
+        day: dayName,
+        date: dateStr,
+        staffName: staffName,
+        action: actionType,
+        time: timeStr,
+        outletName: outletName
+    };
+
+    statusMsg.innerText = `Logging ${actionType} for ${staffName}...`;
+    statusMsg.style.color = "#475569";
+
+    fetch(ATTENDANCE_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            statusMsg.innerText = `✅ ${staffName} - ${actionType} logged at ${timeStr}`;
+            statusMsg.style.color = "#16a34a";
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Attendance Error:', error);
+        statusMsg.innerText = `❌ Error recording ${actionType}. Please try again.`;
+        statusMsg.style.color = "#dc2626";
     });
 }
 
@@ -2571,37 +2707,8 @@ function approveCloseShiftAndPrintReport() {
         function closeHomeStaffAudit() {
             document.getElementById('homeAdminStaffAuditBox').style.display = 'none';
         }
-window.onload = () => {
-    populateLoginDropdown();
-    renderInventoryTable();
-    renderBatchPrepUI();
-    saveCategories();
-    if (typeof placedOrdersArray !== 'undefined') renderPlacedOrdersList(placedOrdersArray);
-};
 
       let currentSelectedOrderId = null;
-
-function renderPlacedOrdersList(orders) {
-    const container = document.getElementById('placedOrdersListContainer');
-    if (!orders || orders.length === 0) {
-        container.innerHTML = `<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>`;
-        return;
-    }
-
-    container.innerHTML = orders.map(order => `
-        <div id="order-item-${order.id}" 
-             class="order-item-card ${currentSelectedOrderId === order.id ? 'active' : ''}" 
-             onclick="selectPlacedOrder('${order.id}')">
-            <div>
-                <div style="font-weight: bold; font-size: 0.85rem; color: #1e293b;">${order.id}</div>
-                <div style="font-size: 0.75rem; color: #64748b;">${order.customerName || 'Customer'} | Rs ${order.total.toFixed(2)} (${order.paymentType || 'Pending'})</div>
-            </div>
-            <span style="font-size: 0.75rem; font-weight: bold; color: ${order.status === 'PAID' ? '#16a34a' : '#dc2626'};">
-                ${order.status}
-            </span>
-        </div>
-    `).join('');
-}
 
 function selectPlacedOrder(orderId) {
     selectedPlacedOrderId = orderId;
@@ -2705,7 +2812,7 @@ document.addEventListener("click", e => {
         }
     }
 });
-
+      
 // Function to populate the Daily Sales Breakdown list
 function loadReconSalesBreakdown(salesData) {
     const listContainer = document.getElementById('reconItemizedSalesList');
@@ -2726,16 +2833,71 @@ function loadReconSalesBreakdown(salesData) {
         itemRow.style.fontSize = '0.85rem';
         itemRow.style.borderBottom = '1px dashed rgba(0,0,0,0.05)';
 
-        itemRow.innerHTML = `
-            <span>${item.name}</span>
-            <span>${item.quantity} pcs</span>
-        `;
-        listContainer.appendChild(itemRow);
+              itemRow.innerHTML = 
+        '<span>' + item.name + '</span>' +
+        '<span>' + item.quantity + ' pcs</span>';
+      listContainer.appendChild(itemRow);
     });
+  }
+function getStoredSales() {
+  const k = 'pos_sales_history';
+  const r = localStorage.getItem(k);
+  return JSON.parse(r) || [];
 }
 
-    </script>
-  
+function recordCompletedSale(t, q) {
+  const s = getStoredSales();
+  const i = {
+    id: 'ORD-' + Date.now(),
+    amount: parseFloat(t),
+    itemsCount: q || 1,
+    date: new Date().toISOString()
+  };
+  s.push(i);
+  const k = 'pos_sales_history';
+  const v = JSON.stringify(s);
+  localStorage.setItem(k, v);
+}
+
+function renderAdminSalesRecords(p) {
+  const i = 'adminSalesAnalyticsReportContainer';
+  const b = document.getElementById(i);
+  if (!b) return;
+
+  const s = getStoredSales();
+  const n = new Date();
+
+  const l = s.filter(x => {
+    const d = new Date(x.date);
+    const dM = d.toDateString() === n.toDateString();
+    const mM = d.getMonth() === n.getMonth();
+    const yM = d.getFullYear() === n.getFullYear();
+
+    if (p === 'daily') return dM;
+    if (p === 'monthly') return mM && yM;
+    if (p === 'yearly') return yM;
+    return true;
+  });
+
+  let rev = 0;
+  l.forEach(x => { rev += x.amount; });
+
+  const c = l.length;
+  const t = p.toUpperCase();
+
+  b.innerHTML = 
+    '<h3 style="margin:0 0 10px 0;">Gross ' + t + ' Sales Report</h3>' +
+    '<p style="color:#059669;font-weight:bold;">Total Revenue: Rs ' + rev.toFixed(2) + '</p>' +
+    '<p style="color:#64748b;">Total Transactions: ' + c + '</p>';
+}
+
+function resetAllSalesAndShiftData() {
+  if (confirm("Clear all sales data?")) {
+    localStorage.removeItem('pos_sales_history');
+    renderAdminSalesRecords('daily');
+    alert("Sales data reset.");
+  }
+}
+</script>
 </body>
 </html>
-```
