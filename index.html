@@ -615,8 +615,7 @@
                     </div>
 
                     <!-- Tile 6: Inventory & Stock -->
-                   <div id="homeInventoryTile" class="dashboard-tile" style="display: none; background: #fefce8; border-color: #fde047;">
-
+                   <div id="homeInventoryTile" class="dashboard-tile" style="display: none; background: #fefce8; border-color: #fde047;" onclick="switchView('paneInventory', null, 'STORE STOCK MANAGEMENT')">
                         <div class="tile-icon-box" style="background: #fef9c3; border-color: #fde047;">
                             <svg viewBox="0 0 24 24" style="fill: #ca8a04;"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4zm10 15H4V8h16v11z"/></svg>
                         </div>
@@ -753,35 +752,34 @@
             </div>
 
             <!-- VIEW: ADMIN GROSS SALES ANALYTICS -->
-            <div id="paneAdminSales" class="view-pane">
-                <div class="card" style="height: 100%; padding: 16px; overflow-y: auto;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                        <h2 style="margin: 0; border: none; color: #16a34a;">📈 GROSS SALES ANALYTICS</h2>
-                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="switchView('paneHome', null, 'HOME USER')">← Back to Home</button>
-                    </div>
-                    
-                    <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
-                        <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #0284c7; font-size: 0.85rem;" onclick="renderAdminSalesRecords('daily')">View Daily Sales</button>
-                        <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #2563eb; font-size: 0.85rem;" onclick="renderAdminSalesRecords('monthly')">View Monthly Sales</button>
-                        <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #059669; font-size: 0.85rem;" onclick="renderAdminSalesRecords('yearly')">View Yearly Sales</button>
-                    </div>
-                    
-                    <div id="adminSalesAnalyticsReportContainer" style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; flex: 1; overflow-y: auto; margin-bottom: 16px;">
-                        <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 20px;">Select a report view above to load sales summary.</p>
-                    </div>
+<div id="paneAdminSales" class="view-pane">
+    <div class="card" style="height: 100%; padding: 16px; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <h2 style="margin: 0; border: none; color: #16a34a;">📈 GROSS SALES ANALYTICS</h2>
+            <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="switchView('paneHome', null, 'HOME USER')">← Back to Home</button>
+        </div>
+        
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+            <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #0284c7; font-size: 0.85rem;" onclick="renderAdminSalesRecords('daily')">View Daily Sales</button>
+            <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #2563eb; font-size: 0.85rem;" onclick="renderAdminSalesRecords('monthly')">View Monthly Sales</button>
+            <button class="btn" style="width: auto; padding: 8px 14px; margin: 0; background: #059669; font-size: 0.85rem;" onclick="renderAdminSalesRecords('yearly')">View Yearly Sales</button>
+        </div>
+        
+        <div id="adminSalesAnalyticsReportContainer" style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; flex: 1; overflow-y: auto; margin-bottom: 16px;">
+            <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 20px;">Select a report view above to load sales summary.</p>
+        </div>
 
-                    <!-- Reset Button below Back to Home / Reports -->
-                    <div style="border-top: 2px dashed #cbd5e1; padding-top: 14px; margin-top: auto;">
-                        <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                            <div>
-                                <h4 style="margin: 0 0 2px 0; color: #b91c1c; font-size: 0.9rem;">🔄 Reset & Restart Shift / Clear Sales Data</h4>
-                                <p style="margin: 0; font-size: 0.75rem; color: #7f1d1d;">Clear all test sales history and reset daily analytics back to zero.</p>
-                            </div>
-                            <button class="btn btn-danger" style="width: auto; padding: 8px 14px; margin: 0; font-size: 0.8rem;" onclick="resetAllSalesAndShiftData()">🗑️ Reset All Sales Data</button>
-                        </div>
-                    </div>
-                </div>
+        <!-- Reset Button inside Gross Sales Analytics -->
+        <div style="border-top: 2px dashed #cbd5e1; padding-top: 14px; margin-top: 20px;">
+            <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 8px;">
+                <h4 style="margin: 0 0 2px 0; color: #b91c1c; font-size: 0.9rem;">🔄 Reset & Restart Shift</h4>
+                <p style="margin: 0 0 8px 0; font-size: 0.75rem; color: #7f1d1d;">Clear all sales history and analytics.</p>
+                <button class="btn btn-danger" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="resetAllSalesAndShiftData()">🗑️ Reset All Sales Data</button>
             </div>
+        </div>
+    </div>
+</div>
+
 
             <!-- VIEW: ADMIN SETTINGS & STAFF MANAGEMENT -->
             <div id="paneAdminStaff" class="view-pane">
@@ -1421,6 +1419,7 @@
         /* COMPLETE STORE STOCK MANAGEMENT INITIAL DATA FROM IMAGE */
         const defaultInventoryList = [
             // POWDER (g) / TEAS & POWDERS
+          
             { id: 'inv_1', cat: 'POWDER (g)', name: 'Green Tea (grams)', stock: 1000 },
             { id: 'inv_2', cat: 'POWDER (g)', name: 'Black Tea (grams)', stock: 1000 },
             { id: 'inv_3', cat: 'POWDER (g)', name: 'Tapioca Pearls (grams)', stock: 2000 },
@@ -1434,6 +1433,7 @@
             { id: 'inv_11', cat: 'POWDER (g)', name: 'Coffee Powder (grams)', stock: 1000 },
             { id: 'inv_12', cat: 'POWDER (g)', name: 'Matcha Powder (grams)', stock: 600 },
 
+          
             // SYRUPS (ml)
             { id: 'inv_13', cat: 'SYRUPS (ml)', name: 'Green Apple Syrup', stock: 1000 },
             { id: 'inv_14', cat: 'SYRUPS (ml)', name: 'Mango Syrup', stock: 1000 },
@@ -1447,28 +1447,32 @@
             { id: 'inv_22', cat: 'SYRUPS (ml)', name: 'Kiwi Syrup', stock: 1000 },
             { id: 'inv_23', cat: 'SYRUPS (ml)', name: 'Pineapple Syrup', stock: 1000 },
 
+          
             // FRUCTOSE (ml)
             { id: 'inv_24', cat: 'FRUCTOSE (ml)', name: 'Fructose (ml)', stock: 5000 },
 
+          
             // POPPING BOBA
-            { id: 'inv_25', cat: 'POPPING BOBA', name: 'Mango Popping Boba', stock: 1000 },
-            { id: 'inv_26', cat: 'POPPING BOBA', name: 'Passion Fruit Popping Boba', stock: 1000 },
-            { id: 'inv_27', cat: 'POPPING BOBA', name: 'Blue Raspberry Popping Boba', stock: 1000 },
-            { id: 'inv_28', cat: 'POPPING BOBA', name: 'Peach Popping Boba', stock: 1000 },
-            { id: 'inv_29', cat: 'POPPING BOBA', name: 'Lychee Popping Boba', stock: 1000 },
-            { id: 'inv_30', cat: 'POPPING BOBA', name: 'Strawberry Popping Boba', stock: 1000 },
-            { id: 'inv_31', cat: 'POPPING BOBA', name: 'Blueberry Popping Boba', stock: 1000 },
-            { id: 'inv_32', cat: 'POPPING BOBA', name: 'Kiwi Popping Boba', stock: 1000 },
-            { id: 'inv_33', cat: 'POPPING BOBA', name: 'Green Apple Popping Boba', stock: 1000 },
-            { id: 'inv_34', cat: 'POPPING BOBA', name: 'Watermelon Popping Boba', stock: 1000 },
-            { id: 'inv_35', cat: 'POPPING BOBA', name: 'Cranberry Popping Boba', stock: 1000 },
-            { id: 'inv_36', cat: 'POPPING BOBA', name: 'Chocolate Popping Boba', stock: 1000 },
+            { id: 'inv_25', cat: 'POPPING  BOBA', name: 'Mango Popping Boba', stock: 1000 },
+            { id: 'inv_26', cat: 'POPPING  BOBA', name: 'Passion Fruit Popping Boba', stock: 1000 },
+            { id: 'inv_27', cat: 'POPPING  BOBA', name: 'Blue Raspberry Popping Boba', stock: 1000 },
+            { id: 'inv_28', cat: 'POPPING  BOBA', name: 'Peach Popping Boba', stock: 1000 },
+            { id: 'inv_29', cat: 'POPPING  BOBA', name: 'Lychee Popping Boba', stock: 1000 },
+            { id: 'inv_30', cat: 'POPPING  BOBA', name: 'Strawberry Popping Boba', stock: 1000 },
+            { id: 'inv_31', cat: 'POPPING  BOBA', name: 'Blueberry Popping Boba', stock: 1000 },
+            { id: 'inv_32', cat: 'POPPING  BOBA', name: 'Kiwi Popping Boba', stock: 1000 },
+            { id: 'inv_33', cat: 'POPPING  BOBA', name: 'Green Apple Popping Boba', stock: 1000 },
+            { id: 'inv_34', cat: 'POPPING  BOBA', name: 'Watermelon Popping Boba', stock: 1000 },
+            { id: 'inv_35', cat: 'POPPING  BOBA', name: 'Cranberry Popping Boba', stock: 1000 },
+            { id: 'inv_36', cat: 'POPPING  BOBA', name: 'Chocolate Popping Boba', stock: 1000 },
 
+          
             // JELLY
             { id: 'inv_37', cat: 'JELLY', name: 'Rainbow Jelly', stock: 1000 },
             { id: 'inv_38', cat: 'JELLY', name: 'Coconut Jelly', stock: 1000 },
             { id: 'inv_39', cat: 'JELLY', name: 'Coffee Jelly', stock: 1000 },
 
+          
             // OTHERS / PULP & STORE SUPPLIES
             { id: 'inv_40', cat: 'OTHERS', name: 'Aloe Vera Pulp', stock: 1000 },
             { id: 'inv_41', cat: 'OTHERS', name: 'Mango Pulp', stock: 1000 },
@@ -1645,12 +1649,15 @@
                 document.getElementById('loggedInUserDisplay').innerText = `👤 ${currentStaff.name}`;
                 document.getElementById('loginPin').value = '';
 
-                // Show Admin-only sections if Admin
-                const isAdmin = currentStaff.username.toLowerCase().includes('admin');
+                                // Show Admin-only sections if Admin
+                const uname = (currentStaff.username || '').toLowerCase();
+                const sname = (currentStaff.name || '').toLowerCase();
+                const isAdmin = uname.includes('admin') || sname.includes('admin') || uname === 'admin';
+
                 document.getElementById('adminAddNewProductsCard').style.display = isAdmin ? 'flex' : 'none';
                 document.getElementById('adminGrossSalesAnalyticsCard').style.display = isAdmin ? 'flex' : 'none';
                 document.getElementById('adminHomeSettingsSection').style.display = isAdmin ? 'flex' : 'none';
-                document.getElementById('homeInventoryTile').style.display = isAdmin ? 'block' : 'none';
+                document.getElementById('homeInventoryTile').style.display = isAdmin ? 'flex' : 'none';
 
                 switchView('paneRegister', document.querySelectorAll('.bottom-nav .nav-item')[1], 'POS REGISTER');
                 renderAccordion();
@@ -1851,22 +1858,28 @@
 
 const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3TGVSbaQYIiINMMcIAaKwi4cc_LAoXrEgTkB92oRJBq2l1kIw9ktux-M1jknOLETc/exec";
 
+function getStoredSales() {
+  const r = localStorage.getItem('pos_daily_sales_history');
+  return JSON.parse(r) || [];
+}
+
 async function completeSaleAndPrintReceipt() {
     if (!cart || cart.length === 0) {
         showModal("Notice", "Your cart is empty.");
         return;
     }
 
-    // 1. Order details
     const orderId = 'ORD-' + Date.now().toString().slice(-6);
-    const timestamp = new Date().toLocaleString();
+    const timestamp = new Date().toISOString();
 
     let total = 0;
+    let totalQty = 0;
     if (cart && cart.length > 0) {
         for (let i = 0; i < cart.length; i++) {
             let p = cart[i].price || 0;
             let q = cart[i].qty || 1;
             total += p * q;
+            totalQty += q;
         }
     }
 
@@ -1875,20 +1888,30 @@ async function completeSaleAndPrintReceipt() {
 
     const newOrder = {
         id: orderId,
-        cashier: typeof currentCashier !== 'undefined' ? currentCashier : 'Staff',
-        timestamp: timestamp,
+        cashier: typeof currentStaff !== 'undefined' && currentStaff ? currentStaff.name : 'Staff',
+        timestamp: new Date().toLocaleString(),
+        date: timestamp,
         items: [...cart],
         total: total,
         method: method,
         status: 'PAID'
     };
 
-    // 2. Save locally FIRST
     let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
     placedOrders.push(newOrder);
     localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
 
-    // 3. Send automatically to Google Sheets
+    let salesHistory = getStoredSales();
+    salesHistory.push({
+        id: orderId,
+        amount: total,
+        itemsCount: totalQty,
+        date: timestamp,
+        method: method,
+        items: [...cart]
+    });
+    localStorage.setItem('pos_daily_sales_history', JSON.stringify(salesHistory));
+
     try {
         fetch(GOOGLE_SHEET_WEB_APP_URL, {
             method: "POST",
@@ -1900,7 +1923,6 @@ async function completeSaleAndPrintReceipt() {
         console.error("Error sending to Google Sheets:", err);
     }
 
-    // 4. Safely attempt printing without crashing if printer is missing
     const printToggle = document.getElementById('autoPrintReceipt') || document.getElementById('printReceiptToggle');
     const shouldPrint = printToggle ? printToggle.checked : true;
 
@@ -1916,13 +1938,12 @@ async function completeSaleAndPrintReceipt() {
         }
     }
 
-    // 5. Clear cart and refresh UI regardless of print status
     cart = [];
     if (typeof renderCart === 'function') renderCart();
     if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
     if (typeof refreshReconData === 'function') refreshReconData();
 
-    showModal("Success", "Sale completed successfully!");
+    showModal("Success", "Sale completed and recorded in analytics successfully!");
 }
 
 
@@ -2643,20 +2664,16 @@ function approveCloseShiftAndPrintReport() {
         }
 
         function resetAllSalesAndShiftData() {
-            showModal("CRITICAL RESET", "Are you sure you want to reset ALL sales and shift data back to zero?", true, (confirm) => {
-                if(confirm) {
-                    localStorage.removeItem('pos_daily_sales_history');
-                    localStorage.removeItem('pos_placed_orders');
-                    localStorage.removeItem('pos_daily_batch_logs');
-                    dailyBatchLogs = [];
-                    refreshReconData();
-                    updateDashboardMetrics();
-                    renderPlacedOrders();
-                    renderBatchPrepUI();
-                    showModal("Data Reset", "All sales and shift records have been cleared.");
-                }
-            });
-        }
+  if (confirm("Clear all sales data?")) {
+    localStorage.removeItem('pos_daily_sales_history');
+    localStorage.removeItem('pos_placed_orders');
+    localStorage.removeItem('pos_daily_batch_logs');
+    if (typeof renderAdminSalesRecords === 'function') {
+      renderAdminSalesRecords('daily');
+    }
+    alert("Sales data reset.");
+  }
+}
 
         function createNewStaffMemberFromHome() {
             const name = document.getElementById('homeNewStaffNameInput').value.trim();
@@ -2839,64 +2856,35 @@ function loadReconSalesBreakdown(salesData) {
       listContainer.appendChild(itemRow);
     });
   }
-function getStoredSales() {
-  const k = 'pos_sales_history';
-  const r = localStorage.getItem(k);
-  return JSON.parse(r) || [];
-}
 
-function recordCompletedSale(t, q) {
-  const s = getStoredSales();
-  const i = {
-    id: 'ORD-' + Date.now(),
-    amount: parseFloat(t),
-    itemsCount: q || 1,
-    date: new Date().toISOString()
-  };
-  s.push(i);
-  const k = 'pos_sales_history';
-  const v = JSON.stringify(s);
-  localStorage.setItem(k, v);
-}
+function renderAdminSalesRecords(period) {
+  const container = document.getElementById('adminSalesAnalyticsReportContainer');
+  if (!container) return;
 
-function renderAdminSalesRecords(p) {
-  const i = 'adminSalesAnalyticsReportContainer';
-  const b = document.getElementById(i);
-  if (!b) return;
+  const sales = getStoredSales();
+  const now = new Date();
 
-  const s = getStoredSales();
-  const n = new Date();
-
-  const l = s.filter(x => {
+  const filtered = sales.filter(x => {
     const d = new Date(x.date);
-    const dM = d.toDateString() === n.toDateString();
-    const mM = d.getMonth() === n.getMonth();
-    const yM = d.getFullYear() === n.getFullYear();
+    const isToday = d.toDateString() === now.toDateString();
+    const isThisMonth = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    const isThisYear = d.getFullYear() === now.getFullYear();
 
-    if (p === 'daily') return dM;
-    if (p === 'monthly') return mM && yM;
-    if (p === 'yearly') return yM;
+    if (period === 'daily') return isToday;
+    if (period === 'monthly') return isThisMonth;
+    if (period === 'yearly') return isThisYear;
     return true;
   });
 
-  let rev = 0;
-  l.forEach(x => { rev += x.amount; });
+  let revenue = 0;
+  filtered.forEach(x => { revenue += (x.amount || x.total || 0); });
 
-  const c = l.length;
-  const t = p.toUpperCase();
-
-  b.innerHTML = 
-    '<h3 style="margin:0 0 10px 0;">Gross ' + t + ' Sales Report</h3>' +
-    '<p style="color:#059669;font-weight:bold;">Total Revenue: Rs ' + rev.toFixed(2) + '</p>' +
-    '<p style="color:#64748b;">Total Transactions: ' + c + '</p>';
-}
-
-function resetAllSalesAndShiftData() {
-  if (confirm("Clear all sales data?")) {
-    localStorage.removeItem('pos_sales_history');
-    renderAdminSalesRecords('daily');
-    alert("Sales data reset.");
-  }
+  const titlePeriod = period.toUpperCase();
+  container.innerHTML = `
+    <h3 style="margin-top:0; font-size:1rem; color:#1e293b;">Gross ${titlePeriod} Sales Report</h3>
+    <div style="font-size:1rem; font-weight:bold; color:#059669; margin-bottom:8px;">Total Revenue: Rs ${revenue.toFixed(2)}</div>
+    <p style="font-size:0.85rem; color:#64748b; margin-bottom:0;">Total Transactions: ${filtered.length}</p>
+  `;
 }
 </script>
 </body>
