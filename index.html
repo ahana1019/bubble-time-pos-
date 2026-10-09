@@ -1135,11 +1135,11 @@
 
         let defaultStaffList = [
             { username: 'Admin', name: 'Administrator', pin: '0000' },
-            { username: 'Ahana Lead', name: 'Ahana Lead', pin: '1111' },
+            { username: 'Ahana Lead Valentina', name: 'Ahana Lead Valentina', pin: '1111' },
             { username: 'Alex Valentina', name: 'Alex Valentina', pin: '1234' },
             { username: 'Auline Plouis 1', name: 'Auline Plouis 1', pin: '2222' },
             { username: 'Nushayhah Plouis 2', name: 'Nushayhah Plouis 2', pin: '3333' },
-            { username: 'Sharfaa Mahebourge', name: 'Sharfaa Mahebourge', pin: '4444' }
+            { username: 'Sharfaa Lead Mahebourge', name: 'Sharfaa Lead Mahebourge', pin: '4444' }
         ];
 
         let staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
@@ -1168,9 +1168,10 @@
         let deletedOrdersLog = JSON.parse(localStorage.getItem('pos_deleted_orders_log')) || { count: 0, quantity: 0, amount: 0 };
         let dailyBatchLogs = JSON.parse(localStorage.getItem('pos_daily_batch_logs')) || [];
         let historicalClosedDailySales = JSON.parse(localStorage.getItem('pos_historical_closed_daily_sales')) || [
-            { date: '2026-09-01', transactions: 12, revenue: 2150.00, methods: { Cash: 1500, Card: 400, Delivoo: 250 }, itemsSummary: { 'MILK TEA': 1200, 'FRUITS TEA': 950 } },
-            { date: '2026-09-02', transactions: 15, revenue: 2840.00, methods: { Cash: 1800, Blink: 540, 'Hungry Dodo': 500 }, itemsSummary: { 'MILK TEA': 1500, 'MOJITO': 1340 } }
-        ];
+    { date: '2026-09-01', transactions: 12, revenue: 2150.00, methods: { Cash: 1500, Card: 400, Delivoo: 250 }, itemsSummary: {} },
+    { date: '2026-09-02', transactions: 15, revenue: 2840.00, methods: { Cash: 1800, Blink: 540, 'Hungry Dodo': 500 }, itemsSummary: {} }
+];
+let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_records')) || [];
 
         /* CATEGORIES MANAGEMENT SETUP */
         let defaultCategories = [
@@ -1419,7 +1420,6 @@
         /* COMPLETE STORE STOCK MANAGEMENT INITIAL DATA FROM IMAGE */
         const defaultInventoryList = [
             // POWDER (g) / TEAS & POWDERS
-          
             { id: 'inv_1', cat: 'POWDER (g)', name: 'Green Tea (grams)', stock: 1000 },
             { id: 'inv_2', cat: 'POWDER (g)', name: 'Black Tea (grams)', stock: 1000 },
             { id: 'inv_3', cat: 'POWDER (g)', name: 'Tapioca Pearls (grams)', stock: 2000 },
@@ -1433,7 +1433,6 @@
             { id: 'inv_11', cat: 'POWDER (g)', name: 'Coffee Powder (grams)', stock: 1000 },
             { id: 'inv_12', cat: 'POWDER (g)', name: 'Matcha Powder (grams)', stock: 600 },
 
-          
             // SYRUPS (ml)
             { id: 'inv_13', cat: 'SYRUPS (ml)', name: 'Green Apple Syrup', stock: 1000 },
             { id: 'inv_14', cat: 'SYRUPS (ml)', name: 'Mango Syrup', stock: 1000 },
@@ -1447,32 +1446,28 @@
             { id: 'inv_22', cat: 'SYRUPS (ml)', name: 'Kiwi Syrup', stock: 1000 },
             { id: 'inv_23', cat: 'SYRUPS (ml)', name: 'Pineapple Syrup', stock: 1000 },
 
-          
             // FRUCTOSE (ml)
             { id: 'inv_24', cat: 'FRUCTOSE (ml)', name: 'Fructose (ml)', stock: 5000 },
 
-          
             // POPPING BOBA
-            { id: 'inv_25', cat: 'POPPING  BOBA', name: 'Mango Popping Boba', stock: 1000 },
-            { id: 'inv_26', cat: 'POPPING  BOBA', name: 'Passion Fruit Popping Boba', stock: 1000 },
-            { id: 'inv_27', cat: 'POPPING  BOBA', name: 'Blue Raspberry Popping Boba', stock: 1000 },
-            { id: 'inv_28', cat: 'POPPING  BOBA', name: 'Peach Popping Boba', stock: 1000 },
-            { id: 'inv_29', cat: 'POPPING  BOBA', name: 'Lychee Popping Boba', stock: 1000 },
-            { id: 'inv_30', cat: 'POPPING  BOBA', name: 'Strawberry Popping Boba', stock: 1000 },
-            { id: 'inv_31', cat: 'POPPING  BOBA', name: 'Blueberry Popping Boba', stock: 1000 },
-            { id: 'inv_32', cat: 'POPPING  BOBA', name: 'Kiwi Popping Boba', stock: 1000 },
-            { id: 'inv_33', cat: 'POPPING  BOBA', name: 'Green Apple Popping Boba', stock: 1000 },
-            { id: 'inv_34', cat: 'POPPING  BOBA', name: 'Watermelon Popping Boba', stock: 1000 },
-            { id: 'inv_35', cat: 'POPPING  BOBA', name: 'Cranberry Popping Boba', stock: 1000 },
-            { id: 'inv_36', cat: 'POPPING  BOBA', name: 'Chocolate Popping Boba', stock: 1000 },
+            { id: 'inv_25', cat: 'POPPING BOBA', name: 'Mango Popping Boba', stock: 1000 },
+            { id: 'inv_26', cat: 'POPPING BOBA', name: 'Passion Fruit Popping Boba', stock: 1000 },
+            { id: 'inv_27', cat: 'POPPING BOBA', name: 'Blue Raspberry Popping Boba', stock: 1000 },
+            { id: 'inv_28', cat: 'POPPING BOBA', name: 'Peach Popping Boba', stock: 1000 },
+            { id: 'inv_29', cat: 'POPPING BOBA', name: 'Lychee Popping Boba', stock: 1000 },
+            { id: 'inv_30', cat: 'POPPING BOBA', name: 'Strawberry Popping Boba', stock: 1000 },
+            { id: 'inv_31', cat: 'POPPING BOBA', name: 'Blueberry Popping Boba', stock: 1000 },
+            { id: 'inv_32', cat: 'POPPING BOBA', name: 'Kiwi Popping Boba', stock: 1000 },
+            { id: 'inv_33', cat: 'POPPING BOBA', name: 'Green Apple Popping Boba', stock: 1000 },
+            { id: 'inv_34', cat: 'POPPING BOBA', name: 'Watermelon Popping Boba', stock: 1000 },
+            { id: 'inv_35', cat: 'POPPING BOBA', name: 'Cranberry Popping Boba', stock: 1000 },
+            { id: 'inv_36', cat: 'POPPING BOBA', name: 'Chocolate Popping Boba', stock: 1000 },
 
-          
             // JELLY
             { id: 'inv_37', cat: 'JELLY', name: 'Rainbow Jelly', stock: 1000 },
             { id: 'inv_38', cat: 'JELLY', name: 'Coconut Jelly', stock: 1000 },
             { id: 'inv_39', cat: 'JELLY', name: 'Coffee Jelly', stock: 1000 },
 
-          
             // OTHERS / PULP & STORE SUPPLIES
             { id: 'inv_40', cat: 'OTHERS', name: 'Aloe Vera Pulp', stock: 1000 },
             { id: 'inv_41', cat: 'OTHERS', name: 'Mango Pulp', stock: 1000 },
@@ -1883,7 +1878,7 @@ async function completeSaleAndPrintReceipt() {
         }
     }
 
-    const paymentMethodEl = document.getElementById('paymentMethodSelect') || document.getElementById('paymentMethod');
+        const paymentMethodEl = document.getElementById('paymentMethodSelect') || document.getElementById('paymentMethod');
     const method = paymentMethodEl ? paymentMethodEl.value : 'Cash';
 
     const newOrder = {
@@ -1923,20 +1918,12 @@ async function completeSaleAndPrintReceipt() {
         console.error("Error sending to Google Sheets:", err);
     }
 
-    const printToggle = document.getElementById('autoPrintReceipt') || document.getElementById('printReceiptToggle');
-    const shouldPrint = printToggle ? printToggle.checked : true;
-
-    if (shouldPrint) {
         try {
-            if (typeof printThermalReceipt === 'function') {
-                await printThermalReceipt(newOrder);
-            } else if (typeof printReceipt === 'function') {
-                printReceipt(newOrder);
-            }
-        } catch (printErr) {
-            console.warn("Thermal receipt printing skipped or failed:", printErr);
-        }
+        await printThermalReceipt(newOrder);
+    } catch (printErr) {
+        console.warn("Thermal receipt printing failed:", printErr);
     }
+
 
     cart = [];
     if (typeof renderCart === 'function') renderCart();
@@ -2518,89 +2505,80 @@ function recordAttendance(actionType) {
 }
 
 function approveCloseShiftAndPrintReport() {
-    showModal("Close Shift", "Are you sure you want to approve and close the current shift?", true, (confirm) => {
-        if(confirm) {
-            // 1. Calculate shift breakdown values
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-            
-            // Filter paid or completed orders flexible with casing
-            let paidOrders = placedOrders.filter(order => {
-                let s = String(order.status || order.paymentStatus || '').toUpperCase();
-                return s === 'PAID' || s === 'COMPLETED' || s === '' || !order.status; 
-            });
-            
-            let methodTotals = {
-                'Cash': 0,
-                'Card': 0,
-                'Juice': 0,
-                'MyT Money': 0,
-                'Blink': 0,
-                'Delivoo': 0,
-                'Hungry Dodo': 0
-            };
+    showModal("Close Shift", "Are you sure you want to close the shift?");
+    if (confirm) {
+        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        let paidOrders = placedOrders.filter(order => {
+            let s = String(order.status || order.paymentStatus);
+            return s === 'PAID' || s === 'COMPLETED';
+        });
 
-            let grandTotal = 0;
+        let methodTotals = {
+            'Cash': 0,
+            'Card': 0,
+            'Juice': 0,
+            'MyT Money': 0,
+            'Blink': 0,
+            'Delivoo': 0,
+            'Hungry Dodo': 0
+        };
 
-            paidOrders.forEach(order => {
-                let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
-                let mStr = String(rawM).toLowerCase();
-                let m = 'Cash';
+        let grandTotal = 0;
 
-                if (mStr.includes("blink")) m = "Blink";
-                else if (mStr.includes("card")) m = "Card";
-                else if (mStr.includes("juice")) m = "Juice";
-                else if (mStr.includes("myt") || mStr.includes("my t")) m = "MyT Money";
-                else if (mStr.includes("delivoo")) m = "Delivoo";
-                else if (mStr.includes("hungry")) m = "Hungry Dodo";
-                else m = "Cash";
+        paidOrders.forEach(order => {
+            let rawM = order.paymentType || order.paymentMethod || 'Cash';
+            let mStr = String(rawM).toLowerCase();
+            let m = 'Cash';
 
-                let amt = parseFloat(order.total || order.subtotal || order.amount || 0);
-                methodTotals[m] = (methodTotals[m] || 0) + amt;
-                grandTotal += amt;
-            });
+            if (mStr.includes("blink")) m = "Blink";
+            else if (mStr.includes("card")) m = "Card";
+            else if (mStr.includes("juice")) m = "Juice";
+            else if (mStr.includes("myt")) m = "MyT Money";
+            else if (mStr.includes("delivoo")) m = "Delivoo";
+            else if (mStr.includes("hungry")) m = "Hungry Dodo";
+            else m = "Cash";
 
-            let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
-            let now = new Date();
-            let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-            let dateStr = now.toLocaleDateString('en-GB');
-            let shiftId = "SHIFT-" + Date.now().toString().slice(-4);
-            let cashierName = currentStaff.name || 'Ahana Lead';
+            let amt = parseFloat(order.total || order.subtotal || 0);
+            methodTotals[m] = (methodTotals[m] || 0) + amt;
+            grandTotal += amt;
+        });
 
-            // 2. Build payload matching Google Sheet columns
-            let sheetPayload = {
-                day: dayName,
-                date: dateStr,
-                shiftId: shiftId,
-                delivoo: methodTotals['Delivoo'],
-                hungryDodo: methodTotals['Hungry Dodo'],
-                juice: methodTotals['Juice'],
-                mytMoney: methodTotals['MyT Money'],
-                card: methodTotals['Card'],
-                blinks: methodTotals['Blink'],
-                cash: methodTotals['Cash'],
-                totalSales: grandTotal,
-                closedBy: cashierName
-            };
+        let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
+        let now = new Date();
+        let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+        let dateStr = now.toLocaleDateString('en-GB');
+        let shiftId = "SHIFT-" + Date.now().toString().slice(-4);
+        let cashierName = currentStaff.name || 'Ahana Lead';
 
-            // 3. Send to Google Sheets
-            syncShiftToGoogleSheets(sheetPayload);
+        let sheetPayload = {
+            day: dayName,
+            date: dateStr,
+            shiftId: shiftId,
+            delivoo: methodTotals['Delivoo'],
+            hungryDodo: methodTotals['Hungry Dodo'],
+            juice: methodTotals['Juice'],
+            mytMoney: methodTotals['MyT Money'],
+            card: methodTotals['Card'],
+            blinks: methodTotals['Blink'],
+            cash: methodTotals['Cash'],
+            totalSales: grandTotal,
+            closedBy: cashierName
+        };
 
-            // 4. Print thermal receipt
-            printCombinedDailySalesReport();
-            
-            // 5. Reset local shift tally
-            localStorage.removeItem('pos_daily_sales_history');
-            let remainingOrders = placedOrders.filter(order => {
-                let s = String(order.status || order.paymentStatus || '').toUpperCase();
-                return s !== 'PAID' && s !== 'COMPLETED';
-            });
-            localStorage.setItem('pos_placed_orders', JSON.stringify(remainingOrders));
+        syncShiftToGoogleSheets(sheetPayload);
+        printCombinedDailySalesReport();
 
-            refreshReconData();
-            showModal("Shift Closed", "Current shift has been closed and daily tally reset.");
-        }
-    });
+        localStorage.removeItem('pos_daily_sales_history');
+        let remainingOrders = placedOrders.filter(order => {
+            let s = String(order.status || order.paymentStatus);
+            return s !== 'PAID' && s !== 'COMPLETED';
+        });
+        localStorage.setItem('pos_placed_orders', JSON.stringify(remainingOrders));
+
+        refreshReconData();
+    }
 }
+
       
         /* DONUT CHART & DASHBOARD METRICS */
         function updateDashboardMetrics() {
@@ -2886,6 +2864,7 @@ function renderAdminSalesRecords(period) {
     <p style="font-size:0.85rem; color:#64748b; margin-bottom:0;">Total Transactions: ${filtered.length}</p>
   `;
 }
+
 </script>
 </body>
 </html>
