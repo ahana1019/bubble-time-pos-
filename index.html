@@ -2350,21 +2350,25 @@ function printCombinedDailySalesReport() {
     else showModal("QBC Daily Report", rText);
 
 }
-
 function generateClosingShiftReport() {
-    let currentStaff = JSON.parse(localStorage.getItem('currentStaff')) || {};
+    let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
     let now = new Date();
     let dateStr = now.toLocaleDateString('en-GB');
     let timeStr = now.toTimeString().split(' ')[0];
     let cashierName = currentStaff.name || 'Ahana Lead';
 
-    let dailySales = JSON.parse(localStorage.getItem('dailySales')) || [];
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    let paidOrders = placedOrders.filter(order => {
+        let s = String(order.status || order.paymentStatus || '').toUpperCase();
+        return s === 'PAID' || s === 'COMPLETED';
+    });
+
     let grandTotal = 0;
     let totalCups = 0;
     let totalCakes = 0;
     let totalCookies = 0;
 
-    dailySales.forEach(order => {
+    paidOrders.forEach(order => {
         if (order.total) grandTotal += parseFloat(order.total) || 0;
         
         if (order.items && Array.isArray(order.items)) {
@@ -2372,9 +2376,9 @@ function generateClosingShiftReport() {
                 let name = (item.name || '').toLowerCase();
                 let qty = parseInt(item.quantity || item.qty || 1, 10);
 
-                if (name.includes('tea') || name.includes('cup') || name.includes('boba') || name.includes('pearl') || name.includes('drink')) {
+                if (name.includes('tea') || name.includes('cup') || name.includes('boba') || name.includes('pearl') || name.includes('drink') || name.includes('mojito') || name.includes('milkshake') || name.includes('double q')) {
                     totalCups += qty;
-                } else if (name.includes('cake')) {
+                } else if (name.includes('cake') || name.includes('waffle') || name.includes('crepe')) {
                     totalCakes += qty;
                 } else if (name.includes('cookie')) {
                     totalCookies += qty;
@@ -2383,36 +2387,37 @@ function generateClosingShiftReport() {
         }
     });
 
-    let rText = "==================================\n";
-    rText += "   BUBBLE TIME MD CLOSING SHIFTS REPORT\n";
-    rText += "==================================\n\n";
+   let rText="================================\n";
+    rText += " BUBBLE TIME MD CLOSING SHIFT   \n";
+    rText += "================================\n\n";
 
     rText += "SALES OF THE DAY\n";
-    rText += "----------------------------------\n";
+    rText += "--------------------------------\n";
     rText += " Total Sales       Rs " + grandTotal.toFixed(2) + "\n\n";
 
     rText += "ITEMS SUMMARY\n";
-    rText += "----------------------------------\n";
+    rText += "--------------------------------\n";
     rText += " Total Cups Sold:    " + totalCups + "\n";
     rText += " Total Cakes Sold:   " + totalCakes + "\n";
     rText += " Total Cookies Sold: " + totalCookies + "\n\n";
 
-    rText += "==================================\n";
-    rText += "DATE AND TIME\n";
-    rText += "----------------------------------\n";
+    rText += "================================\n";
+    rText += "         DATE AND TIME          \n";
+    rText += "--------------------------------\n";
     rText += " Date: " + dateStr + "\n";
     rText += " Timestamp: " + timeStr + "\n";
     rText += " Cashier: " + cashierName + "\n";
-    rText += "==================================\n";
-    rText += "   END OF CLOSING REPORT\n";
-    rText += "==================================\n";
+    rText += "================================\n";
+    rText += "     END OF CLOSING REPORT      \n";
+    rText += "================================\n";
 
-    if (typeof showModal === 'function') {
-        showModal("Closing Shift Report", rText);
+    if (typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) {
+        sendToPrinter(rText);
     } else {
-        alert(rText);
+        showModal("Closing Shift Report", rText);
     }
 }
+
 
 function generateReceiptPrintText(order) {
     let orderId = order.id || 'ORD-000';
@@ -2701,7 +2706,7 @@ let cashierName = closingStaff; // Recorded as the person who closed the shift
         };
 
         syncShiftToGoogleSheets(sheetPayload);
-        printCombinedDailySalesReport();
+        generateClosingShiftReport();
 
         localStorage.removeItem('pos_daily_sales_history');
         let remainingOrders = placedOrders.filter(order => {
