@@ -510,8 +510,10 @@
     <option value="Valentina">Valentina</option>
   </select>
 
-  <select id="attStaffSelect" style="width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#1e293b; font-size:0.9rem;">
+    <select id="attStaffSelect" style="width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#1e293b; font-size:0.9rem;">
   <option value="">-- Select Staff --</option>
+  <option value="Ahana Lead">Ahana Lead</option>
+  <option value="Alex Valentina">Alex Valentina</option>
 </select>
 
   <!-- Action Buttons -->
@@ -2346,8 +2348,133 @@ function printCombinedDailySalesReport() {
 
     if(typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) sendToPrinter(rText);
     else showModal("QBC Daily Report", rText);
+
 }
 
+function generateClosingShiftReport() {
+    let currentStaff = JSON.parse(localStorage.getItem('currentStaff')) || {};
+    let now = new Date();
+    let dateStr = now.toLocaleDateString('en-GB');
+    let timeStr = now.toTimeString().split(' ')[0];
+    let cashierName = currentStaff.name || 'Ahana Lead';
+
+    let dailySales = JSON.parse(localStorage.getItem('dailySales')) || [];
+    let grandTotal = 0;
+    let totalCups = 0;
+    let totalCakes = 0;
+    let totalCookies = 0;
+
+    dailySales.forEach(order => {
+        if (order.total) grandTotal += parseFloat(order.total) || 0;
+        
+        if (order.items && Array.isArray(order.items)) {
+            order.items.forEach(item => {
+                let name = (item.name || '').toLowerCase();
+                let qty = parseInt(item.quantity || item.qty || 1, 10);
+
+                if (name.includes('tea') || name.includes('cup') || name.includes('boba') || name.includes('pearl') || name.includes('drink')) {
+                    totalCups += qty;
+                } else if (name.includes('cake')) {
+                    totalCakes += qty;
+                } else if (name.includes('cookie')) {
+                    totalCookies += qty;
+                }
+            });
+        }
+    });
+
+    let rText = "==================================\n";
+    rText += "   BUBBLE TIME MD CLOSING SHIFTS REPORT\n";
+    rText += "==================================\n\n";
+
+    rText += "SALES OF THE DAY\n";
+    rText += "----------------------------------\n";
+    rText += " Total Sales       Rs " + grandTotal.toFixed(2) + "\n\n";
+
+    rText += "ITEMS SUMMARY\n";
+    rText += "----------------------------------\n";
+    rText += " Total Cups Sold:    " + totalCups + "\n";
+    rText += " Total Cakes Sold:   " + totalCakes + "\n";
+    rText += " Total Cookies Sold: " + totalCookies + "\n\n";
+
+    rText += "==================================\n";
+    rText += "DATE AND TIME\n";
+    rText += "----------------------------------\n";
+    rText += " Date: " + dateStr + "\n";
+    rText += " Timestamp: " + timeStr + "\n";
+    rText += " Cashier: " + cashierName + "\n";
+    rText += "==================================\n";
+    rText += "   END OF CLOSING REPORT\n";
+    rText += "==================================\n";
+
+    if (typeof showModal === 'function') {
+        showModal("Closing Shift Report", rText);
+    } else {
+        alert(rText);
+    }
+}
+
+function generateReceiptPrintText(order) {
+    let orderId = order.id || 'ORD-000';
+    let cashierName = order.cashier || 'Ahana';
+    let paymentMethod = order.paymentMethod || 'Blink';
+    let orderDate = order.date || new Date().toLocaleString('en-GB');
+
+    // Calculate Total and Included 15% VAT
+    let total = parseFloat(order.total || 0);
+    let vatAmount = total - (total / 1.15);
+
+    // Build Receipt Header (Single BUBBLE TIME MD LTD header)
+    let rText = "================================\n";
+    rText += "       BUBBLE TIME MD LTD\n";
+    rText += "   Louis Pasteur st, Curepipe\n";
+    rText += "  Tel: 52573727 | BRN: C24206010\n";
+    rText += "================================\n";
+    rText += "Order: " + orderId + "\n";
+    rText += "Cashier: " + cashierName + "\n";
+    rText += "Date: " + orderDate + "\n";
+    rText += "--------------------------------\n";
+
+    // Item List
+    if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+            let qty = item.quantity || item.qty || 1;
+            let name = item.name || 'Item';
+            let price = (parseFloat(item.price || 0) * qty).toFixed(2);
+            
+            let itemLine = qty + "x " + name;
+            let priceStr = "Rs " + price;
+            
+            // Align item price cleanly to the right side
+            let spaceCount = 32 - (itemLine.length + priceStr.length);
+            let spaces = spaceCount > 0 ? " ".repeat(spaceCount) : " ";
+            
+            rText += itemLine + spaces + priceStr + "\n";
+        });
+    }
+
+    rText += "--------------------------------\n";
+
+    // VAT & TOTAL Section
+    rText += "VAT (15% Included):   Rs " + vatAmount.toFixed(2) + "\n";
+    rText += "TOTAL:                Rs " + total.toFixed(2) + "\n";
+    rText += "Payment: " + paymentMethod + "\n";
+    rText += "================================\n";
+    rText += "     Thank you for visiting!\n";
+
+    return rText;
+}     
+
+async function printThermalReceipt(order) {
+    let receiptText = generateReceiptPrintText(order);
+    if (typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) {
+        await sendToPrinter(receiptText);
+    } else {
+        showModal("Customer Receipt", receiptText);
+    }
+}
+
+      
 let isScreenReceiptEnabled = true;
 
 function toggleScreenReceipt() {
@@ -2379,62 +2506,34 @@ function printSpecificPlatformReport(platformName) {
     rText += `Total Revenue: Rs ${total.toFixed(2)}\n`;
     rText += "================================\n";
 
-    if(typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) sendToPrinter(rText);
-    else showModal(`${platformName} Report`, rText);
+            if (typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) sendToPrinter(rText);
+        else showModal(`${platformName} Report`, rText);
 }
       function updateAttendanceStaffDropdown() {
-    const attSelect = document.getElementById('attStaffSelect');
-    const loginSelect = document.getElementById('loginUser');
-    if (!attSelect) return;
+  const attSelect = document.getElementById('attStaffSelect');
+  if (!attSelect) return;
 
-    attSelect.innerHTML = '<option value="">-- Select Staff --</option>';
+  attSelect.innerHTML = '<option value="">-- Select Staff --</option>';
 
-    // 1. Try reading directly from saved POS staff list in localStorage
-    let savedStaff = localStorage.getItem('staffList') || localStorage.getItem('users') || localStorage.getItem('staffData');
-    if (savedStaff) {
-        try {
-            let parsed = JSON.parse(savedStaff);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                parsed.forEach(s => {
-                    let name = typeof s === 'object' ? (s.name || s.username || s.staffName) : s;
-                    if (name) {
-                        let opt = document.createElement('option');
-                        opt.value = name;
-                        opt.textContent = name;
-                        attSelect.appendChild(opt);
-                    }
-                });
-                return;
-            }
-        } catch(e) {}
-    }
+  // Exact Google Sheet tab names
+  const staffList = ["Ahana Lead", "Alex Valentina"];
 
-    // 2. Fallback: Copy options dynamically from loginUser dropdown
-    if (loginSelect && loginSelect.options.length > 1) {
-        for (let i = 0; i < loginSelect.options.length; i++) {
-            let opt = loginSelect.options[i];
-            if (opt.value && opt.value !== "") {
-                let newOpt = document.createElement('option');
-                newOpt.value = opt.value;
-                newOpt.textContent = opt.textContent;
-                attSelect.appendChild(newOpt);
-            }
-        }
-    }
+  staffList.forEach(name => {
+    let opt = document.createElement('option');
+    opt.value = name;        // Sends clean name: "Ahana Lead"
+    opt.textContent = name;  // Displays clean name: "Ahana Lead"
+    attSelect.appendChild(opt);
+  });
 }
-
 // Run immediately and retry after load to catch async options
 document.addEventListener('DOMContentLoaded', () => {
     updateAttendanceStaffDropdown();
     setTimeout(updateAttendanceStaffDropdown, 500);
 });
+// Closing Day Sales Google Sheets Web App Sync URL
+const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7zG78FGHiWNBxt1FQvc-IYJeFm8pFGdH0tsER1UuuJMrldY24EZpodp5XPETsayV9/exec";
 
 // Auto-run on page load
-document.addEventListener('DOMContentLoaded', updateAttendanceStaffDropdown);
-
-// Google Sheets Web App Sync URL
-const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyaNNQQBrfdn44OW0Ta3159gBdx6PodF-Ol6KMP4P6kL6epeCh7OhDfSX8G03jxkbfy/exec";
-
 function syncShiftToGoogleSheets(shiftData) {
     fetch(GOOGLE_SHEETS_SCRIPT_URL, {
         method: 'POST',
@@ -2451,16 +2550,39 @@ function syncShiftToGoogleSheets(shiftData) {
         console.error('Error sending shift report:', error);
     });
 }
-      // Attendance Google Sheets Web App Sync URL
-const ATTENDANCE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTA7MWI2k2zVvrSjvf0iUTnJgj7u2paWdWgkobPFUCAJ8C3T-xD87VL6uzvC26xvY9/exec";
+// Auto-run on page load
+function syncShiftToGoogleSheets(shiftData) {
+    fetch(GOOGLE_SHEETS_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(shiftData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Shift report successfully sent to Google Sheets!', data);
+    })
+    .catch(error => {
+        console.error('Error sending shift report:', error);
+    });
+}
+
+const ATTENDANCE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjzp-pRDuvJaqZJ2DG401sMl2xOCu7WFEHK0owRWtGqT1wRZ7EeRrGqB70maiAjtzQug/exec";
 
 function recordAttendance(actionType) {
-    const staffName = document.getElementById('attStaffSelect').value;
-    const outletName = document.getElementById('attOutletSelect').value;
+    const staffSelectEl = document.getElementById('attStaffSelect');
+    const outletSelectEl = document.getElementById('attOutletSelect');
     const statusMsg = document.getElementById('attStatusMsg');
 
+    const staffName = staffSelectEl ? staffSelectEl.value : "";
+    const outletName = outletSelectEl ? outletSelectEl.value : "";
+
     if (!staffName) {
-        alert("Please select a staff member first!");
+        if (statusMsg) {
+            statusMsg.innerText = "❌ Please select a staff member first!";
+            statusMsg.style.color = "#dc2626";
+        }
         return;
     }
 
@@ -2478,35 +2600,40 @@ function recordAttendance(actionType) {
         outletName: outletName
     };
 
-    statusMsg.innerText = `Logging ${actionType} for ${staffName}...`;
-    statusMsg.style.color = "#475569";
+    if (statusMsg) {
+        statusMsg.innerText = `✅ ${staffName} - ${actionType} logged at ${timeStr}`;
+        statusMsg.style.color = "#16a34a";
+    }
 
-    fetch(ATTENDANCE_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify(payload)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === "success") {
-            statusMsg.innerText = `✅ ${staffName} - ${actionType} logged at ${timeStr}`;
-            statusMsg.style.color = "#16a34a";
-        } else {
-            throw new Error(data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Attendance Error:', error);
-        statusMsg.innerText = `❌ Error recording ${actionType}. Please try again.`;
-        statusMsg.style.color = "#dc2626";
-    });
+    try {
+        fetch(ATTENDANCE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            cache: 'no-cache',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(payload)
+        });
+    } catch (err) {
+        console.error('Attendance submit error:', err);
+    }
 }
 
+
 function approveCloseShiftAndPrintReport() {
+    let checkOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+    let checkPaid = checkOrders.filter(o => {
+        let s = String(o.status || o.paymentStatus || '').toUpperCase();
+        return s === 'PAID' || s === 'COMPLETED';
+    });
+
+    if (checkPaid.length === 0) {
+        showModal("Notice", "No paid transactions to close for this shift.");
+        return;
+    }
+
     showModal("Close Shift", "Are you sure you want to close the shift?");
     if (confirm) {
+
         let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
         let paidOrders = placedOrders.filter(order => {
             let s = String(order.status || order.paymentStatus);
@@ -2543,12 +2670,20 @@ function approveCloseShiftAndPrintReport() {
             grandTotal += amt;
         });
 
-        let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
-        let now = new Date();
-        let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-        let dateStr = now.toLocaleDateString('en-GB');
-        let shiftId = "SHIFT-" + Date.now().toString().slice(-4);
-        let cashierName = currentStaff.name || 'Ahana Lead';
+let currentStaff = JSON.parse(localStorage.getItem('pos_active_cashier')) || {};
+let now = new Date();
+let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+let dateStr = now.toLocaleDateString('en-GB');
+
+// Night / Closing staff is the person logged in right now
+let closingStaff = currentStaff.name || 'Ahana Lead';
+
+// Morning staff saved earlier in the day (falls back to closing staff if not set)
+let morningStaff = localStorage.getItem('pos_morning_staff') || closingStaff;
+
+let shiftId = morningStaff;    // Column C (Shift ID) will show morning staff
+let cashierName = closingStaff; // Recorded as the person who closed the shift
+
 
         let sheetPayload = {
             day: dayName,
@@ -2559,7 +2694,7 @@ function approveCloseShiftAndPrintReport() {
             juice: methodTotals['Juice'],
             mytMoney: methodTotals['MyT Money'],
             card: methodTotals['Card'],
-            blinks: methodTotals['Blink'],
+            blink: methodTotals['Blink'],
             cash: methodTotals['Cash'],
             totalSales: grandTotal,
             closedBy: cashierName
