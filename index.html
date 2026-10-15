@@ -2555,25 +2555,7 @@ function syncShiftToGoogleSheets(shiftData) {
         console.error('Error sending shift report:', error);
     });
 }
-// Auto-run on page load
-function syncShiftToGoogleSheets(shiftData) {
-    fetch(GOOGLE_SHEETS_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify(shiftData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Shift report successfully sent to Google Sheets!', data);
-    })
-    .catch(error => {
-        console.error('Error sending shift report:', error);
-    });
-}
-
-const ATTENDANCE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjzp-pRDuvJaqZJ2DG401sMl2xOCu7WFEHK0owRWtGqT1wRZ7EeRrGqB70maiAjtzQug/exec";
+const ATTENDANCE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZY3DP6RcODUdYwtgGhEeS_TGmGDWahcG5EZkVRoS0QFzmqN5l_3PYZkkcu3-45Myo/exec";
 
 function recordAttendance(actionType) {
     const staffSelectEl = document.getElementById('attStaffSelect');
@@ -2606,24 +2588,29 @@ function recordAttendance(actionType) {
     };
 
     if (statusMsg) {
-        statusMsg.innerText = `✅ ${staffName} - ${actionType} logged at ${timeStr}`;
-        statusMsg.style.color = "#16a34a";
+        statusMsg.innerText = `⏳ Sending ${actionType} for ${staffName}...`;
+        statusMsg.style.color = "#d97706";
     }
 
-    try {
-        fetch(ATTENDANCE_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            cache: 'no-cache',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(payload)
-        });
-    } catch (err) {
+    fetch(ATTENDANCE_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+    })
+    .then(() => {
+        if (statusMsg) {
+            statusMsg.innerText = `✅ ${staffName} - ${actionType} logged at ${timeStr}`;
+            statusMsg.style.color = "#16a34a";
+        }
+    })
+    .catch(err => {
         console.error('Attendance submit error:', err);
-    }
+        if (statusMsg) {
+            statusMsg.innerText = `❌ Error logging ${actionType}. Check internet connection.`;
+            statusMsg.style.color = "#dc2626";
+        }
+    });
 }
-
-
 function approveCloseShiftAndPrintReport() {
     let checkOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
     let checkPaid = checkOrders.filter(o => {
@@ -2636,23 +2623,17 @@ function approveCloseShiftAndPrintReport() {
         return;
     }
 
-    showModal("Close Shift", "Are you sure you want to close the shift?");
-    if (confirm) {
+    showModal("Close Shift", "Are you sure you want to close the shift?", true, (confirmed) => {
+        if (!confirmed) return;
 
         let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
         let paidOrders = placedOrders.filter(order => {
-            let s = String(order.status || order.paymentStatus);
+            let s = String(order.status || order.paymentStatus || '').toUpperCase();
             return s === 'PAID' || s === 'COMPLETED';
         });
 
         let methodTotals = {
-            'Cash': 0,
-            'Card': 0,
-            'Juice': 0,
-            'MyT Money': 0,
-            'Blink': 0,
-            'Delivoo': 0,
-            'Hungry Dodo': 0
+            'Cash': 0, 'Card': 0, 'Juice': 0, 'MyT Money': 0, 'Blink': 0, 'Delivoo': 0, 'Hungry Dodo': 0
         };
 
         let grandTotal = 0;
@@ -2675,20 +2656,16 @@ function approveCloseShiftAndPrintReport() {
             grandTotal += amt;
         });
 
-let currentStaff = JSON.parse(localStorage.getItem('pos_active_cashier')) || {};
-let now = new Date();
-let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-let dateStr = now.toLocaleDateString('en-GB');
+        let currentStaff = JSON.parse(localStorage.getItem('pos_active_cashier')) || {};
+        let now = new Date();
+        let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+        let dateStr = now.toLocaleDateString('en-GB');
 
-// Night / Closing staff is the person logged in right now
-let closingStaff = currentStaff.name || 'Ahana Lead';
+        let closingStaff = currentStaff.name || 'Ahana Lead';
+        let morningStaff = localStorage.getItem('pos_morning_staff') || closingStaff;
 
-// Morning staff saved earlier in the day (falls back to closing staff if not set)
-let morningStaff = localStorage.getItem('pos_morning_staff') || closingStaff;
-
-let shiftId = morningStaff;    // Column C (Shift ID) will show morning staff
-let cashierName = closingStaff; // Recorded as the person who closed the shift
-
+        let shiftId = morningStaff;    
+        let cashierName = closingStaff; 
 
         let sheetPayload = {
             day: dayName,
@@ -2710,16 +2687,15 @@ let cashierName = closingStaff; // Recorded as the person who closed the shift
 
         localStorage.removeItem('pos_daily_sales_history');
         let remainingOrders = placedOrders.filter(order => {
-            let s = String(order.status || order.paymentStatus);
+            let s = String(order.status || order.paymentStatus || '').toUpperCase();
             return s !== 'PAID' && s !== 'COMPLETED';
         });
         localStorage.setItem('pos_placed_orders', JSON.stringify(remainingOrders));
 
         refreshReconData();
-    }
+    });
 }
 
-      
         /* DONUT CHART & DASHBOARD METRICS */
         function updateDashboardMetrics() {
             document.getElementById('dashStaffName').innerText = currentStaff ? currentStaff.name : 'Administrator';
