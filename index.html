@@ -510,11 +510,13 @@
     <option value="Valentina">Valentina</option>
   </select>
 
-    <select id="attStaffSelect" style="width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#1e293b; font-size:0.9rem;">
+      <select id="attStaffSelect" style="width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#1e293b; font-size:0.9rem;">
   <option value="">-- Select Staff --</option>
   <option value="Ahana Lead">Ahana Lead</option>
   <option value="Alex Valentina">Alex Valentina</option>
 </select>
+
+
 
   <!-- Action Buttons -->
   <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
@@ -1852,8 +1854,7 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
         preview.innerHTML = html;
     }
 
-
-const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3TGVSbaQYIiINMMcIAaKwi4cc_LAoXrEgTkB92oRJBq2l1kIw9ktux-M1jknOLETc/exec";
+const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyZY3DP6RcODUdYwtgGhEeS_TGmGDWahcG5EZkVRoS0QFzmqN5l_3PYZkkcu3-45Myo/exec";
 
 function getStoredSales() {
   const r = localStorage.getItem('pos_daily_sales_history');
@@ -1880,8 +1881,9 @@ async function completeSaleAndPrintReceipt() {
         }
     }
 
-        const paymentMethodEl = document.getElementById('paymentMethodSelect') || document.getElementById('paymentMethod');
-    const method = paymentMethodEl ? paymentMethodEl.value : 'Cash';
+    // Direct read from paymentMethod dropdown
+    const paymentMethodEl = document.getElementById('paymentMethod');
+    const selectedMethod = paymentMethodEl ? paymentMethodEl.value : 'Cash';
 
     const newOrder = {
         id: orderId,
@@ -1890,7 +1892,8 @@ async function completeSaleAndPrintReceipt() {
         date: timestamp,
         items: [...cart],
         total: total,
-        method: method,
+        method: selectedMethod,
+        paymentType: selectedMethod,
         status: 'PAID'
     };
 
@@ -1904,7 +1907,8 @@ async function completeSaleAndPrintReceipt() {
         amount: total,
         itemsCount: totalQty,
         date: timestamp,
-        method: method,
+        method: selectedMethod,
+        paymentType: selectedMethod,
         items: [...cart]
     });
     localStorage.setItem('pos_daily_sales_history', JSON.stringify(salesHistory));
@@ -1920,22 +1924,19 @@ async function completeSaleAndPrintReceipt() {
         console.error("Error sending to Google Sheets:", err);
     }
 
-        try {
+    try {
         await printThermalReceipt(newOrder);
     } catch (printErr) {
         console.warn("Thermal receipt printing failed:", printErr);
     }
-
 
     cart = [];
     if (typeof renderCart === 'function') renderCart();
     if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
     if (typeof refreshReconData === 'function') refreshReconData();
 
-    showModal("Success", "Sale completed and recorded in analytics successfully!");
+    showModal("Success", `Sale completed via ${selectedMethod} and recorded successfully!`);
 }
-
-
 /* PLACED ORDERS & SETTLEMENT */
 function renderPlacedOrders() {
     const container = document.getElementById('placedOrdersListContainer');
@@ -1969,8 +1970,6 @@ function renderPlacedOrders() {
         container.appendChild(div);
     });
 }
-
-
                 function selectPlacedOrder(orderId) {
             selectedPlacedOrderId = orderId;
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
@@ -2364,34 +2363,67 @@ function generateClosingShiftReport() {
     });
 
     let grandTotal = 0;
+    let paymentTotals = {};
     let totalCups = 0;
     let totalCakes = 0;
     let totalCookies = 0;
+    let totalWaffle = 0;
+    let totalCrepe = 0;
 
     paidOrders.forEach(order => {
-        if (order.total) grandTotal += parseFloat(order.total) || 0;
-        
+        let orderTotal = parseFloat(order.total) || 0;
+        grandTotal += orderTotal;
+
+        // Track totals by payment method (Cash, Juice, Blink, Card, etc.)
+        let pMethod = (order.paymentMethod || order.method || 'Cash').trim();
+        pMethod = pMethod.charAt(0).toUpperCase() + pMethod.slice(1).toLowerCase();
+        paymentTotals[pMethod] = (paymentTotals[pMethod] || 0) + orderTotal;
+
         if (order.items && Array.isArray(order.items)) {
             order.items.forEach(item => {
                 let name = (item.name || '').toLowerCase();
+                let cat = (item.cat || '').toLowerCase();
                 let qty = parseInt(item.quantity || item.qty || 1, 10);
 
-                if (name.includes('tea') || name.includes('cup') || name.includes('boba') || name.includes('pearl') || name.includes('drink') || name.includes('mojito') || name.includes('milkshake') || name.includes('double q')) {
+                // 1. totalCups: Milk Tea, Mojitos, Milkshakes, Signature Chewy, Fruit Tea, Milk-Series, Smoothie Syrups, Smoothie Powders, Limited Edition
+                if (cat.includes('milk tea') || cat.includes('mojito') || cat.includes('milkshake') || 
+                    cat.includes('signature chewy') || cat.includes('fruits tea') || cat.includes('milk series') || 
+                    cat.includes('smoothie') || name.includes('smoothie') || 
+                    name.includes('syrup') || name.includes('powder') ||
+                    name.includes('limited edition') || name.includes('tea') || name.includes('drink')) {
                     totalCups += qty;
-                } else if (name.includes('cake') || name.includes('waffle') || name.includes('crepe')) {
+                } 
+                // 2. totalCakes: Cakes only
+                else if (cat === 'cake' || cat.includes('cakes') || name.includes('cake')) {
                     totalCakes += qty;
-                } else if (name.includes('cookie')) {
+                } 
+                // 3. totalCookies: Cookies only
+                else if (cat === 'cookies' || cat.includes('cookie') || name.includes('cookie')) {
                     totalCookies += qty;
+                }
+                // 4. Total Waffle only
+                else if (cat === 'waffle' || cat.includes('waffle') || name.includes('waffle')) {
+                    totalWaffle += qty;
+                }
+                // 5. Total Crepe only
+                else if (cat === 'crepes' || cat.includes('crepe') || name.includes('crepe')) {
+                    totalCrepe += qty;
                 }
             });
         }
     });
 
-   let rText="================================\n";
+    let rText = "================================\n";
     rText += " BUBBLE TIME MD CLOSING SHIFT   \n";
     rText += "================================\n\n";
 
     rText += "SALES OF THE DAY\n";
+    rText += "--------------------------------\n";
+
+    for (let method in paymentTotals) {
+        let padMethod = (method + ":").padEnd(16, ' ');
+        rText += " " + padMethod + "Rs " + paymentTotals[method].toFixed(2) + "\n";
+    }
     rText += "--------------------------------\n";
     rText += " Total Sales       Rs " + grandTotal.toFixed(2) + "\n\n";
 
@@ -2399,7 +2431,9 @@ function generateClosingShiftReport() {
     rText += "--------------------------------\n";
     rText += " Total Cups Sold:    " + totalCups + "\n";
     rText += " Total Cakes Sold:   " + totalCakes + "\n";
-    rText += " Total Cookies Sold: " + totalCookies + "\n\n";
+    rText += " Total Cookies Sold: " + totalCookies + "\n";
+    rText += " Total Waffles Sold: " + totalWaffle + "\n";
+    rText += " Total Crepes Sold:  " + totalCrepe + "\n\n";
 
     rText += "================================\n";
     rText += "         DATE AND TIME          \n";
@@ -2417,8 +2451,6 @@ function generateClosingShiftReport() {
         showModal("Closing Shift Report", rText);
     }
 }
-
-
 function generateReceiptPrintText(order) {
     let orderId = order.id || 'ORD-000';
     let cashierName = order.cashier || 'Ahana';
@@ -2562,8 +2594,8 @@ function recordAttendance(actionType) {
     const outletSelectEl = document.getElementById('attOutletSelect');
     const statusMsg = document.getElementById('attStatusMsg');
 
-    const staffName = staffSelectEl ? staffSelectEl.value : "";
-    const outletName = outletSelectEl ? outletSelectEl.value : "";
+    const staffName = staffSelectEl ? staffSelectEl.value.trim() : "";
+    const outletName = outletSelectEl ? outletSelectEl.value.trim() : "";
 
     if (!staffName) {
         if (statusMsg) {
@@ -2575,8 +2607,14 @@ function recordAttendance(actionType) {
 
     const now = new Date();
     const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-    const dateStr = now.toLocaleDateString('en-GB'); // DD/MM/YYYY
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+    // Explicit DD/MM/YYYY formatting guarantees exact string match with Column B in Google Sheets
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const dateStr = `${day}/${month}/${year}`;
+
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
     const payload = {
         day: dayName,
@@ -2594,6 +2632,7 @@ function recordAttendance(actionType) {
 
     fetch(ATTENDANCE_SCRIPT_URL, {
         method: 'POST',
+        mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
     })
@@ -2740,21 +2779,6 @@ function approveCloseShiftAndPrintReport() {
                     plugins: { legend: { position: 'bottom' } }
                 }
             });
-        }
-
-        /* ADMIN SALES ANALYTICS & STAFF DIRECTORY */
-        function renderAdminSalesRecords(period) {
-            const container = document.getElementById('adminSalesAnalyticsReportContainer');
-            if(!container) return;
-
-            let sales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-            let totalRev = sales.reduce((sum, s) => sum + s.total, 0);
-
-            container.innerHTML = `
-                <h3 style="margin-top:0; font-size:1rem; color:#1e293b;">Gross ${period.toUpperCase()} Sales Report</h3>
-                <div style="font-size:0.9rem; font-weight:bold; color:#15803d; margin-bottom:10px;">Total Period Revenue: Rs ${totalRev.toFixed(2)}</div>
-                <p style="font-size:0.8rem; color:#64748b;">Total Completed Transactions: ${sales.length}</p>
-            `;
         }
 
         function resetAllSalesAndShiftData() {
@@ -2952,35 +2976,40 @@ function loadReconSalesBreakdown(salesData) {
   }
 
 function renderAdminSalesRecords(period) {
-  const container = document.getElementById('adminSalesAnalyticsReportContainer');
-  if (!container) return;
+    const container = document.getElementById('adminSalesAnalyticsReportContainer');
+    if (!container) return;
 
-  const sales = getStoredSales();
-  const now = new Date();
+    const sales = getStoredSales();
+    const now = new Date();
 
-  const filtered = sales.filter(x => {
-    const d = new Date(x.date);
-    const isToday = d.toDateString() === now.toDateString();
-    const isThisMonth = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    const isThisYear = d.getFullYear() === now.getFullYear();
+    const filtered = sales.filter(x => {
+        if (!x.date) return false;
+        const d = new Date(x.date);
+        if (isNaN(d.getTime())) return true;
 
-    if (period === 'daily') return isToday;
-    if (period === 'monthly') return isThisMonth;
-    if (period === 'yearly') return isThisYear;
-    return true;
-  });
+        const isToday = d.toDateString() === now.toDateString();
+        const isThisMonth = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        const isThisYear = d.getFullYear() === now.getFullYear();
 
-  let revenue = 0;
-  filtered.forEach(x => { revenue += (x.amount || x.total || 0); });
+        if (period === 'daily') return isToday;
+        if (period === 'monthly') return isThisMonth;
+        if (period === 'yearly') return isThisYear;
+        return true;
+    });
 
-  const titlePeriod = period.toUpperCase();
-  container.innerHTML = `
-    <h3 style="margin-top:0; font-size:1rem; color:#1e293b;">Gross ${titlePeriod} Sales Report</h3>
-    <div style="font-size:1rem; font-weight:bold; color:#059669; margin-bottom:8px;">Total Revenue: Rs ${revenue.toFixed(2)}</div>
-    <p style="font-size:0.85rem; color:#64748b; margin-bottom:0;">Total Transactions: ${filtered.length}</p>
-  `;
+    let revenue = 0;
+    filtered.forEach(x => { 
+        revenue += parseFloat(x.amount || x.total || 0); 
+    });
+
+    const titlePeriod = period.toUpperCase();
+    container.innerHTML = `
+        <h3 style="margin-top:0; font-size:1rem; color:#1e293b;">Gross ${titlePeriod} Sales Report</h3>
+        <div style="font-size:1.1rem; font-weight:bold; color:#059669; margin-bottom:8px;">Total Revenue: Rs ${revenue.toFixed(2)}</div>
+        <p style="font-size:0.85rem; color:#64748b; margin-bottom:0;">Total Transactions: ${filtered.length}</p>
+    `;
 }
 
 </script>
 </body>
-</html>
+    </html>
