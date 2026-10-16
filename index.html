@@ -1642,11 +1642,13 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             }
             const found = staffList.find(s => s.username === userSelect && s.pin === pinInput);
             if(found) {
-                currentStaff = found;
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('mainApp').classList.remove('hidden');
-                document.getElementById('loggedInUserDisplay').innerText = `👤 ${currentStaff.name}`;
-                document.getElementById('loginPin').value = '';
+            currentStaff = found;
+            localStorage.setItem('pos_current_staff', JSON.stringify(found));
+            localStorage.setItem('pos_active_cashier', JSON.stringify(found));
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('loggedInUserDisplay').innerText = `👤 ${currentStaff.name}`;
+            document.getElementById('loginPin').value = '';
 
                                 // Show Admin-only sections if Admin
                 const uname = (currentStaff.username || '').toLowerCase();
@@ -2183,10 +2185,23 @@ function renderPlacedOrders() {
     const nowStr = new Date().toLocaleString();
     if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
     
-    let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
-    let staffName = currentStaff.name || 'Ahana Lead';
-    if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = staffName;
-    if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = staffName;
+                  let activeCashierName = 'Alex Valentina';
+        if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
+            activeCashierName = currentStaff.name;
+        } else {
+            const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || localStorage.getItem('pos_active_cashier') || '{}');
+            if (storedStaff && storedStaff.name) {
+                activeCashierName = storedStaff.name;
+            } else {
+                const loggedInDisp = document.getElementById('loggedInUserDisplay');
+                if (loggedInDisp && loggedInDisp.innerText) {
+                    activeCashierName = loggedInDisp.innerText.replace('👤', '').trim();
+                }
+            }
+        }
+        let staffName = activeCashierName;
+        if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = staffName;
+        if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = staffName;
 
     let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
     let grandTotal = 0;
@@ -2350,12 +2365,25 @@ function printCombinedDailySalesReport() {
 
 }
 function generateClosingShiftReport() {
-    let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
     let now = new Date();
     let dateStr = now.toLocaleDateString('en-GB');
     let timeStr = now.toTimeString().split(' ')[0];
-    let cashierName = currentStaff.name || 'Ahana Lead';
 
+    // Safely detect active cashier name without losing session access
+    let cashierName = 'Alex Valentina';
+    if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
+        cashierName = currentStaff.name;
+    } else {
+        const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
+        if (storedStaff && storedStaff.name) {
+            cashierName = storedStaff.name;
+        } else {
+            const loggedInDisp = document.getElementById('loggedInUserDisplay');
+            if (loggedInDisp && loggedInDisp.innerText) {
+                cashierName = loggedInDisp.innerText.replace('👤', '').trim();
+            }
+        }
+    }
     let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
     let paidOrders = placedOrders.filter(order => {
         let s = String(order.status || order.paymentStatus || '').toUpperCase();
@@ -2453,7 +2481,7 @@ function generateClosingShiftReport() {
 }
 function generateReceiptPrintText(order) {
     let orderId = order.id || 'ORD-000';
-    let cashierName = order.cashier || 'Ahana';
+    let cashierName = order.cashier || localStorage.getItem('loggedInUser') || (typeof currentShiftStaff !== 'undefined' ? currentShiftStaff : 'Alex Valentina');
     let paymentMethod = order.paymentMethod || 'Blink';
     let orderDate = order.date || new Date().toLocaleString('en-GB');
 
@@ -2695,17 +2723,31 @@ function approveCloseShiftAndPrintReport() {
             grandTotal += amt;
         });
 
-        let currentStaff = JSON.parse(localStorage.getItem('pos_active_cashier')) || {};
-        let now = new Date();
+         let now = new Date();
         let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
         let dateStr = now.toLocaleDateString('en-GB');
 
-        let closingStaff = currentStaff.name || 'Ahana Lead';
+                // Dynamically identify the logged-in staff member
+        let activeStaffName = 'Alex Valentina';
+        if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
+            activeStaffName = currentStaff.name;
+        } else {
+            const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || localStorage.getItem('pos_active_cashier') || '{}');
+            if (storedStaff && storedStaff.name) {
+                activeStaffName = storedStaff.name;
+            } else {
+                const loggedInDisp = document.getElementById('loggedInUserDisplay');
+                if (loggedInDisp && loggedInDisp.innerText) {
+                    activeStaffName = loggedInDisp.innerText.replace('👤', '').trim();
+                }
+            }
+        }
+
+
+        let closingStaff = activeStaffName;
         let morningStaff = localStorage.getItem('pos_morning_staff') || closingStaff;
-
         let shiftId = morningStaff;    
-        let cashierName = closingStaff; 
-
+        let cashierName = closingStaff;
         let sheetPayload = {
             day: dayName,
             date: dateStr,
