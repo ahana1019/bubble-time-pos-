@@ -11,6 +11,7 @@
     <meta name="apple-mobile-web-app-title" content="POS">
     <title>Bubble Time POS & Management Portal</title>
     <!-- Include Chart.js for Donut Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
       
@@ -472,9 +473,6 @@
           tile.style.display = isAdmin ? 'block' : 'none';
       }
   }
-
-  
-<!-- Custom Modal Dialog Box -->
   </script>
 
 <div id="customModalOverlay">
@@ -1045,42 +1043,35 @@
                 </div>
             </div>
 
-            <!-- VIEW 5: INVENTORY / ADMIN -->
+            <!-- VIEW 5: INVENTORY / ADMIN (4 DEPARTMENTS LAYOUT) -->
             <div id="paneInventory" class="view-pane">
                 <div class="card" style="height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px;">
                     <div style="margin-bottom: 10px;">
-                        <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', document.querySelectorAll('.bottom-nav .nav-item')[0], 'HOME USER')">← Back to Home</button>
+                        <button class="btn btn-secondary" style="width: auto; padding: 5px 12px; font-size: 0.8rem; margin:0;" onclick="switchView('paneHome', null, 'HOME USER')">← Back to Home</button>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
                         <h2 style="margin:0; border:none; font-size: 1.05rem;">🔒 Store Stock Management</h2>
                         <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="printStoreStockReport()">🖨️ Print Stock Report</button>
                     </div>
-                    <p style="color: #64748b; font-size: 0.8rem; margin-top: 0;">Manage raw inventory levels for powders, syrups, fructose, toppings, and store supplies.</p>
+                    <p style="color: #64748b; font-size: 0.8rem; margin-top: 0;">Manage raw inventory levels across Syrups, Powder, Poppings & Jelly, and Others.</p>
                     
                     <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-top: 12px;">
-                        <h3 style="margin-top: 0; font-size: 0.9rem;">📦 Add Raw Stock Item</h3>
+                        <h3 style="margin-top: 0; font-size: 0.9rem;">📦 Add Stock Item</h3>
                         <div style="display: flex; gap: 6px; margin-bottom: 4px; flex-wrap: wrap;">
-                            <select id="stockCategory" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; flex: 1; min-width: 110px; font-size: 0.8rem;">
-                                <option value="POWDER (g)">POWDER (g)</option>
-                                <option value="SYRUPS (ml)">SYRUPS (ml)</option>
-                                <option value="FRUCTOSE (ml)">FRUCTOSE (ml)</option>
-                                <option value="POPPING BOBA">POPPING BOBA</option>
-                                <option value="JELLY">JELLY</option>
+                            <select id="stockCategory" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; flex: 1; min-width: 140px; font-size: 0.8rem;">
+                                <option value="SYRUPS">SYRUPS</option>
+                                <option value="POWDER">POWDER</option>
+                                <option value="POPPINGS AND JELLY">POPPINGS AND JELLY</option>
                                 <option value="OTHERS">OTHERS</option>
                             </select>
                             <input type="text" id="stockName" placeholder="Item Name" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; flex: 2; min-width: 110px; font-size: 0.8rem;">
-                            <input type="number" id="stockQty" placeholder="Qty (g/ml)" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; width: 90px; font-size: 0.8rem;">
+                            <input type="number" id="stockQty" placeholder="Qty" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; width: 90px; font-size: 0.8rem;">
                             <button class="btn-success" style="padding: 6px 14px; border: none; border-radius: 6px; color:white; cursor:pointer; font-weight:bold; font-size: 0.8rem;" onclick="addNewInventoryItem()">Add</button>
                         </div>
                     </div>
 
-                    <div style="margin-top: 12px; flex: 1; overflow-y: auto;">
-                        <table id="inventoryTable">
-                            <thead>
-                                <tr><th>Category</th><th>Item</th><th>Stock</th><th>Action</th></tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+                    <div style="margin-top: 12px; flex: 1; overflow-y: auto;" id="inventoryDepartmentsContainer">
+                        <!-- Dynamically populated 4 department sections -->
                     </div>
                 </div>
             </div>
@@ -1421,71 +1412,81 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             if (savedCatalog) products = JSON.parse(savedCatalog);
         } catch(e) { products = defaultProducts; }
 
-        /* COMPLETE STORE STOCK MANAGEMENT INITIAL DATA FROM IMAGE */
+        /* STORE STOCK MANAGEMENT - 4 DEPARTMENTS FROM IMAGE */
         const defaultInventoryList = [
-            // POWDER (g) / TEAS & POWDERS
-            { id: 'inv_1', cat: 'POWDER (g)', name: 'Green Tea (grams)', stock: 1000 },
-            { id: 'inv_2', cat: 'POWDER (g)', name: 'Black Tea (grams)', stock: 1000 },
-            { id: 'inv_3', cat: 'POWDER (g)', name: 'Tapioca Pearls (grams)', stock: 2000 },
-            { id: 'inv_4', cat: 'POWDER (g)', name: 'Milk Powder (grams)', stock: 1000 },
-            { id: 'inv_5', cat: 'POWDER (g)', name: 'Vanilla Powder (grams)', stock: 1000 },
-            { id: 'inv_6', cat: 'POWDER (g)', name: 'Taro Powder (grams)', stock: 1000 },
-            { id: 'inv_7', cat: 'POWDER (g)', name: 'Chocolate Powder (grams)', stock: 1000 },
-            { id: 'inv_8', cat: 'POWDER (g)', name: 'Honeydew Powder (grams)', stock: 1000 },
-            { id: 'inv_9', cat: 'POWDER (g)', name: 'Almond Powder (grams)', stock: 1000 },
-            { id: 'inv_10', cat: 'POWDER (g)', name: 'Coconut Powder (grams)', stock: 1000 },
-            { id: 'inv_11', cat: 'POWDER (g)', name: 'Coffee Powder (grams)', stock: 1000 },
-            { id: 'inv_12', cat: 'POWDER (g)', name: 'Matcha Powder (grams)', stock: 600 },
+            // SYRUPS
+            { id: 'inv_s1', cat: 'SYRUPS', name: 'Peach', stock: 1000 },
+            { id: 'inv_s2', cat: 'SYRUPS', name: 'Mango', stock: 1000 },
+            { id: 'inv_s3', cat: 'SYRUPS', name: 'Green Apple', stock: 1000 },
+            { id: 'inv_s4', cat: 'SYRUPS', name: 'Grape', stock: 1000 },
+            { id: 'inv_s5', cat: 'SYRUPS', name: 'Cherry', stock: 1000 },
+            { id: 'inv_s6', cat: 'SYRUPS', name: 'Strawberry', stock: 1000 },
+            { id: 'inv_s7', cat: 'SYRUPS', name: 'Lychee', stock: 1000 },
+            { id: 'inv_s8', cat: 'SYRUPS', name: 'Blueberry', stock: 1000 },
+            { id: 'inv_s9', cat: 'SYRUPS', name: 'Watermelon', stock: 1000 },
+            { id: 'inv_s10', cat: 'SYRUPS', name: 'Pineapple', stock: 1000 },
+            { id: 'inv_s11', cat: 'SYRUPS', name: 'Honeydew', stock: 1000 },
+            { id: 'inv_s12', cat: 'SYRUPS', name: 'Kiwi', stock: 1000 },
+            { id: 'inv_s13', cat: 'SYRUPS', name: 'Brown Sugar', stock: 1000 },
+            { id: 'inv_s14', cat: 'SYRUPS', name: 'Osmanthus Fragrans', stock: 1000 },
+            { id: 'inv_s15', cat: 'SYRUPS', name: 'Fructose', stock: 5000 },
 
-            // SYRUPS (ml)
-            { id: 'inv_13', cat: 'SYRUPS (ml)', name: 'Green Apple Syrup', stock: 1000 },
-            { id: 'inv_14', cat: 'SYRUPS (ml)', name: 'Mango Syrup', stock: 1000 },
-            { id: 'inv_15', cat: 'SYRUPS (ml)', name: 'Lychee Syrup', stock: 1000 },
-            { id: 'inv_16', cat: 'SYRUPS (ml)', name: 'Strawberry Syrup', stock: 1000 },
-            { id: 'inv_17', cat: 'SYRUPS (ml)', name: 'Cherry Syrup', stock: 1000 },
-            { id: 'inv_18', cat: 'SYRUPS (ml)', name: 'Passion Fruit Syrup', stock: 1000 },
-            { id: 'inv_19', cat: 'SYRUPS (ml)', name: 'Peach Syrup', stock: 1000 },
-            { id: 'inv_20', cat: 'SYRUPS (ml)', name: 'Blueberry Syrup', stock: 1000 },
-            { id: 'inv_21', cat: 'SYRUPS (ml)', name: 'Grape Syrup', stock: 1000 },
-            { id: 'inv_22', cat: 'SYRUPS (ml)', name: 'Kiwi Syrup', stock: 1000 },
-            { id: 'inv_23', cat: 'SYRUPS (ml)', name: 'Pineapple Syrup', stock: 1000 },
+            // POWDER
+            { id: 'inv_p1', cat: 'POWDER', name: 'Thai Milk Tea', stock: 1000 },
+            { id: 'inv_p2', cat: 'POWDER', name: 'Taro Vivid', stock: 1000 },
+            { id: 'inv_p3', cat: 'POWDER', name: 'Prime Taro', stock: 1000 },
+            { id: 'inv_p4', cat: 'POWDER', name: 'Honeydew', stock: 1000 },
+            { id: 'inv_p5', cat: 'POWDER', name: 'Coffee 3 in 1', stock: 1000 },
+            { id: 'inv_p6', cat: 'POWDER', name: 'Supreme Chocolate', stock: 1000 },
+            { id: 'inv_p7', cat: 'POWDER', name: 'Almond', stock: 1000 },
+            { id: 'inv_p8', cat: 'POWDER', name: 'Coconut', stock: 1000 },
+            { id: 'inv_p9', cat: 'POWDER', name: 'Pure Matcha', stock: 600 },
+            { id: 'inv_p10', cat: 'POWDER', name: '3 in 1 Milk Tea', stock: 1000 },
+            { id: 'inv_p11', cat: 'POWDER', name: 'Mango Milk Tea', stock: 1000 },
+            { id: 'inv_p12', cat: 'POWDER', name: 'Strawberry Milk Tea', stock: 1000 },
+            { id: 'inv_p13', cat: 'POWDER', name: 'Caramel Macchiato', stock: 1000 },
+            { id: 'inv_p14', cat: 'POWDER', name: 'Oreo Cramble', stock: 1000 },
+            { id: 'inv_p15', cat: 'POWDER', name: 'Vanilla', stock: 1000 },
+            { id: 'inv_p16', cat: 'POWDER', name: 'Smoothie Powder', stock: 1000 },
+            { id: 'inv_p17', cat: 'POWDER', name: 'Creamer', stock: 1000 },
+            { id: 'inv_p18', cat: 'POWDER', name: 'Cheese Milk Foam Powder', stock: 1000 },
+            { id: 'inv_p19', cat: 'POWDER', name: 'Lotus Biscoff Spread Creamy', stock: 1000 },
+            { id: 'inv_p20', cat: 'POWDER', name: 'Lotus Biscoff Cramble', stock: 1000 },
 
-            // FRUCTOSE (ml)
-            { id: 'inv_24', cat: 'FRUCTOSE (ml)', name: 'Fructose (ml)', stock: 5000 },
+            // POPPINGS AND JELLY
+            { id: 'inv_pj1', cat: 'POPPINGS AND JELLY', name: 'Mango Popping Boba', stock: 1000 },
+            { id: 'inv_pj2', cat: 'POPPINGS AND JELLY', name: 'Passion Popping Boba', stock: 1000 },
+            { id: 'inv_pj3', cat: 'POPPINGS AND JELLY', name: 'Blue Raspberry Popping Boba', stock: 1000 },
+            { id: 'inv_pj4', cat: 'POPPINGS AND JELLY', name: 'Peach Popping Boba', stock: 1000 },
+            { id: 'inv_pj5', cat: 'POPPINGS AND JELLY', name: 'Lychee Popping Boba', stock: 1000 },
+            { id: 'inv_pj6', cat: 'POPPINGS AND JELLY', name: 'Strawberry Popping Boba', stock: 1000 },
+            { id: 'inv_pj7', cat: 'POPPINGS AND JELLY', name: 'Blueberry Popping Boba', stock: 1000 },
+            { id: 'inv_pj8', cat: 'POPPINGS AND JELLY', name: 'Kiwi Popping Boba', stock: 1000 },
+            { id: 'inv_pj9', cat: 'POPPINGS AND JELLY', name: 'Green Apple Popping Boba', stock: 1000 },
+            { id: 'inv_pj10', cat: 'POPPINGS AND JELLY', name: 'Watermelon Popping Boba', stock: 1000 },
+            { id: 'inv_pj11', cat: 'POPPINGS AND JELLY', name: 'Cranberry Popping Boba', stock: 1000 },
+            { id: 'inv_pj12', cat: 'POPPINGS AND JELLY', name: 'Chocolate Popping Boba', stock: 1000 },
+            { id: 'inv_pj13', cat: 'POPPINGS AND JELLY', name: 'Rainbow Jelly', stock: 1000 },
+            { id: 'inv_pj14', cat: 'POPPINGS AND JELLY', name: 'Coffee Jelly', stock: 1000 },
+            { id: 'inv_pj15', cat: 'POPPINGS AND JELLY', name: 'Aloe Vera Pulp', stock: 1000 },
+            { id: 'inv_pj16', cat: 'POPPINGS AND JELLY', name: 'Mango Pulp', stock: 1000 },
+            { id: 'inv_pj17', cat: 'POPPINGS AND JELLY', name: 'Yellow Peach Chopped Pulp', stock: 1000 },
+            { id: 'inv_pj18', cat: 'POPPINGS AND JELLY', name: 'Coconut Jelly', stock: 1000 },
+            { id: 'inv_pj19', cat: 'POPPINGS AND JELLY', name: 'Tapioca Pearl', stock: 2000 },
 
-            // POPPING BOBA
-            { id: 'inv_25', cat: 'POPPING BOBA', name: 'Mango Popping Boba', stock: 1000 },
-            { id: 'inv_26', cat: 'POPPING BOBA', name: 'Passion Fruit Popping Boba', stock: 1000 },
-            { id: 'inv_27', cat: 'POPPING BOBA', name: 'Blue Raspberry Popping Boba', stock: 1000 },
-            { id: 'inv_28', cat: 'POPPING BOBA', name: 'Peach Popping Boba', stock: 1000 },
-            { id: 'inv_29', cat: 'POPPING BOBA', name: 'Lychee Popping Boba', stock: 1000 },
-            { id: 'inv_30', cat: 'POPPING BOBA', name: 'Strawberry Popping Boba', stock: 1000 },
-            { id: 'inv_31', cat: 'POPPING BOBA', name: 'Blueberry Popping Boba', stock: 1000 },
-            { id: 'inv_32', cat: 'POPPING BOBA', name: 'Kiwi Popping Boba', stock: 1000 },
-            { id: 'inv_33', cat: 'POPPING BOBA', name: 'Green Apple Popping Boba', stock: 1000 },
-            { id: 'inv_34', cat: 'POPPING BOBA', name: 'Watermelon Popping Boba', stock: 1000 },
-            { id: 'inv_35', cat: 'POPPING BOBA', name: 'Cranberry Popping Boba', stock: 1000 },
-            { id: 'inv_36', cat: 'POPPING BOBA', name: 'Chocolate Popping Boba', stock: 1000 },
-
-            // JELLY
-            { id: 'inv_37', cat: 'JELLY', name: 'Rainbow Jelly', stock: 1000 },
-            { id: 'inv_38', cat: 'JELLY', name: 'Coconut Jelly', stock: 1000 },
-            { id: 'inv_39', cat: 'JELLY', name: 'Coffee Jelly', stock: 1000 },
-
-            // OTHERS / PULP & STORE SUPPLIES
-            { id: 'inv_40', cat: 'OTHERS', name: 'Aloe Vera Pulp', stock: 1000 },
-            { id: 'inv_41', cat: 'OTHERS', name: 'Mango Pulp', stock: 1000 },
-            { id: 'inv_42', cat: 'OTHERS', name: 'Yellow Peach Chopped Pulp', stock: 1000 },
-            { id: 'inv_43', cat: 'OTHERS', name: 'Whipping Cream', stock: 1000 },
-            { id: 'inv_44', cat: 'OTHERS', name: 'Cups Medium', stock: 500 },
-            { id: 'inv_45', cat: 'OTHERS', name: 'Cups Large', stock: 500 },
-            { id: 'inv_46', cat: 'OTHERS', name: 'Dome Lids', stock: 500 },
-            { id: 'inv_47', cat: 'OTHERS', name: 'Straws', stock: 1000 },
-            { id: 'inv_48', cat: 'OTHERS', name: 'Napkin / Tissues', stock: 1000 },
-            { id: 'inv_49', cat: 'OTHERS', name: 'Seals Roll', stock: 5 }
+            // OTHERS
+            { id: 'inv_o1', cat: 'OTHERS', name: 'Asaam Black Tea', stock: 1000 },
+            { id: 'inv_o2', cat: 'OTHERS', name: 'Jasmin Green Tea', stock: 1000 },
+            { id: 'inv_o3', cat: 'OTHERS', name: 'PLA Clear Cup with Dome 360 ML', stock: 500 },
+            { id: 'inv_o4', cat: 'OTHERS', name: 'PLA Clear Cup with Dome 500 ML', stock: 500 },
+            { id: 'inv_o5', cat: 'OTHERS', name: 'PLA Clear Cup 700 ML', stock: 500 },
+            { id: 'inv_o6', cat: 'OTHERS', name: 'PLA Straws 12*21', stock: 1000 },
+            { id: 'inv_o7', cat: 'OTHERS', name: 'PLA Sealing Roll', stock: 5 }
         ];
 
-        let inventoryList = JSON.parse(localStorage.getItem('pos_store_inventory')) || defaultInventoryList;
+
+      
+        let inventoryList = defaultInventoryList;
 
         function saveInventory() {
             localStorage.setItem('pos_store_inventory', JSON.stringify(inventoryList));
@@ -1493,18 +1494,53 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
         }
 
         function renderInventoryTable() {
-            const tbody = document.querySelector('#inventoryTable tbody');
-            if(!tbody) return;
-            tbody.innerHTML = '';
-            inventoryList.forEach((item, index) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${item.cat}</td>
-                    <td>${item.name}</td>
-                    <td><input type="number" value="${item.stock}" onchange="updateInventoryStock(${index}, this.value)" style="width: 70px; padding: 3px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem;"></td>
-                    <td><button class="btn btn-danger" style="padding: 2px 6px; font-size: 0.7rem; width: auto; margin:0;" onclick="deleteInventoryItem(${index})">Delete</button></td>
+            const container = document.getElementById('inventoryDepartmentsContainer');
+            if(!container) return;
+            container.innerHTML = '';
+
+            const departments = ['SYRUPS', 'POWDER', 'POPPINGS AND JELLY', 'OTHERS'];
+
+            departments.forEach(dept => {
+                const itemsInDept = inventoryList.filter(i => (i.cat || '').toUpperCase() === dept);
+                
+                const deptCard = document.createElement('div');
+                deptCard.style.cssText = "background: white; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden;";
+                
+                let html = `
+                    <div style="background: #f1f5f9; padding: 10px 12px; font-weight: bold; font-size: 0.9nd; font-size: 0.9rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; color: #1e293b;">
+                        <span>📂 ${dept} (${itemsInDept.length} items)</span>
+                    </div>
+                    <div style="padding: 8px;">
                 `;
-                tbody.appendChild(tr);
+
+                if (itemsInDept.length === 0) {
+                    html += `<p style="color: #94a3b8; font-size: 0.8rem; text-align: center; margin: 8px 0;">No items in this department</p>`;
+                } else {
+                    html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); color: #64748b; text-align: left;">
+                                <th style="padding: 6px;">Item Name</th>
+                                <th style="padding: 6px; width: 90px;">Stock Level</th>
+                                <th style="padding: 6px; width: 60px; text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                    
+                    itemsInDept.forEach(item => {
+                        const globalIndex = inventoryList.findIndex(x => (x.id && item.id && x.id === item.id) || (x.cat === item.cat && x.name === item.name));
+                        html += `
+                            <tr style="border-bottom: 1px solid #f8fafc;">
+                                <td style="padding: 6px; color: #334155; font-weight: 500;">${item.name}</td>
+                                <td style="padding: 6px;"><input type="number" value="${item.stock}" onchange="updateInventoryStock(${globalIndex}, this.value)" style="width: 75px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem;"></td>
+                                <td style="padding: 6px; text-align: center;"><button class="btn btn-danger" style="padding: 2px 6px; font-size: 0.7rem; width: auto; margin:0;" onclick="deleteInventoryItem(${globalIndex})">Delete</button></td>
+                            </tr>
+                        `;
+                    });
+                    html += `</tbody></table>`;
+                }
+                html += `</div>`;
+                deptCard.innerHTML = html;
+                container.appendChild(deptCard);
             });
         }
 
@@ -1521,7 +1557,6 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             saveInventory();
         }
 
-      
         function addNewInventoryItem() {
             const cat = document.getElementById('stockCategory').value;
             const name = document.getElementById('stockName').value.trim();
@@ -1544,14 +1579,14 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             report += "Date: " + new Date().toLocaleDateString() + "\n";
             report += "--------------------------------\n";
             
-            const cats = ["POWDER (g)", "SYRUPS (ml)", "FRUCTOSE (ml)", "POPPING BOBA", "JELLY", "OTHERS"];
+            const departments = ["SYRUPS", "POWDER", "POPPINGS AND JELLY", "OTHERS"];
             
-            cats.forEach(cat => {
-                const itemsInCat = inventoryList.filter(i => i.cat === cat);
-                if(itemsInCat.length > 0) {
-                    report += `\n** ${cat} **\n`;
+            departments.forEach(dept => {
+                const itemsInDept = inventoryList.filter(i => (i.cat || '').toUpperCase() === dept);
+                if(itemsInDept.length > 0) {
+                    report += `\n** ${dept} **\n`;
                     report += "================================\n";
-                    itemsInCat.forEach(item => {
+                    itemsInDept.forEach(item => {
                         const stockStr = `${item.stock}`;
                         report += `${item.name.padEnd(20, ' ')} : ${stockStr.padStart(5, ' ')}\n`;
                     });
@@ -1607,7 +1642,7 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             if (!bluetoothCharacteristic) return;
             try {
                 const encoder = new TextEncoder();
-                const data = encoder.encode(text + "\n\n\n\x1dV\x42\x00"); // Standard ESC/POS paper cut
+                const data = encoder.encode(text + "\n\n\n\x1dV\x42\x00");
                 const chunkSize = 100;
                 for (let i = 0; i < data.length; i += chunkSize) {
                     const chunk = data.slice(i, i + chunkSize);
@@ -1642,15 +1677,14 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             }
             const found = staffList.find(s => s.username === userSelect && s.pin === pinInput);
             if(found) {
-            currentStaff = found;
-            localStorage.setItem('pos_current_staff', JSON.stringify(found));
-            localStorage.setItem('pos_active_cashier', JSON.stringify(found));
-            document.getElementById('loginOverlay').style.display = 'none';
-            document.getElementById('mainApp').classList.remove('hidden');
-            document.getElementById('loggedInUserDisplay').innerText = `👤 ${currentStaff.name}`;
-            document.getElementById('loginPin').value = '';
+                currentStaff = found;
+                localStorage.setItem('pos_current_staff', JSON.stringify(found));
+                localStorage.setItem('pos_active_cashier', JSON.stringify(found));
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('loggedInUserDisplay').innerText = `👤 ${currentStaff.name}`;
+                document.getElementById('loginPin').value = '';
 
-                                // Show Admin-only sections if Admin
                 const uname = (currentStaff.username || '').toLowerCase();
                 const sname = (currentStaff.name || '').toLowerCase();
                 const isAdmin = uname.includes('admin') || sname.includes('admin') || uname === 'admin';
@@ -1790,13 +1824,13 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
                 container.appendChild(div);
             });
 
-                const grandTotal = total;
-    const vatAmount = grandTotal - (grandTotal / 1.15);
-    const netSubtotal = grandTotal - vatAmount;
+            const grandTotal = total;
+            const vatAmount = grandTotal - (grandTotal / 1.15);
+            const netSubtotal = grandTotal - vatAmount;
 
-    document.getElementById('cartSubtotal').innerText = `Rs ${netSubtotal.toFixed(2)}`;
-    document.getElementById('cartVat').innerText = `Rs ${vatAmount.toFixed(2)}`;
-    document.getElementById('cartTotal').innerText = `Rs ${grandTotal.toFixed(2)}`;
+            document.getElementById('cartSubtotal').innerText = `Rs ${netSubtotal.toFixed(2)}`;
+            document.getElementById('cartVat').innerText = `Rs ${vatAmount.toFixed(2)}`;
+            document.getElementById('cartTotal').innerText = `Rs ${grandTotal.toFixed(2)}`;
 
             calculateChange();
             updateScreenReceipt();
@@ -1825,154 +1859,155 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             }
         }
 
-            function updateScreenReceipt() {
-        const preview = document.getElementById('screenReceiptContent');
-        if (!preview) return;
-        
-        if (cart.length === 0) {
-            preview.innerHTML = 'No items in receipt preview';
-            return;
+        function updateScreenReceipt() {
+            const preview = document.getElementById('screenReceiptContent');
+            if (!preview) return;
+            
+            if (cart.length === 0) {
+                preview.innerHTML = 'No items in receipt preview';
+                return;
+            }
+
+            let subtotal = 0;
+            let html = '';
+            
+            cart.forEach(item => {
+                const itemTotal = item.price * item.qty;
+                subtotal += itemTotal;
+                html += `<div style="display:flex; justify-content:space-between;"><span>${item.name} x${item.qty}</span><span>Rs ${itemTotal.toFixed(2)}</span></div>`;
+            });
+
+            const grandTotal = subtotal;
+            const vatAmount = grandTotal - (grandTotal / 1.15);
+            const netSubtotal = grandTotal - vatAmount;
+
+            html += `<div style="border-top: 1px dashed #d97706; margin-top: 6px; padding-top: 4px;">`;
+            html += `<div style="display:flex; justify-content:space-between; font-size: 0.85rem;"><span>Subtotal:</span><span>Rs ${netSubtotal.toFixed(2)}</span></div>`;
+            html += `<div style="display:flex; justify-content:space-between; font-size: 0.85rem;"><span>VAT (15% Inc.):</span><span>Rs ${vatAmount.toFixed(2)}</span></div>`;
+            html += `<div style="display:flex; justify-content:space-between; font-weight:bold; margin-top:2px;"><span>TOTAL:</span><span>Rs ${grandTotal.toFixed(2)}</span></div>`;
+            html += `</div>`;
+
+            preview.innerHTML = html;
         }
 
-        let subtotal = 0;
-        let html = '';
-        
-        cart.forEach(item => {
-            const itemTotal = item.price * item.qty;
-            subtotal += itemTotal;
-            html += `<div style="display:flex; justify-content:space-between;"><span>${item.name} x${item.qty}</span><span>Rs ${itemTotal.toFixed(2)}</span></div>`;
-        });
+        const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyZY3DP6RcODUdYwtgGhEeS_TGmGDWahcG5EZkVRoS0QFzmqN5l_3PYZkkcu3-45Myo/exec";
 
-        const grandTotal = subtotal;
-        const vatAmount = grandTotal - (grandTotal / 1.15);
-        const netSubtotal = grandTotal - vatAmount;
-
-        html += `<div style="border-top: 1px dashed #d97706; margin-top: 6px; padding-top: 4px;">`;
-        html += `<div style="display:flex; justify-content:space-between; font-size: 0.85rem;"><span>Subtotal:</span><span>Rs ${netSubtotal.toFixed(2)}</span></div>`;
-        html += `<div style="display:flex; justify-content:space-between; font-size: 0.85rem;"><span>VAT (15% Inc.):</span><span>Rs ${vatAmount.toFixed(2)}</span></div>`;
-        html += `<div style="display:flex; justify-content:space-between; font-weight:bold; margin-top:2px;"><span>TOTAL:</span><span>Rs ${grandTotal.toFixed(2)}</span></div>`;
-        html += `</div>`;
-
-        preview.innerHTML = html;
-    }
-
-const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyZY3DP6RcODUdYwtgGhEeS_TGmGDWahcG5EZkVRoS0QFzmqN5l_3PYZkkcu3-45Myo/exec";
-
-function getStoredSales() {
-  const r = localStorage.getItem('pos_daily_sales_history');
-  return JSON.parse(r) || [];
-}
-
-async function completeSaleAndPrintReceipt() {
-    if (!cart || cart.length === 0) {
-        showModal("Notice", "Your cart is empty.");
-        return;
-    }
-
-    const orderId = 'ORD-' + Date.now().toString().slice(-6);
-    const timestamp = new Date().toISOString();
-
-    let total = 0;
-    let totalQty = 0;
-    if (cart && cart.length > 0) {
-        for (let i = 0; i < cart.length; i++) {
-            let p = cart[i].price || 0;
-            let q = cart[i].qty || 1;
-            total += p * q;
-            totalQty += q;
+        function getStoredSales() {
+          const r = localStorage.getItem('pos_daily_sales_history');
+          return JSON.parse(r) || [];
         }
-    }
 
-    // Direct read from paymentMethod dropdown
-    const paymentMethodEl = document.getElementById('paymentMethod');
-    const selectedMethod = paymentMethodEl ? paymentMethodEl.value : 'Cash';
+        async function completeSaleAndPrintReceipt() {
+            if (!cart || cart.length === 0) {
+                showModal("Notice", "Your cart is empty.");
+                return;
+            }
 
-    const newOrder = {
-        id: orderId,
-        cashier: typeof currentStaff !== 'undefined' && currentStaff ? currentStaff.name : 'Staff',
-        timestamp: new Date().toLocaleString(),
-        date: timestamp,
-        items: [...cart],
-        total: total,
-        method: selectedMethod,
-        paymentType: selectedMethod,
-        status: 'PAID'
-    };
+            const orderId = 'ORD-' + Date.now().toString().slice(-6);
+            const timestamp = new Date().toISOString();
 
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-    placedOrders.push(newOrder);
-    localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+            let total = 0;
+            let totalQty = 0;
+            if (cart && cart.length > 0) {
+                for (let i = 0; i < cart.length; i++) {
+                    let p = cart[i].price || 0;
+                    let q = cart[i].qty || 1;
+                    total += p * q;
+                    totalQty += q;
+                }
+            }
 
-    let salesHistory = getStoredSales();
-    salesHistory.push({
-        id: orderId,
-        amount: total,
-        itemsCount: totalQty,
-        date: timestamp,
-        method: selectedMethod,
-        paymentType: selectedMethod,
-        items: [...cart]
-    });
-    localStorage.setItem('pos_daily_sales_history', JSON.stringify(salesHistory));
+            const paymentMethodEl = document.getElementById('paymentMethod');
+            const selectedMethod = paymentMethodEl ? paymentMethodEl.value : 'Cash';
 
-    try {
-        fetch(GOOGLE_SHEET_WEB_APP_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(newOrder)
-        });
-    } catch (err) {
-        console.error("Error sending to Google Sheets:", err);
-    }
+            const newOrder = {
+                id: orderId,
+                cashier: typeof currentStaff !== 'undefined' && currentStaff ? currentStaff.name : 'Staff',
+                timestamp: new Date().toLocaleString(),
+                date: timestamp,
+                items: [...cart],
+                total: total,
+                method: selectedMethod,
+                paymentType: selectedMethod,
+                status: 'PAID'
+            };
 
-    try {
-        await printThermalReceipt(newOrder);
-    } catch (printErr) {
-        console.warn("Thermal receipt printing failed:", printErr);
-    }
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+            placedOrders.push(newOrder);
+            localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
 
-    cart = [];
-    if (typeof renderCart === 'function') renderCart();
-    if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
-    if (typeof refreshReconData === 'function') refreshReconData();
+            let salesHistory = getStoredSales();
+            salesHistory.push({
+                id: orderId,
+                amount: total,
+                itemsCount: totalQty,
+                date: timestamp,
+                method: selectedMethod,
+                paymentType: selectedMethod,
+                items: [...cart]
+            });
+            localStorage.setItem('pos_daily_sales_history', JSON.stringify(salesHistory));
 
-    showModal("Success", `Sale completed via ${selectedMethod} and recorded successfully!`);
-}
-/* PLACED ORDERS & SETTLEMENT */
-function renderPlacedOrders() {
-    const container = document.getElementById('placedOrdersListContainer');
-    if (!container) return;
-    
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+            try {
+                fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(newOrder)
+                });
+            } catch (err) {
+                console.error("Error sending to Google Sheets:", err);
+            }
 
-    if (placedOrders.length === 0) {
-        container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
-        document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details.</p>';
-        document.getElementById('selectedOrderItemsTable').innerHTML = '';
-        selectedPlacedOrderId = null;
-        return;
-    }
+            try {
+                await printThermalReceipt(newOrder);
+            } catch (printErr) {
+                console.warn("Thermal receipt printing failed:", printErr);
+            }
 
-    container.innerHTML = '';
-    placedOrders.slice().reverse().forEach(ord => {
-        const div = document.createElement('div');
-        div.id = `order-item-${ord.id}`;
-        div.className = `order-item-card ${ord.id === selectedPlacedOrderId ? 'active' : ''}`;
-        div.onclick = () => selectPlacedOrder(ord.id);
-        div.innerHTML = `
-            <div style="width: 100%;">
-                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:0.85rem;">
-                    <span>${ord.id}</span>
-                    <span style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</span>
-                </div>
-                <div style="font-size:0.75rem; color:#64748b; margin-top: 2px;">${ord.cashier?.name || ord.cashier || 'Staff'} | Rs ${ord.total.toFixed(2)} (${ord.method || 'Cash'})</div>
-            </div>
-        `;
-        container.appendChild(div);
-    });
-}
-                function selectPlacedOrder(orderId) {
+            cart = [];
+            if (typeof renderCart === 'function') renderCart();
+            if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+            if (typeof refreshReconData === 'function') refreshReconData();
+
+            showModal("Success", `Sale completed via ${selectedMethod} and recorded successfully!`);
+        }
+
+        /* PLACED ORDERS & SETTLEMENT */
+        function renderPlacedOrders() {
+            const container = document.getElementById('placedOrdersListContainer');
+            if (!container) return;
+            
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+
+            if (placedOrders.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
+                document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details.</p>';
+                document.getElementById('selectedOrderItemsTable').innerHTML = '';
+                selectedPlacedOrderId = null;
+                return;
+            }
+
+            container.innerHTML = '';
+            placedOrders.slice().reverse().forEach(ord => {
+                const div = document.createElement('div');
+                div.id = `order-item-${ord.id}`;
+                div.className = `order-item-card ${ord.id === selectedPlacedOrderId ? 'active' : ''}`;
+                div.onclick = () => selectPlacedOrder(ord.id);
+                div.innerHTML = `
+                    <div style="width: 100%;">
+                        <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:0.85rem;">
+                            <span>${ord.id}</span>
+                            <span style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</span>
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-top: 2px;">${ord.cashier?.name || ord.cashier || 'Staff'} | Rs ${ord.total.toFixed(2)} (${ord.method || 'Cash'})</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function selectPlacedOrder(orderId) {
             selectedPlacedOrderId = orderId;
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
             const ord = placedOrders.find(o => o.id === orderId);
@@ -2001,7 +2036,6 @@ function renderPlacedOrders() {
             }
         }
 
-
         function setPaymentStatus(status) {
             if(!selectedPlacedOrderId) return;
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
@@ -2025,7 +2059,7 @@ function renderPlacedOrders() {
             }
         }
 
-                function confirmAndFinishOrder() {
+        function confirmAndFinishOrder() {
             if(!selectedPlacedOrderId) {
                 showModal("Notice", "Please select an order to confirm.");
                 return;
@@ -2048,7 +2082,6 @@ function renderPlacedOrders() {
                 if(itemsEl) itemsEl.innerHTML = '';
             }
         }
-
 
         function deleteSelectedPlacedOrder() {
             if(!selectedPlacedOrderId) return;
@@ -2180,602 +2213,582 @@ function renderPlacedOrders() {
 
         /* DAILY RECON REPORTS */
         function refreshReconData() {
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-    
-    const nowStr = new Date().toLocaleString();
-    if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
-    
-                  let activeCashierName = 'Alex Valentina';
-        if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
-            activeCashierName = currentStaff.name;
-        } else {
-            const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || localStorage.getItem('pos_active_cashier') || '{}');
-            if (storedStaff && storedStaff.name) {
-                activeCashierName = storedStaff.name;
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+            
+            const nowStr = new Date().toLocaleString();
+            if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
+            
+            let activeCashierName = 'Alex Valentina';
+            if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
+                activeCashierName = currentStaff.name;
             } else {
-                const loggedInDisp = document.getElementById('loggedInUserDisplay');
-                if (loggedInDisp && loggedInDisp.innerText) {
-                    activeCashierName = loggedInDisp.innerText.replace('👤', '').trim();
+                const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || localStorage.getItem('pos_active_cashier') || '{}');
+                if (storedStaff && storedStaff.name) {
+                    activeCashierName = storedStaff.name;
+                } else {
+                    const loggedInDisp = document.getElementById('loggedInUserDisplay');
+                    if (loggedInDisp && loggedInDisp.innerText) {
+                        activeCashierName = loggedInDisp.innerText.replace('👤', '').trim();
+                    }
                 }
             }
+            let staffName = activeCashierName;
+            if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = staffName;
+            if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = staffName;
+
+            let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
+            let grandTotal = 0;
+            let itemCounts = {};
+            let totalTransactionsCount = 0;
+
+            placedOrders.forEach(order => {
+                if (order.status === 'PAID' || order.paymentStatus === 'PAID') {
+                    let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
+                    let mStr = String(rawM).toLowerCase();
+                    let m = 'Cash';
+
+                    if (mStr.includes("blink")) m = "Blink";
+                    else if (mStr.includes("card")) m = "Card";
+                    else if (mStr.includes("juice")) m = "Juice";
+                    else if (mStr.includes("myt") || mStr.includes("my t")) m = "MyT Money";
+                    else if (mStr.includes("delivoo")) m = "Delivoo";
+                    else if (mStr.includes("hungry")) m = "Hungry Dodo";
+                    else if (mStr.includes("cash")) m = "Cash";
+                    else m = "Cash";
+
+                    let amt = parseFloat(order.total || order.subtotal || order.amount || 0);
+
+                    grandTotal += amt;
+                    totalTransactionsCount++;
+
+                    if (totals[m] !== undefined) {
+                        totals[m] += amt;
+                    } else {
+                        totals.Cash += amt;
+                    }
+
+                    if (order.items && Array.isArray(order.items)) {
+                        order.items.forEach(i => {
+                            let n = i.name || i.title || i.item || 'Item';
+                            let q = parseInt(i.qty || i.quantity || 1);
+                            itemCounts[n] = (itemCounts[n] || 0) + q;
+                        });
+                    }
+                }
+            });
+            const salesBreakdownArray = Object.keys(itemCounts).map(name => ({
+                name: name,
+                quantity: itemCounts[name]
+            }));
+            loadReconSalesBreakdown(salesBreakdownArray);
+
+            if (document.getElementById('adminReconTransCount')) document.getElementById('adminReconTransCount').innerText = totalTransactionsCount;
+            if (document.getElementById('reconCashTotal')) document.getElementById('reconCashTotal').innerText = totals.Cash.toFixed(2);
+            if (document.getElementById('reconCardTotal')) document.getElementById('reconCardTotal').innerText = totals.Card.toFixed(2);
+            if (document.getElementById('reconJuiceTotal')) document.getElementById('reconJuiceTotal').innerText = totals.Juice.toFixed(2);
+            if (document.getElementById('reconMytTotal')) document.getElementById('reconMytTotal').innerText = totals['MyT Money'].toFixed(2);
+            if (document.getElementById('reconBlinkTotal')) document.getElementById('reconBlinkTotal').innerText = totals.Blink.toFixed(2);
+            if (document.getElementById('reconDelivooTotal')) document.getElementById('reconDelivooTotal').innerText = totals.Delivoo.toFixed(2);
+            if (document.getElementById('reconHungryDodoTotal')) document.getElementById('reconHungryDodoTotal').innerText = totals['Hungry Dodo'].toFixed(2);
+            if (document.getElementById('reconGrandTotal')) document.getElementById('reconGrandTotal').innerText = grandTotal.toFixed(2);
         }
-        let staffName = activeCashierName;
-        if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = staffName;
-        if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = staffName;
 
-    let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
-    let grandTotal = 0;
-    let itemCounts = {};
-    let totalTransactionsCount = 0;
+        function printCombinedDailySalesReport() {
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+            
+            let dailySales = placedOrders.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID').map(order => {
+                let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
+                let mStr = String(rawM).toLowerCase();
+                let m = 'Cash';
 
-        placedOrders.forEach(order => {
-        if (order.status === 'PAID' || order.paymentStatus === 'PAID') {
-            let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
-            let mStr = String(rawM).toLowerCase();
-            let m = 'Cash';
+                if (mStr.includes("blink")) m = "Blink";
+                else if (mStr.includes("card")) m = "Card";
+                else if (mStr.includes("juice")) m = "Juice";
+                else if (mStr.includes("myt") || mStr.includes("my t")) m = "MyT Money";
+                else if (mStr.includes("delivoo")) m = "Delivoo";
+                else if (mStr.includes("hungry")) m = "Hungry Dodo";
+                else m = "Cash";
 
-            if (mStr.includes("blink")) m = "Blink";
-            else if (mStr.includes("card")) m = "Card";
-            else if (mStr.includes("juice")) m = "Juice";
-            else if (mStr.includes("myt") || mStr.includes("my t")) m = "MyT Money";
-            else if (mStr.includes("delivoo")) m = "Delivoo";
-            else if (mStr.includes("hungry")) m = "Hungry Dodo";
-            else if (mStr.includes("cash")) m = "Cash";
-            else m = "Cash";
+                let amt = parseFloat(order.total || order.subtotal || order.amount || 0);
 
-            let amt = parseFloat(
-                order.total || order.subtotal || order.amount || 0
-            );
+                return {
+                    total: amt,
+                    method: m,
+                    items: order.items || []
+                };
+            });
 
-            grandTotal += amt;
-            totalTransactionsCount++;
+            let grandTotal = dailySales.reduce((sum, s) => sum + s.total, 0);
 
-            if (totals[m] !== undefined) {
-                totals[m] += amt;
-            } else {
-                totals.Cash += amt;
+            let methodTotals = {};
+            dailySales.forEach(s => {
+                let m = s.method || 'Cash';
+                methodTotals[m] = (methodTotals[m] || 0) + s.total;
+            });
+
+            let itemSummary = {};
+            dailySales.forEach(s => {
+                if(s.items && Array.isArray(s.items)) {
+                    s.items.forEach(i => {
+                        let key = i.name || i.title || i.item || i.category || 'Item';
+                        if(!itemSummary[key]) {
+                            itemSummary[key] = { qty: 0, amount: 0 };
+                        }
+                        let qty = parseInt(i.qty || i.quantity || 1);
+                        let price = i.price ? (i.price * qty) : (i.total || 0);
+                        itemSummary[key].qty += qty;
+                        itemSummary[key].amount += price;
+                    });
+                }
+            });
+
+            let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
+            let now = new Date();
+            let dateStr = now.toLocaleDateString('en-GB'); 
+            let timeStr = now.toTimeString().split(' ')[0]; 
+            let cashierName = currentStaff.name || 'Ahana Lead';
+
+            let rText = "================================\n";
+            rText += "      BUBBLE TIME MD LTD      \n";
+            rText += "       QBC DAILY REPORT       \n";
+            rText += "================================\n\n";
+
+            rText += "SALES OF THE DAY\n";
+            rText += "--------------------------------\n";
+            for(let m in methodTotals) {
+                rText += `${m.padEnd(14)} Rs ${methodTotals[m].toFixed(2).padStart(10)}\n`;
             }
+            
+            const vat = grandTotal - (grandTotal / 1.15);
+            const net = grandTotal - vat;
+
+            rText += ` Subtotal (Excl. VAT): Rs ${net.toFixed(2)}\n`;
+            rText += ` VAT (15% Included):   Rs ${vat.toFixed(2)}\n`;
+            rText += "--------------------------------\n";
+            rText += ` Total         Rs ${grandTotal.toFixed(2)}\n`;
+            rText += "================================\n";
+            rText += "     DEPARTMENT SALES ITEMS     \n";
+            rText += "================================\n\n";
+
+            if(Object.keys(itemSummary).length === 0) {
+                rText += "No items sold today\n\n";
+            } else {
+                for(let item in itemSummary) {
+                    rText += `${item.toUpperCase()}\n`;
+                    rText += `Quantity                      ${itemSummary[item].qty}\n`;
+                    rText += `Amount             Rs ${itemSummary[item].amount.toFixed(2).padStart(8)}\n\n`;
+                }
+            }
+
+            rText += "================================\n";
+            rText += "         DATE AND TIME          \n";
+            rText += "--------------------------------\n";
+            rText += `Date: ${dateStr}\n`;
+            rText += `Timestamp: ${timeStr}\n`;
+            rText += `Cashier: ${cashierName}\n`;
+            rText += `Total Transactions: ${dailySales.length}\n`;
+            rText += "================================\n";
+            rText += "      END OF QBC REPORT       \n";
+            rText += "================================\n";
+
+            if(typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) sendToPrinter(rText);
+            else showModal("QBC Daily Report", rText);
+        }
+
+        function generateClosingShiftReport() {
+            let now = new Date();
+            let dateStr = now.toLocaleDateString('en-GB');
+            let timeStr = now.toTimeString().split(' ')[0];
+
+            let cashierName = 'Alex Valentina';
+            if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
+                cashierName = currentStaff.name;
+            } else {
+                const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
+                if (storedStaff && storedStaff.name) {
+                    cashierName = storedStaff.name;
+                } else {
+                    const loggedInDisp = document.getElementById('loggedInUserDisplay');
+                    if (loggedInDisp && loggedInDisp.innerText) {
+                        cashierName = loggedInDisp.innerText.replace('👤', '').trim();
+                    }
+                }
+            }
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+            let paidOrders = placedOrders.filter(order => {
+                let s = String(order.status || order.paymentStatus || '').toUpperCase();
+                return s === 'PAID' || s === 'COMPLETED';
+            });
+
+            let grandTotal = 0;
+            let paymentTotals = {};
+            let totalCups = 0;
+            let totalCakes = 0;
+            let totalCookies = 0;
+            let totalWaffle = 0;
+            let totalCrepe = 0;
+
+            paidOrders.forEach(order => {
+                let orderTotal = parseFloat(order.total) || 0;
+                grandTotal += orderTotal;
+
+                let pMethod = (order.paymentMethod || order.method || 'Cash').trim();
+                pMethod = pMethod.charAt(0).toUpperCase() + pMethod.slice(1).toLowerCase();
+                paymentTotals[pMethod] = (paymentTotals[pMethod] || 0) + orderTotal;
+
+                if (order.items && Array.isArray(order.items)) {
+                    order.items.forEach(item => {
+                        let name = (item.name || '').toLowerCase();
+                        let cat = (item.cat || '').toLowerCase();
+                        let qty = parseInt(item.quantity || item.qty || 1, 10);
+
+                        if (cat.includes('milk tea') || cat.includes('mojito') || cat.includes('milkshake') || 
+                            cat.includes('signature chewy') || cat.includes('fruits tea') || cat.includes('milk series') || 
+                            cat.includes('smoothie') || name.includes('smoothie') || 
+                            name.includes('syrup') || name.includes('powder') ||
+                            name.includes('limited edition') || name.includes('tea') || name.includes('drink')) {
+                            totalCups += qty;
+                        } 
+                        else if (cat === 'cake' || cat.includes('cakes') || name.includes('cake')) {
+                            totalCakes += qty;
+                        } 
+                        else if (cat === 'cookies' || cat.includes('cookie') || name.includes('cookie')) {
+                            totalCookies += qty;
+                        }
+                        else if (cat === 'waffle' || cat.includes('waffle') || name.includes('waffle')) {
+                            totalWaffle += qty;
+                        }
+                        else if (cat === 'crepes' || cat.includes('crepe') || name.includes('crepe')) {
+                            totalCrepe += qty;
+                        }
+                    });
+                }
+            });
+
+            let rText = "================================\n";
+            rText += " BUBBLE TIME MD CLOSING SHIFT   \n";
+            rText += "================================\n\n";
+
+            rText += "SALES OF THE DAY\n";
+            rText += "--------------------------------\n";
+
+            for (let method in paymentTotals) {
+                let padMethod = (method + ":").padEnd(16, ' ');
+                rText += " " + padMethod + "Rs " + paymentTotals[method].toFixed(2) + "\n";
+            }
+            rText += "--------------------------------\n";
+            rText += " Total Sales       Rs " + grandTotal.toFixed(2) + "\n\n";
+
+            rText += "ITEMS SUMMARY\n";
+            rText += "--------------------------------\n";
+            rText += " Total Cups Sold:    " + totalCups + "\n";
+            rText += " Total Cakes Sold:   " + totalCakes + "\n";
+            rText += " Total Cookies Sold: " + totalCookies + "\n";
+            rText += " Total Waffles Sold: " + totalWaffle + "\n";
+            rText += " Total Crepes Sold:  " + totalCrepe + "\n\n";
+
+            rText += "================================\n";
+            rText += "         DATE AND TIME          \n";
+            rText += "--------------------------------\n";
+            rText += " Date: " + dateStr + "\n";
+            rText += " Timestamp: " + timeStr + "\n";
+            rText += " Cashier: " + cashierName + "\n";
+            rText += "================================\n";
+            rText += "     END OF CLOSING REPORT      \n";
+            rText += "================================\n";
+
+            if (typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) {
+                sendToPrinter(rText);
+            } else {
+                showModal("Closing Shift Report", rText);
+            }
+        }
+
+        function generateReceiptPrintText(order) {
+            let orderId = order.id || 'ORD-000';
+            let cashierName = order.cashier || localStorage.getItem('loggedInUser') || (typeof currentShiftStaff !== 'undefined' ? currentShiftStaff : 'Alex Valentina');
+            let paymentMethod = order.paymentMethod || 'Blink';
+            let orderDate = order.date || new Date().toLocaleString('en-GB');
+
+            let total = parseFloat(order.total || 0);
+            let vatAmount = total - (total / 1.15);
+
+            let rText = "================================\n";
+            rText += "       BUBBLE TIME MD LTD\n";
+            rText += "   Louis Pasteur st, Curepipe\n";
+            rText += "  Tel: 52573727 | BRN: C24206010\n";
+            rText += "================================\n";
+            rText += "Order: " + orderId + "\n";
+            rText += "Cashier: " + cashierName + "\n";
+            rText += "Date: " + orderDate + "\n";
+            rText += "--------------------------------\n";
 
             if (order.items && Array.isArray(order.items)) {
-                order.items.forEach(i => {
-                    let n = i.name || i.title || i.item || 'Item';
-                    let q = parseInt(i.qty || i.quantity || 1);
-                    itemCounts[n] = (itemCounts[n] || 0) + q;
+                order.items.forEach(item => {
+                    let qty = item.quantity || item.qty || 1;
+                    let name = item.name || 'Item';
+                    let price = (parseFloat(item.price || 0) * qty).toFixed(2);
+                    
+                    let itemLine = qty + "x " + name;
+                    let priceStr = "Rs " + price;
+                    
+                    let spaceCount = 32 - (itemLine.length + priceStr.length);
+                    let spaces = spaceCount > 0 ? " ".repeat(spaceCount) : " ";
+                    
+                    rText += itemLine + spaces + priceStr + "\n";
                 });
             }
-        }
-    });
-      const salesBreakdownArray = Object.keys(itemCounts).map(name => ({
-        name: name,
-        quantity: itemCounts[name]
-    }));
-    loadReconSalesBreakdown(salesBreakdownArray);
 
-    if (document.getElementById('adminReconTransCount')) document.getElementById('adminReconTransCount').innerText = totalTransactionsCount;
-    if (document.getElementById('reconCashTotal')) document.getElementById('reconCashTotal').innerText = totals.Cash.toFixed(2);
-    if (document.getElementById('reconCardTotal')) document.getElementById('reconCardTotal').innerText = totals.Card.toFixed(2);
-    if (document.getElementById('reconJuiceTotal')) document.getElementById('reconJuiceTotal').innerText = totals.Juice.toFixed(2);
-    if (document.getElementById('reconMytTotal')) document.getElementById('reconMytTotal').innerText = totals['MyT Money'].toFixed(2);
-    if (document.getElementById('reconBlinkTotal')) document.getElementById('reconBlinkTotal').innerText = totals.Blink.toFixed(2);
-    if (document.getElementById('reconDelivooTotal')) document.getElementById('reconDelivooTotal').innerText = totals.Delivoo.toFixed(2);
-    if (document.getElementById('reconHungryDodoTotal')) document.getElementById('reconHungryDodoTotal').innerText = totals['Hungry Dodo'].toFixed(2);
-    if (document.getElementById('reconGrandTotal')) document.getElementById('reconGrandTotal').innerText = grandTotal.toFixed(2);
-}
+            rText += "--------------------------------\n";
+            rText += "VAT (15% Included):   Rs " + vatAmount.toFixed(2) + "\n";
+            rText += "TOTAL:                Rs " + total.toFixed(2) + "\n";
+            rText += "Payment: " + paymentMethod + "\n";
+            rText += "================================\n";
+            rText += "     Thank you for visiting!\n";
 
-function printCombinedDailySalesReport() {
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-    
-    let dailySales = placedOrders.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID').map(order => {
-        let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
-        let mStr = String(rawM).toLowerCase();
-        let m = 'Cash';
+            return rText;
+        }     
 
-        if (mStr.includes("blink")) m = "Blink";
-        else if (mStr.includes("card")) m = "Card";
-        else if (mStr.includes("juice")) m = "Juice";
-        else if (mStr.includes("myt") || mStr.includes("my t")) m = "MyT Money";
-        else if (mStr.includes("delivoo")) m = "Delivoo";
-        else if (mStr.includes("hungry")) m = "Hungry Dodo";
-        else m = "Cash";
-
-        let amt = parseFloat(order.total || order.subtotal || order.amount || 0);
-
-        return {
-            total: amt,
-            method: m,
-            items: order.items || []
-        };
-    });
-
-    let grandTotal = dailySales.reduce((sum, s) => sum + s.total, 0);
-
-    let methodTotals = {};
-    dailySales.forEach(s => {
-        let m = s.method || 'Cash';
-        methodTotals[m] = (methodTotals[m] || 0) + s.total;
-    });
-
-    let itemSummary = {};
-    dailySales.forEach(s => {
-        if(s.items && Array.isArray(s.items)) {
-            s.items.forEach(i => {
-                let key = i.name || i.title || i.item || i.category || 'Item';
-                if(!itemSummary[key]) {
-                    itemSummary[key] = { qty: 0, amount: 0 };
-                }
-                let qty = parseInt(i.qty || i.quantity || 1);
-                let price = i.price ? (i.price * qty) : (i.total || 0);
-                itemSummary[key].qty += qty;
-                itemSummary[key].amount += price;
-            });
-        }
-    });
-
-    let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
-    let now = new Date();
-    let dateStr = now.toLocaleDateString('en-GB'); 
-    let timeStr = now.toTimeString().split(' ')[0]; 
-    let cashierName = currentStaff.name || 'Ahana Lead';
-
-    let rText = "================================\n";
-    rText += "      BUBBLE TIME MD LTD      \n";
-    rText += "       QBC DAILY REPORT       \n";
-    rText += "================================\n\n";
-
-    rText += "SALES OF THE DAY\n";
-    rText += "--------------------------------\n";
-    for(let m in methodTotals) {
-        rText += `${m.padEnd(14)} Rs ${methodTotals[m].toFixed(2).padStart(10)}\n`;
-    }
-    
-    const vat = grandTotal - (grandTotal / 1.15);
-    const net = grandTotal - vat;
-
-    rText += ` Subtotal (Excl. VAT): Rs ${net.toFixed(2)}\n`;
-    rText += ` VAT (15% Included):   Rs ${vat.toFixed(2)}\n`;
-    rText += "--------------------------------\n";
-    rText += ` Total         Rs ${grandTotal.toFixed(2)}\n`;
-    rText += "================================\n";
-    rText += "     DEPARTMENT SALES ITEMS     \n";
-    rText += "================================\n\n";
-
-    if(Object.keys(itemSummary).length === 0) {
-        rText += "No items sold today\n\n";
-    } else {
-        for(let item in itemSummary) {
-            rText += `${item.toUpperCase()}\n`;
-            rText += `Quantity                      ${itemSummary[item].qty}\n`;
-            rText += `Amount             Rs ${itemSummary[item].amount.toFixed(2).padStart(8)}\n\n`;
-        }
-    }
-
-    rText += "================================\n";
-    rText += "         DATE AND TIME          \n";
-    rText += "--------------------------------\n";
-    rText += `Date: ${dateStr}\n`;
-    rText += `Timestamp: ${timeStr}\n`;
-    rText += `Cashier: ${cashierName}\n`;
-    rText += `Total Transactions: ${dailySales.length}\n`;
-    rText += "================================\n";
-    rText += "      END OF QBC REPORT       \n";
-    rText += "================================\n";
-
-    if(typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) sendToPrinter(rText);
-    else showModal("QBC Daily Report", rText);
-
-}
-function generateClosingShiftReport() {
-    let now = new Date();
-    let dateStr = now.toLocaleDateString('en-GB');
-    let timeStr = now.toTimeString().split(' ')[0];
-
-    // Safely detect active cashier name without losing session access
-    let cashierName = 'Alex Valentina';
-    if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
-        cashierName = currentStaff.name;
-    } else {
-        const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
-        if (storedStaff && storedStaff.name) {
-            cashierName = storedStaff.name;
-        } else {
-            const loggedInDisp = document.getElementById('loggedInUserDisplay');
-            if (loggedInDisp && loggedInDisp.innerText) {
-                cashierName = loggedInDisp.innerText.replace('👤', '').trim();
+        async function printThermalReceipt(order) {
+            let receiptText = generateReceiptPrintText(order);
+            if (typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) {
+                await sendToPrinter(receiptText);
+            } else {
+                showModal("Customer Receipt", receiptText);
             }
         }
-    }
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-    let paidOrders = placedOrders.filter(order => {
-        let s = String(order.status || order.paymentStatus || '').toUpperCase();
-        return s === 'PAID' || s === 'COMPLETED';
-    });
 
-    let grandTotal = 0;
-    let paymentTotals = {};
-    let totalCups = 0;
-    let totalCakes = 0;
-    let totalCookies = 0;
-    let totalWaffle = 0;
-    let totalCrepe = 0;
+        let isScreenReceiptEnabled = true;
 
-    paidOrders.forEach(order => {
-        let orderTotal = parseFloat(order.total) || 0;
-        grandTotal += orderTotal;
-
-        // Track totals by payment method (Cash, Juice, Blink, Card, etc.)
-        let pMethod = (order.paymentMethod || order.method || 'Cash').trim();
-        pMethod = pMethod.charAt(0).toUpperCase() + pMethod.slice(1).toLowerCase();
-        paymentTotals[pMethod] = (paymentTotals[pMethod] || 0) + orderTotal;
-
-        if (order.items && Array.isArray(order.items)) {
-            order.items.forEach(item => {
-                let name = (item.name || '').toLowerCase();
-                let cat = (item.cat || '').toLowerCase();
-                let qty = parseInt(item.quantity || item.qty || 1, 10);
-
-                // 1. totalCups: Milk Tea, Mojitos, Milkshakes, Signature Chewy, Fruit Tea, Milk-Series, Smoothie Syrups, Smoothie Powders, Limited Edition
-                if (cat.includes('milk tea') || cat.includes('mojito') || cat.includes('milkshake') || 
-                    cat.includes('signature chewy') || cat.includes('fruits tea') || cat.includes('milk series') || 
-                    cat.includes('smoothie') || name.includes('smoothie') || 
-                    name.includes('syrup') || name.includes('powder') ||
-                    name.includes('limited edition') || name.includes('tea') || name.includes('drink')) {
-                    totalCups += qty;
-                } 
-                // 2. totalCakes: Cakes only
-                else if (cat === 'cake' || cat.includes('cakes') || name.includes('cake')) {
-                    totalCakes += qty;
-                } 
-                // 3. totalCookies: Cookies only
-                else if (cat === 'cookies' || cat.includes('cookie') || name.includes('cookie')) {
-                    totalCookies += qty;
-                }
-                // 4. Total Waffle only
-                else if (cat === 'waffle' || cat.includes('waffle') || name.includes('waffle')) {
-                    totalWaffle += qty;
-                }
-                // 5. Total Crepe only
-                else if (cat === 'crepes' || cat.includes('crepe') || name.includes('crepe')) {
-                    totalCrepe += qty;
-                }
-            });
+        function toggleScreenReceipt() {
+            isScreenReceiptEnabled = !isScreenReceiptEnabled;
+            let box = document.getElementById('screenReceiptBox');
+            let btn = document.getElementById('receiptToggleBtn');
+            
+            if (isScreenReceiptEnabled) {
+                box.style.display = 'block';
+                btn.innerText = 'ON';
+                btn.className = 'btn btn-success';
+            } else {
+                box.style.display = 'none';
+                btn.innerText = 'OFF';
+                btn.className = 'btn btn-secondary';
+            }
         }
-    });
 
-    let rText = "================================\n";
-    rText += " BUBBLE TIME MD CLOSING SHIFT   \n";
-    rText += "================================\n\n";
+        function printSpecificPlatformReport(platformName) {
+            let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
+            let platformSales = dailySales.filter(s => s.method.toLowerCase() === platformName.toLowerCase());
+            let total = platformSales.reduce((sum, s) => sum + s.total, 0);
 
-    rText += "SALES OF THE DAY\n";
-    rText += "--------------------------------\n";
-
-    for (let method in paymentTotals) {
-        let padMethod = (method + ":").padEnd(16, ' ');
-        rText += " " + padMethod + "Rs " + paymentTotals[method].toFixed(2) + "\n";
-    }
-    rText += "--------------------------------\n";
-    rText += " Total Sales       Rs " + grandTotal.toFixed(2) + "\n\n";
-
-    rText += "ITEMS SUMMARY\n";
-    rText += "--------------------------------\n";
-    rText += " Total Cups Sold:    " + totalCups + "\n";
-    rText += " Total Cakes Sold:   " + totalCakes + "\n";
-    rText += " Total Cookies Sold: " + totalCookies + "\n";
-    rText += " Total Waffles Sold: " + totalWaffle + "\n";
-    rText += " Total Crepes Sold:  " + totalCrepe + "\n\n";
-
-    rText += "================================\n";
-    rText += "         DATE AND TIME          \n";
-    rText += "--------------------------------\n";
-    rText += " Date: " + dateStr + "\n";
-    rText += " Timestamp: " + timeStr + "\n";
-    rText += " Cashier: " + cashierName + "\n";
-    rText += "================================\n";
-    rText += "     END OF CLOSING REPORT      \n";
-    rText += "================================\n";
-
-    if (typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) {
-        sendToPrinter(rText);
-    } else {
-        showModal("Closing Shift Report", rText);
-    }
-}
-function generateReceiptPrintText(order) {
-    let orderId = order.id || 'ORD-000';
-    let cashierName = order.cashier || localStorage.getItem('loggedInUser') || (typeof currentShiftStaff !== 'undefined' ? currentShiftStaff : 'Alex Valentina');
-    let paymentMethod = order.paymentMethod || 'Blink';
-    let orderDate = order.date || new Date().toLocaleString('en-GB');
-
-    // Calculate Total and Included 15% VAT
-    let total = parseFloat(order.total || 0);
-    let vatAmount = total - (total / 1.15);
-
-    // Build Receipt Header (Single BUBBLE TIME MD LTD header)
-    let rText = "================================\n";
-    rText += "       BUBBLE TIME MD LTD\n";
-    rText += "   Louis Pasteur st, Curepipe\n";
-    rText += "  Tel: 52573727 | BRN: C24206010\n";
-    rText += "================================\n";
-    rText += "Order: " + orderId + "\n";
-    rText += "Cashier: " + cashierName + "\n";
-    rText += "Date: " + orderDate + "\n";
-    rText += "--------------------------------\n";
-
-    // Item List
-    if (order.items && Array.isArray(order.items)) {
-        order.items.forEach(item => {
-            let qty = item.quantity || item.qty || 1;
-            let name = item.name || 'Item';
-            let price = (parseFloat(item.price || 0) * qty).toFixed(2);
-            
-            let itemLine = qty + "x " + name;
-            let priceStr = "Rs " + price;
-            
-            // Align item price cleanly to the right side
-            let spaceCount = 32 - (itemLine.length + priceStr.length);
-            let spaces = spaceCount > 0 ? " ".repeat(spaceCount) : " ";
-            
-            rText += itemLine + spaces + priceStr + "\n";
-        });
-    }
-
-    rText += "--------------------------------\n";
-
-    // VAT & TOTAL Section
-    rText += "VAT (15% Included):   Rs " + vatAmount.toFixed(2) + "\n";
-    rText += "TOTAL:                Rs " + total.toFixed(2) + "\n";
-    rText += "Payment: " + paymentMethod + "\n";
-    rText += "================================\n";
-    rText += "     Thank you for visiting!\n";
-
-    return rText;
-}     
-
-async function printThermalReceipt(order) {
-    let receiptText = generateReceiptPrintText(order);
-    if (typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) {
-        await sendToPrinter(receiptText);
-    } else {
-        showModal("Customer Receipt", receiptText);
-    }
-}
-
-      
-let isScreenReceiptEnabled = true;
-
-function toggleScreenReceipt() {
-    isScreenReceiptEnabled = !isScreenReceiptEnabled;
-    let box = document.getElementById('screenReceiptBox');
-    let btn = document.getElementById('receiptToggleBtn');
-    
-    if (isScreenReceiptEnabled) {
-        box.style.display = 'block';
-        btn.innerText = 'ON';
-        btn.className = 'btn btn-success';
-    } else {
-        box.style.display = 'none';
-        btn.innerText = 'OFF';
-        btn.className = 'btn btn-secondary';
-    }
-}
-
-function printSpecificPlatformReport(platformName) {
-    let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-    let platformSales = dailySales.filter(s => s.method.toLowerCase() === platformName.toLowerCase());
-    let total = platformSales.reduce((sum, s) => sum + s.total, 0);
-
-    let rText = "================================\n";
-    rText += `     ${platformName.toUpperCase()} SALES REPORT     \n`;
-    rText += "================================\n";
-    rText += `Date: ${new Date().toLocaleDateString()}\n`;
-    rText += `Orders: ${platformSales.length}\n`;
-    rText += `Total Revenue: Rs ${total.toFixed(2)}\n`;
-    rText += "================================\n";
+            let rText = "================================\n";
+            rText += `     ${platformName.toUpperCase()} SALES REPORT     \n`;
+            rText += "================================\n";
+            rText += `Date: ${new Date().toLocaleDateString()}\n`;
+            rText += `Orders: ${platformSales.length}\n`;
+            rText += `Total Revenue: Rs ${total.toFixed(2)}\n`;
+            rText += "================================\n";
 
             if (typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) sendToPrinter(rText);
-        else showModal(`${platformName} Report`, rText);
-}
-      function updateAttendanceStaffDropdown() {
-  const attSelect = document.getElementById('attStaffSelect');
-  if (!attSelect) return;
-
-  attSelect.innerHTML = '<option value="">-- Select Staff --</option>';
-
-  // Exact Google Sheet tab names
-  const staffList = ["Ahana Lead", "Alex Valentina"];
-
-  staffList.forEach(name => {
-    let opt = document.createElement('option');
-    opt.value = name;        // Sends clean name: "Ahana Lead"
-    opt.textContent = name;  // Displays clean name: "Ahana Lead"
-    attSelect.appendChild(opt);
-  });
-}
-// Run immediately and retry after load to catch async options
-document.addEventListener('DOMContentLoaded', () => {
-    updateAttendanceStaffDropdown();
-    setTimeout(updateAttendanceStaffDropdown, 500);
-});
-// Closing Day Sales Google Sheets Web App Sync URL
-const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7zG78FGHiWNBxt1FQvc-IYJeFm8pFGdH0tsER1UuuJMrldY24EZpodp5XPETsayV9/exec";
-
-// Auto-run on page load
-function syncShiftToGoogleSheets(shiftData) {
-    fetch(GOOGLE_SHEETS_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify(shiftData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Shift report successfully sent to Google Sheets!', data);
-    })
-    .catch(error => {
-        console.error('Error sending shift report:', error);
-    });
-}
-const ATTENDANCE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZY3DP6RcODUdYwtgGhEeS_TGmGDWahcG5EZkVRoS0QFzmqN5l_3PYZkkcu3-45Myo/exec";
-
-function recordAttendance(actionType) {
-    const staffSelectEl = document.getElementById('attStaffSelect');
-    const outletSelectEl = document.getElementById('attOutletSelect');
-    const statusMsg = document.getElementById('attStatusMsg');
-
-    const staffName = staffSelectEl ? staffSelectEl.value.trim() : "";
-    const outletName = outletSelectEl ? outletSelectEl.value.trim() : "";
-
-    if (!staffName) {
-        if (statusMsg) {
-            statusMsg.innerText = "❌ Please select a staff member first!";
-            statusMsg.style.color = "#dc2626";
+            else showModal(`${platformName} Report`, rText);
         }
-        return;
-    }
 
-    const now = new Date();
-    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+        function updateAttendanceStaffDropdown() {
+            const attSelect = document.getElementById('attStaffSelect');
+            if (!attSelect) return;
 
-    // Explicit DD/MM/YYYY formatting guarantees exact string match with Column B in Google Sheets
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    const dateStr = `${day}/${month}/${year}`;
+            attSelect.innerHTML = '<option value="">-- Select Staff --</option>';
+            const staffList = ["Ahana Lead", "Alex Valentina"];
 
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-
-    const payload = {
-        day: dayName,
-        date: dateStr,
-        staffName: staffName,
-        action: actionType,
-        time: timeStr,
-        outletName: outletName
-    };
-
-    if (statusMsg) {
-        statusMsg.innerText = `⏳ Sending ${actionType} for ${staffName}...`;
-        statusMsg.style.color = "#d97706";
-    }
-
-    fetch(ATTENDANCE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-    })
-    .then(() => {
-        if (statusMsg) {
-            statusMsg.innerText = `✅ ${staffName} - ${actionType} logged at ${timeStr}`;
-            statusMsg.style.color = "#16a34a";
+            staffList.forEach(name => {
+                let opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                attSelect.appendChild(opt);
+            });
         }
-    })
-    .catch(err => {
-        console.error('Attendance submit error:', err);
-        if (statusMsg) {
-            statusMsg.innerText = `❌ Error logging ${actionType}. Check internet connection.`;
-            statusMsg.style.color = "#dc2626";
-        }
-    });
-}
-function approveCloseShiftAndPrintReport() {
-    let checkOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-    let checkPaid = checkOrders.filter(o => {
-        let s = String(o.status || o.paymentStatus || '').toUpperCase();
-        return s === 'PAID' || s === 'COMPLETED';
-    });
 
-    if (checkPaid.length === 0) {
-        showModal("Notice", "No paid transactions to close for this shift.");
-        return;
-    }
-
-    showModal("Close Shift", "Are you sure you want to close the shift?", true, (confirmed) => {
-        if (!confirmed) return;
-
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-        let paidOrders = placedOrders.filter(order => {
-            let s = String(order.status || order.paymentStatus || '').toUpperCase();
-            return s === 'PAID' || s === 'COMPLETED';
+        document.addEventListener('DOMContentLoaded', () => {
+            updateAttendanceStaffDropdown();
+            setTimeout(updateAttendanceStaffDropdown, 500);
         });
 
-        let methodTotals = {
-            'Cash': 0, 'Card': 0, 'Juice': 0, 'MyT Money': 0, 'Blink': 0, 'Delivoo': 0, 'Hungry Dodo': 0
-        };
+        const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7zG78FGHiWNBxt1FQvc-IYJeFm8pFGdH0tsER1UuuJMrldY24EZpodp5XPETsayV9/exec";
 
-        let grandTotal = 0;
+        function syncShiftToGoogleSheets(shiftData) {
+            fetch(GOOGLE_SHEETS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(shiftData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Shift report successfully sent to Google Sheets!', data);
+            })
+            .catch(error => {
+                console.error('Error sending shift report:', error);
+            });
+        }
 
-        paidOrders.forEach(order => {
-            let rawM = order.paymentType || order.paymentMethod || 'Cash';
-            let mStr = String(rawM).toLowerCase();
-            let m = 'Cash';
+        const ATTENDANCE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZY3DP6RcODUdYwtgGhEeS_TGmGDWahcG5EZkVRoS0QFzmqN5l_3PYZkkcu3-45Myo/exec";
 
-            if (mStr.includes("blink")) m = "Blink";
-            else if (mStr.includes("card")) m = "Card";
-            else if (mStr.includes("juice")) m = "Juice";
-            else if (mStr.includes("myt")) m = "MyT Money";
-            else if (mStr.includes("delivoo")) m = "Delivoo";
-            else if (mStr.includes("hungry")) m = "Hungry Dodo";
-            else m = "Cash";
+        function recordAttendance(actionType) {
+            const staffSelectEl = document.getElementById('attStaffSelect');
+            const outletSelectEl = document.getElementById('attOutletSelect');
+            const statusMsg = document.getElementById('attStatusMsg');
 
-            let amt = parseFloat(order.total || order.subtotal || 0);
-            methodTotals[m] = (methodTotals[m] || 0) + amt;
-            grandTotal += amt;
-        });
+            const staffName = staffSelectEl ? staffSelectEl.value.trim() : "";
+            const outletName = outletSelectEl ? outletSelectEl.value.trim() : "";
 
-         let now = new Date();
-        let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-        let dateStr = now.toLocaleDateString('en-GB');
-
-                // Dynamically identify the logged-in staff member
-        let activeStaffName = 'Alex Valentina';
-        if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
-            activeStaffName = currentStaff.name;
-        } else {
-            const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || localStorage.getItem('pos_active_cashier') || '{}');
-            if (storedStaff && storedStaff.name) {
-                activeStaffName = storedStaff.name;
-            } else {
-                const loggedInDisp = document.getElementById('loggedInUserDisplay');
-                if (loggedInDisp && loggedInDisp.innerText) {
-                    activeStaffName = loggedInDisp.innerText.replace('👤', '').trim();
+            if (!staffName) {
+                if (statusMsg) {
+                    statusMsg.innerText = "❌ Please select a staff member first!";
+                    statusMsg.style.color = "#dc2626";
                 }
+                return;
             }
+
+            const now = new Date();
+            const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            const dateStr = `${day}/${month}/${year}`;
+
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+            const payload = {
+                day: dayName,
+                date: dateStr,
+                staffName: staffName,
+                action: actionType,
+                time: timeStr,
+                outletName: outletName
+            };
+
+            if (statusMsg) {
+                statusMsg.innerText = `⏳ Sending ${actionType} for ${staffName}...`;
+                statusMsg.style.color = "#d97706";
+            }
+
+            fetch(ATTENDANCE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                if (statusMsg) {
+                    statusMsg.innerText = `✅ ${staffName} - ${actionType} logged at ${timeStr}`;
+                    statusMsg.style.color = "#16a34a";
+                }
+            })
+            .catch(err => {
+                console.error('Attendance submit error:', err);
+                if (statusMsg) {
+                    statusMsg.innerText = `❌ Error logging ${actionType}. Check internet connection.`;
+                    statusMsg.style.color = "#dc2626";
+                }
+            });
         }
 
+        function approveCloseShiftAndPrintReport() {
+            let checkOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+            let checkPaid = checkOrders.filter(o => {
+                let s = String(o.status || o.paymentStatus || '').toUpperCase();
+                return s === 'PAID' || s === 'COMPLETED';
+            });
 
-        let closingStaff = activeStaffName;
-        let morningStaff = localStorage.getItem('pos_morning_staff') || closingStaff;
-        let shiftId = morningStaff;    
-        let cashierName = closingStaff;
-        let sheetPayload = {
-            day: dayName,
-            date: dateStr,
-            shiftId: shiftId,
-            delivoo: methodTotals['Delivoo'],
-            hungryDodo: methodTotals['Hungry Dodo'],
-            juice: methodTotals['Juice'],
-            mytMoney: methodTotals['MyT Money'],
-            card: methodTotals['Card'],
-            blink: methodTotals['Blink'],
-            cash: methodTotals['Cash'],
-            totalSales: grandTotal,
-            closedBy: cashierName
-        };
+            if (checkPaid.length === 0) {
+                showModal("Notice", "No paid transactions to close for this shift.");
+                return;
+            }
 
-        syncShiftToGoogleSheets(sheetPayload);
-        generateClosingShiftReport();
+            showModal("Close Shift", "Are you sure you want to close the shift?", true, (confirmed) => {
+                if (!confirmed) return;
 
-        localStorage.removeItem('pos_daily_sales_history');
-        let remainingOrders = placedOrders.filter(order => {
-            let s = String(order.status || order.paymentStatus || '').toUpperCase();
-            return s !== 'PAID' && s !== 'COMPLETED';
-        });
-        localStorage.setItem('pos_placed_orders', JSON.stringify(remainingOrders));
+                let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+                let paidOrders = placedOrders.filter(order => {
+                    let s = String(order.status || order.paymentStatus || '').toUpperCase();
+                    return s === 'PAID' || s === 'COMPLETED';
+                });
 
-        refreshReconData();
-    });
-}
+                let methodTotals = {
+                    'Cash': 0, 'Card': 0, 'Juice': 0, 'MyT Money': 0, 'Blink': 0, 'Delivoo': 0, 'Hungry Dodo': 0
+                };
+
+                let grandTotal = 0;
+
+                paidOrders.forEach(order => {
+                    let rawM = order.paymentType || order.paymentMethod || 'Cash';
+                    let mStr = String(rawM).toLowerCase();
+                    let m = 'Cash';
+
+                    if (mStr.includes("blink")) m = "Blink";
+                    else if (mStr.includes("card")) m = "Card";
+                    else if (mStr.includes("juice")) m = "Juice";
+                    else if (mStr.includes("myt")) m = "MyT Money";
+                    else if (mStr.includes("delivoo")) m = "Delivoo";
+                    else if (mStr.includes("hungry")) m = "Hungry Dodo";
+                    else m = "Cash";
+
+                    let amt = parseFloat(order.total || order.subtotal || 0);
+                    methodTotals[m] = (methodTotals[m] || 0) + amt;
+                    grandTotal += amt;
+                });
+
+                let now = new Date();
+                let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+                let dateStr = now.toLocaleDateString('en-GB');
+
+                let activeStaffName = 'Alex Valentina';
+                if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
+                    activeStaffName = currentStaff.name;
+                } else {
+                    const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || localStorage.getItem('pos_active_cashier') || '{}');
+                    if (storedStaff && storedStaff.name) {
+                        activeStaffName = storedStaff.name;
+                    } else {
+                        const loggedInDisp = document.getElementById('loggedInUserDisplay');
+                        if (loggedInDisp && loggedInDisp.innerText) {
+                            activeStaffName = loggedInDisp.innerText.replace('👤', '').trim();
+                        }
+                    }
+                }
+
+                let closingStaff = activeStaffName;
+                let morningStaff = localStorage.getItem('pos_morning_staff') || closingStaff;
+                let shiftId = morningStaff;    
+                let cashierName = closingStaff;
+                let sheetPayload = {
+                    day: dayName,
+                    date: dateStr,
+                    shiftId: shiftId,
+                    delivoo: methodTotals['Delivoo'],
+                    hungryDodo: methodTotals['Hungry Dodo'],
+                    juice: methodTotals['Juice'],
+                    mytMoney: methodTotals['MyT Money'],
+                    card: methodTotals['Card'],
+                    blink: methodTotals['Blink'],
+                    cash: methodTotals['Cash'],
+                    totalSales: grandTotal,
+                    closedBy: cashierName
+                };
+
+                syncShiftToGoogleSheets(sheetPayload);
+                generateClosingShiftReport();
+
+                localStorage.removeItem('pos_daily_sales_history');
+                let remainingOrders = placedOrders.filter(order => {
+                    let s = String(order.status || order.paymentStatus || '').toUpperCase();
+                    return s !== 'PAID' && s !== 'COMPLETED';
+                });
+                localStorage.setItem('pos_placed_orders', JSON.stringify(remainingOrders));
+
+                refreshReconData();
+            });
+        }
 
         /* DONUT CHART & DASHBOARD METRICS */
         function updateDashboardMetrics() {
@@ -2824,16 +2837,16 @@ function approveCloseShiftAndPrintReport() {
         }
 
         function resetAllSalesAndShiftData() {
-  if (confirm("Clear all sales data?")) {
-    localStorage.removeItem('pos_daily_sales_history');
-    localStorage.removeItem('pos_placed_orders');
-    localStorage.removeItem('pos_daily_batch_logs');
-    if (typeof renderAdminSalesRecords === 'function') {
-      renderAdminSalesRecords('daily');
-    }
-    alert("Sales data reset.");
-  }
-}
+            if (confirm("Clear all sales data?")) {
+                localStorage.removeItem('pos_daily_sales_history');
+                localStorage.removeItem('pos_placed_orders');
+                localStorage.removeItem('pos_daily_batch_logs');
+                if (typeof renderAdminSalesRecords === 'function') {
+                    renderAdminSalesRecords('daily');
+                }
+                alert("Sales data reset.");
+            }
+        }
 
         function createNewStaffMemberFromHome() {
             const name = document.getElementById('homeNewStaffNameInput').value.trim();
@@ -2885,245 +2898,126 @@ function approveCloseShiftAndPrintReport() {
             document.getElementById('homeAdminStaffAuditBox').style.display = 'none';
         }
 
-      let currentSelectedOrderId = null;
+        function loadReconSalesBreakdown(salesData) {
+            const listContainer = document.getElementById('reconItemizedSalesList');
+            if (!listContainer) return;
 
-function selectPlacedOrder(orderId) {
-    selectedPlacedOrderId = orderId;
+            listContainer.innerHTML = '';
 
-        // Searches local storage for the order
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-    const order = placedOrders.find(o => o.id === orderId);
-    if (!order) return;
+            if (!salesData || salesData.length === 0) {
+                listContainer.innerHTML = '<div style="padding: 5px; color: #666;">No items recorded.</div>';
+                return;
+            }
 
-    // Highlight active card
-    document.querySelectorAll('.order-item-card').forEach(el => el.classList.remove('active'));
-    const activeEl = document.getElementById(`order-item-${orderId}`);
-    if (activeEl) activeEl.classList.add('active');
+            salesData.forEach(item => {
+                const itemRow = document.createElement('div');
+                itemRow.style.display = 'flex';
+                itemRow.style.justifyContent = 'space-between';
+                itemRow.style.padding = '4px 0';
+                itemRow.style.fontSize = '0.85rem';
+                itemRow.style.borderBottom = '1px dashed rgba(0,0,0,0.05)';
 
-    // Update middle panel header
-    const header = document.getElementById('selectedOrderDetailsHeader');
-    header.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;">
-            <div>
-                <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">${order.id}</h3>
-                <span style="font-size: 0.8rem; color: #64748b;">Customer: <strong>${order.customerName || 'N/A'}</strong></span>
-            </div>
-            <div style="text-align: right;">
-                <span style="font-size: 0.8rem; font-weight: bold; padding: 4px 8px; border-radius: 4px; background: ${order.status === 'PAID' ? '#dcfce7' : '#fee2e2'}; color: ${order.status === 'PAID' ? '#15803d' : '#991b1b'};">
-                    ${order.status}
-                </span>
-                <div style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">Method: ${order.paymentType || 'Unassigned'}</div>
-            </div>
-        </div>
-    `;
+                itemRow.innerHTML = '<span>' + item.name + '</span>' + '<span>' + item.quantity + ' pcs</span>';
+                listContainer.appendChild(itemRow);
+            });
+        }
 
-    // Render items table
-    const tableContainer = document.getElementById('selectedOrderItemsTable');
-    let itemsHtml = `
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px;">
-            <thead>
-                <tr style="border-bottom: 2px solid #e2e8f0; color: #475569; text-align: left;">
-                    <th style="padding: 8px;">Item</th>
-                    <th style="padding: 8px; text-align: center;">Qty</th>
-                    <th style="padding: 8px; text-align: right;">Price</th>
-                    <th style="padding: 8px; text-align: right;">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
+        function renderAdminSalesRecords(period = 'monthly') {
+            const container = document.getElementById('adminSalesAnalyticsReportContainer');
+            if (!container) return;
 
-    (order.items || []).forEach(item => {
-        itemsHtml += `
-            <tr style="border-bottom: 1px solid #f1f5f9;">
-                <td style="padding: 8px; color: #334155;">${item.name}</td>
-                <td style="padding: 8px; text-align: center; color: #334155;">${item.qty}</td>
-                <td style="padding: 8px; text-align: right; color: #334155;">Rs ${item.price.toFixed(2)}</td>
-                <td style="padding: 8px; text-align: right; color: #0f172a; font-weight: 600;">Rs ${(item.qty * item.price).toFixed(2)}</td>
-            </tr>
-        `;
-    });
+            const sales = typeof getStoredSales === 'function' ? getStoredSales() : (JSON.parse(localStorage.getItem('pos_daily_sales_history')) || []);
+            const now = new Date();
 
-    itemsHtml += `
-            </tbody>
-            <tfoot>
-                <tr style="font-weight: bold; border-top: 2px solid #e2e8f0;">
-                    <td colspan="3" style="padding: 12px 8px; text-align: right; font-size: 0.9rem;">Grand Total:</td>
-                    <td style="padding: 12px 8px; text-align: right; font-size: 1rem; color: #0284c7;">Rs ${(order.total || 0).toFixed(2)}</td>
-                </tr>
-            </tfoot>
-        </table>
-    `;
+            const filtered = sales.filter(x => {
+                if (!x.date && !x.timestamp) return false;
+                const d = new Date(x.timestamp || x.date);
+                if (isNaN(d.getTime())) return true;
 
-    tableContainer.innerHTML = itemsHtml;
-}
+                const isToday = d.toDateString() === now.toDateString();
+                const isThisMonth = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                const isThisYear = d.getFullYear() === now.getFullYear();
 
-        /* INITIALIZATION */
+                if (period === 'daily') return isToday;
+                if (period === 'monthly') return isThisMonth;
+                if (period === 'yearly') return isThisYear;
+                return true;
+            });
+
+            const totalRevenue = filtered.reduce((sum, x) => sum + (parseFloat(x.amount || x.total || x.grandTotal || 0) || 0), 0);
+            const totalTransactions = filtered.length;
+
+            let cash = 0, card = 0, juice = 0, mytMoney = 0, delivoo = 0, hungryDodo = 0;
+            filtered.forEach(x => {
+                const amt = parseFloat(x.amount || x.total || x.grandTotal || 0) || 0;
+                const method = String(x.paymentMethod || x.method || '').toLowerCase();  
+                if (method.includes('cash')) cash += amt;
+                else if (method.includes('card')) card += amt;
+                else if (method.includes('juice')) juice += amt;
+                else if (method.includes('myt')) mytMoney += amt;
+                else if (method.includes('delivoo')) delivoo += amt;
+                else if (method.includes('hungry')) hungryDodo += amt;
+            });
+
+            const titlePeriod = period.toUpperCase();
+            const currentMonthName = now.toLocaleString('en-US', { month: 'long' });
+            const currentYear = now.getFullYear();
+
+            container.innerHTML = `
+                <div style="padding: 12px; font-family: sans-serif;">
+                    <h3 style="margin-top:0; margin-bottom:8px; font-size:1.1rem; color:#0f172a;">
+                        Gross ${titlePeriod} Sales Report (${currentMonthName} ${currentYear})
+                    </h3>
+                    <div style="font-size:1.2rem; font-weight:bold; color:#16a34a; margin-bottom:6px;">
+                        Total Revenue: Rs ${totalRevenue.toFixed(2)}
+                    </div>
+                    <p style="font-size:0.9rem; color:#64748b; margin-top:0; margin-bottom:12px;">
+                        Total Transactions: <strong>${totalTransactions}</strong>
+                    </p>
+                    
+                    <hr style="border:0; border-top:1px solid #e2e8f0; margin:12px 0;"/>
+                    
+                    <div style="font-size:0.85rem; font-weight:600; color:#334155; margin-bottom:8px;">Payment Breakdown:</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.85rem; color:#334155;">
+                        <div>💵 Cash: <strong>Rs ${cash.toFixed(2)}</strong></div>
+                        <div>💳 Card: <strong>Rs ${card.toFixed(2)}</strong></div>
+                        <div>📱 MCB Juice: <strong>Rs ${juice.toFixed(2)}</strong></div>
+                        <div>📲 MyT Money: <strong>Rs ${mytMoney.toFixed(2)}</strong></div>
+                        <div>🛵 Delivoo: <strong>Rs ${delivoo.toFixed(2)}</strong></div>
+                        <div>🦤 Hungry Dodo: <strong>Rs ${hungryDodo.toFixed(2)}</strong></div>
+                    </div>
+                </div>
+            `;
+        }
+
         window.onload = () => {
             populateLoginDropdown();
             renderInventoryTable();
             renderBatchPrepUI();
             saveCategories();
         };
-              // Automatically updates the hidden payment method dropdown when clicking payment buttons
-document.addEventListener("click", e => {
-    if (e.target.tagName !== 
-        "BUTTON") return;
-    const t = e.target.innerText;
-    const el = document.getElementById(
-        "paymentMethod"
-    );
-    if (!el) return;
-    const m = {
-        Blink: "Blink",
-        Card: "Card",
-        Cash: "Cash",
-        Juice: "Juice",
-        MyT: "MyT Money",
-        Delivoo: "Delivoo",
-        Hungry: "Hungry Dodo"
-    };
-    for (let k in m) {
-        if (t.includes(k)) {
-            el.value = m[k];
-            break;
-        }
-    }
-});
-      
-// Function to populate the Daily Sales Breakdown list
-function loadReconSalesBreakdown(salesData) {
-    const listContainer = document.getElementById('reconItemizedSalesList');
-    if (!listContainer) return;
 
-    listContainer.innerHTML = '';
-
-    if (!salesData || salesData.length === 0) {
-        listContainer.innerHTML = '<div style="padding: 5px; color: #666;">No items recorded.</div>';
-        return;
-    }
-
-    salesData.forEach(item => {
-        const itemRow = document.createElement('div');
-        itemRow.style.display = 'flex';
-        itemRow.style.justifyContent = 'space-between';
-        itemRow.style.padding = '4px 0';
-        itemRow.style.fontSize = '0.85rem';
-        itemRow.style.borderBottom = '1px dashed rgba(0,0,0,0.05)';
-
-              itemRow.innerHTML = 
-        '<span>' + item.name + '</span>' +
-        '<span>' + item.quantity + ' pcs</span>';
-      listContainer.appendChild(itemRow);
-    });
-  }
-
-function renderAdminSalesRecords(period = 'monthly') {
-    const container = document.getElementById('adminSalesAnalyticsReportContainer');
-    if (!container) return;
-
-    // Fetch sales records from storage
-    const sales = typeof getStoredSales === 'function' ? getStoredSales() : (JSON.parse(localStorage.getItem('pos_daily_sales_history')) || []);
-    const now = new Date();
-
-    const filtered = sales.filter(x => {
-        if (!x.date && !x.timestamp) return false;
-        const d = new Date(x.timestamp || x.date);
-        if (isNaN(d.getTime())) return true; // Keep fallback records
-
-        const isToday = d.toDateString() === now.toDateString();
-        const isThisMonth = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        const isThisYear = d.getFullYear() === now.getFullYear();
-
-        if (period === 'daily') return isToday;
-        if (period === 'monthly') return isThisMonth;
-        if (period === 'yearly') return isThisYear;
-        return true;
-    });
-
-    // Calculate overall revenue & transaction count
-    const totalRevenue = filtered.reduce((sum, x) => sum + (parseFloat(x.amount || x.total || x.grandTotal || 0) || 0), 0);
-    const totalTransactions = filtered.length;
-
-    // Payment method breakdown totals
-    let cash = 0, card = 0, juice = 0, mytMoney = 0, delivoo = 0, hungryDodo = 0;
-    filtered.forEach(x => {
-        const amt = parseFloat(x.amount || x.total || x.grandTotal || 0) || 0;
-        const method = String(x.paymentMethod || x.method || '').toLowerCase();  
-        if (method.includes('cash')) cash += amt;
-        else if (method.includes('card')) card += amt;
-        else if (method.includes('juice')) juice += amt;
-        else if (method.includes('myt')) mytMoney += amt;
-        else if (method.includes('delivoo')) delivoo += amt;
-        else if (method.includes('hungry')) hungryDodo += amt;
-    });
-        const titlePeriod = period.toUpperCase();
-    const currentMonthName = now.toLocaleString('en-US', { month: 'long' });
-    const currentYear = now.getFullYear();
-
-    container.innerHTML = `
-        <div style="padding: 12px; font-family: sans-serif;">
-            <h3 style="margin-top:0; margin-bottom:8px; font-size:1.1rem; color:#0f172a;">
-                Gross ${titlePeriod} Sales Report (${currentMonthName} ${currentYear})
-            </h3>
-            <div style="font-size:1.2rem; font-weight:bold; color:#16a34a; margin-bottom:6px;">
-                Total Revenue: Rs ${totalRevenue.toFixed(2)}
-            </div>
-            <p style="font-size:0.9rem; color:#64748b; margin-top:0; margin-bottom:12px;">
-                Total Transactions: <strong>${totalTransactions}</strong>
-            </p>
-            
-            <hr style="border:0; border-top:1px solid #e2e8f0; margin:12px 0;"/>
-            
-            <div style="font-size:0.85rem; font-weight:600; color:#334155; margin-bottom:8px;">Payment Breakdown:</div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.85rem; color:#334155;">
-                <div>💵 Cash: <strong>Rs ${cash.toFixed(2)}</strong></div>
-                <div>💳 Card: <strong>Rs ${card.toFixed(2)}</strong></div>
-                <div>📱 MCB Juice: <strong>Rs ${juice.toFixed(2)}</strong></div>
-                <div>📲 MyT Money: <strong>Rs ${mytMoney.toFixed(2)}</strong></div>
-                <div>🛵 Delivoo: <strong>Rs ${delivoo.toFixed(2)}</strong></div>
-                <div>🦤 Hungry Dodo: <strong>Rs ${hungryDodo.toFixed(2)}</strong></div>
-            </div>
-        </div>
-    `;
-}
-      function seedPastOctSales() {
-    const historicalOctSales = [
-        { date: '2026-10-02T12:00:00.000Z', amount: 2780, paymentMethod: 'Cash' },
-        { date: '2026-10-02T12:00:00.000Z', amount: 1210, paymentMethod: 'Juice' },
-        { date: '2026-10-03T12:00:00.000Z', amount: 5500, paymentMethod: 'Cash' },
-        { date: '2026-10-03T12:00:00.000Z', amount: 4050, paymentMethod: 'Juice' },
-        { date: '2026-10-04T12:00:00.000Z', amount: 5640, paymentMethod: 'Cash' },
-        { date: '2026-10-04T12:00:00.000Z', amount: 2265, paymentMethod: 'Juice' },
-        { date: '2026-10-05T12:00:00.000Z', amount: 4870, paymentMethod: 'Cash' },
-        { date: '2026-10-05T12:00:00.000Z', amount: 2980, paymentMethod: 'Juice' },
-        { date: '2026-10-06T12:00:00.000Z', amount: 2770, paymentMethod: 'Cash' },
-        { date: '2026-10-06T12:00:00.000Z', amount: 1355, paymentMethod: 'Juice' },
-        { date: '2026-10-07T12:00:00.000Z', amount: 1825, paymentMethod: 'Cash' },
-        { date: '2026-10-07T12:00:00.000Z', amount: 915, paymentMethod: 'Juice' },
-        { date: '2026-10-08T12:00:00.000Z', amount: 2495, paymentMethod: 'Cash' },
-        { date: '2026-10-08T12:00:00.000Z', amount: 1005, paymentMethod: 'Juice' },
-        { date: '2026-10-09T12:00:00.000Z', amount: 1745, paymentMethod: 'Cash' },
-        { date: '2026-10-09T12:00:00.000Z', amount: 1060, paymentMethod: 'Juice' },
-        { date: '2026-10-10T12:00:00.000Z', amount: 6070, paymentMethod: 'Cash' },
-        { date: '2026-10-10T12:00:00.000Z', amount: 2815, paymentMethod: 'Juice' },
-        { date: '2026-10-11T12:00:00.000Z', amount: 185, paymentMethod: 'Cash' },
-        { date: '2026-10-11T12:00:00.000Z', amount: 2815, paymentMethod: 'Juice' },
-        { date: '2026-10-12T12:00:00.000Z', amount: 3045, paymentMethod: 'Cash' },
-        { date: '2026-10-12T12:00:00.000Z', amount: 365, paymentMethod: 'Juice' },
-        { date: '2026-10-14T12:00:00.000Z', amount: 2745, paymentMethod: 'Cash' },
-        { date: '2026-10-14T12:00:00.000Z', amount: 1090, paymentMethod: 'Juice' },
-        { date: '2026-10-15T12:00:00.000Z', amount: 1435, paymentMethod: 'Cash' }
-    ];
-
-    let currentSales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-    
-    if (currentSales.length === 0) {
-        localStorage.setItem('pos_daily_sales_history', JSON.stringify(historicalOctSales));
-        console.log("October Sales Seeded!");
-    }
-}
-seedPastOctSales();
-
-</script>
+        document.addEventListener("click", e => {
+            if (e.target.tagName !== "BUTTON") return;
+            const t = e.target.innerText;
+            const el = document.getElementById("paymentMethod");
+            if (!el) return;
+            const m = {
+                Blink: "Blink",
+                Card: "Card",
+                Cash: "Cash",
+                Juice: "Juice",
+                MyT: "MyT Money",
+                Delivoo: "Delivoo",
+                Hungry: "Hungry Dodo"
+            };
+            for (let k in m) {
+                if (t.includes(k)) {
+                    el.value = m[k];
+                    break;
+                }
+            }
+        });
+    </script>
 </body>
 </html>
