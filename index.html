@@ -469,39 +469,46 @@
   const SUPABASE_KEY = "sb_publishable_AgGIv2KvXKcQPE-nCQ5_sQ_s0EgwnBK";
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // REALTIME INVENTORY SYNC (Laptop & Tablet)
-  supabaseClient
-    .channel('public:store_inventory')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'store_inventory' }, payload => {
-      if (typeof loadInventory === 'function') {
-        loadInventory(); // Automatically refreshes data when laptop makes a change
-      }
-    })
-    .subscribe();
-    async function loadInventory() {
-    // 1. Fetch live inventory data straight from Supabase
-    const { data, error } = await supabaseClient
-      .from('store_inventory')
-      .select('*');
+// REALTIME INVENTORY SYNC (Laptop & Tablet)
+supabaseClient
+  .channel('public:store_inventory')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'store_inventory' }, (payload) => {
+    console.log('Realtime inventory event:', payload);
+    if (typeof loadInventory === 'function') {
+      loadInventory();
+    }
+  })
+  .subscribe();
+async function loadInventory() {
+  // 1. Fetch live inventory data straight from Supabase
+  const { data, error } = await supabaseClient
+    .from('store_inventory')
+    .select('*');
 
-    if (!error && data && data.length > 0) {
-      // 2. Map Supabase data into active inventoryList array
-      inventoryList = data.map(item => ({
-        id: 'inv_' + (item.id || Date.now()),
-        cat: (item.cat || '').toUpperCase(),
-        name: item.name,
-        stock: Number(item.stock)
-      }));
-      // 3. Keep local cache updated and render UI
-      localStorage.setItem('pos_store_inventory', JSON.stringify(inventoryList));
+  if (!error && data && data.length > 0) {
+    // 2. Map Supabase data into active inventoryList using exact database ID
+    inventoryList = data.map(item => ({
+      id: item.id ? String(item.id) : ('inv_' + item.name.replace(/\s+/g, '_').toLowerCase()),
+      cat: (item.cat || '').toUpperCase(),
+      name: item.name,
+      stock: Number(item.stock) || 0
+    }));
+
+    // 3. Keep local cache updated and render UI
+    localStorage.setItem('pos_store_inventory', JSON.stringify(inventoryList));
+    if (typeof renderInventoryTable === 'function') {
       renderInventoryTable();
-    } else {
-      // Fallback to local storage if offline or empty
-      const localData = JSON.parse(localStorage.getItem('pos_store_inventory')) || defaultInventoryList;
-      inventoryList = localData;
+    }
+  } else {
+    // Fallback to local storage if offline or empty
+    const localData = JSON.parse(localStorage.getItem('pos_store_inventory')) || [];
+    inventoryList = localData;
+    if (typeof renderInventoryTable === 'function') {
       renderInventoryTable();
     }
   }
+}
+
 
   function updateInventoryTitleVisibility() {
     const role = (typeof currentCashier !== 'undefined' && currentCashier) ? currentCashier.role : '';
@@ -1536,18 +1543,23 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
   // 2. Sync changes directly to Supabase
   try {
     for (let item of inventoryList) {
+      const payload = { 
+        cat: item.cat, 
+        name: item.name, 
+        stock: item.stock 
+      };
+      if (item.id && !item.id.startsWith('inv_')) {
+        payload.id = item.id;
+      }
       await supabaseClient
         .from('store_inventory')
-        .upsert({ 
-          name: item.name, 
-          cat: item.cat, 
-          stock: item.stock 
-        }, { onConflict: 'name' });
+        .upsert(payload);
     }
   } catch (err) {
     console.error('Error syncing inventory to Supabase:', err);
   }
 }
+
 
 
         function renderInventoryTable() {
