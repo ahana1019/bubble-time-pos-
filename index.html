@@ -1520,10 +1520,27 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
       
         let inventoryList = defaultInventoryList;
 
-        function saveInventory() {
-            localStorage.setItem('pos_store_inventory', JSON.stringify(inventoryList));
-            renderInventoryTable();
-        }
+        async function saveInventory() {
+  // 1. Save locally for instant UI update
+  localStorage.setItem('pos_store_inventory', JSON.stringify(inventoryList));
+  renderInventoryTable();
+
+  // 2. Sync changes directly to Supabase
+  try {
+    for (let item of inventoryList) {
+      await supabaseClient
+        .from('store_inventory')
+        .upsert({ 
+          name: item.name, 
+          cat: item.cat, 
+          stock: item.stock 
+        }, { onConflict: 'name' });
+    }
+  } catch (err) {
+    console.error('Error syncing inventory to Supabase:', err);
+  }
+}
+
 
         function renderInventoryTable() {
             const container = document.getElementById('inventoryDepartmentsContainer');
