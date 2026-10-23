@@ -478,23 +478,31 @@
       }
     })
     .subscribe();
-  async function loadInventory() {
+    async function loadInventory() {
     // 1. Fetch live inventory data straight from Supabase
     const { data, error } = await supabaseClient
       .from('store_inventory')
       .select('*');
 
-    if (!error && data) {
-      // 2. Render the live data onto your POS table
-      renderInventoryUI(data);
-      // 3. Keep local cache updated
-      localStorage.setItem('store_inventory', JSON.stringify(data));
+    if (!error && data && data.length > 0) {
+      // 2. Map Supabase data into active inventoryList array
+      inventoryList = data.map(item => ({
+        id: 'inv_' + (item.id || Date.now()),
+        cat: (item.cat || '').toUpperCase(),
+        name: item.name,
+        stock: Number(item.stock)
+      }));
+      // 3. Keep local cache updated and render UI
+      localStorage.setItem('pos_store_inventory', JSON.stringify(inventoryList));
+      renderInventoryTable();
     } else {
-      // Fallback if offline
-      const localData = JSON.parse(localStorage.getItem('store_inventory')) || [];
-      renderInventoryUI(localData);
+      // Fallback to local storage if offline or empty
+      const localData = JSON.parse(localStorage.getItem('pos_store_inventory')) || defaultInventoryList;
+      inventoryList = localData;
+      renderInventoryTable();
     }
   }
+
   function updateInventoryTitleVisibility() {
     const role = (typeof currentCashier !== 'undefined' && currentCashier) ? currentCashier.role : '';
     const isAdmin = role === 'admin' || role === 'manager';
@@ -3023,12 +3031,13 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             `;
         }
 
-        window.onload = () => {
+           window.onload = () => {
             populateLoginDropdown();
-            renderInventoryTable();
+            loadInventory();
             renderBatchPrepUI();
             saveCategories();
         };
+
 
         // REPLACE THE GLOBAL LISTENERS AT THE BOTTOM WITH THIS:
 document.addEventListener("click", e => {
