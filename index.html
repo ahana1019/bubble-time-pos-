@@ -10,7 +10,7 @@
     <meta name="application-name" content="POS">
     <meta name="apple-mobile-web-app-title" content="POS">
     <title>Bubble Time POS & Management Portal</title>
-    <!-- Include Chart.js for Donut Chart -->
+    <!-- Include Supabase JS & Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -440,11 +440,10 @@
         .btn:hover { background: #d97706; }
         .btn-secondary { background: #64748b; }
         .btn-secondary:hover { background: #475569; }
-          .btn-danger { background: #dc2626; }
-  .btn-danger:hover { background: #b91c1c; }
-  .btn-success { background: #059669; }
-  .btn-success:hover { background: #047857; }
-          
+        .btn-danger { background: #dc2626; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-success { background: #059669; }
+        .btn-success:hover { background: #047857; }
 
         .category-chip button {
             background: none;
@@ -465,15 +464,31 @@
 <body>
 
 <script>
-  function updateInventoryTitleVisibility() {
-      const role = (typeof currentCashier !== 'undefined' && currentCashier) ? currentCashier.role : '';
-      const isAdmin = role === 'admin' || role === 'manager';
-      const tile = document.getElementById('homeInventoryTile');
-      if (tile) {
-          tile.style.display = isAdmin ? 'block' : 'none';
+  // SUPABASE INITIALIZATION
+  const SUPABASE_URL = "https://pwchodxnnrxcrntaios.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_AgGiV2KvXKcQPE...";
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // REALTIME INVENTORY SYNC (Laptop & Tablet)
+  supabaseClient
+    .channel('public:store_inventory')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'store_inventory' }, payload => {
+      if (typeof loadInventory === 'function') {
+        loadInventory(); // Automatically refreshes data when laptop makes a change
       }
+    })
+    .subscribe();
+
+  function updateInventoryTitleVisibility() {
+    const role = (typeof currentCashier !== 'undefined' && currentCashier) ? currentCashier.role : '';
+    const isAdmin = role === 'admin' || role === 'manager';
+    const tile = document.getElementById('homeInventoryTile');
+    if (tile) {
+      tile.style.display = isAdmin ? 'block' : 'none';
+    }
   }
-  </script>
+</script>
+
 
 <div id="customModalOverlay">
   <div class="custom-modal-card">
@@ -495,6 +510,7 @@
             </select>
             <input type="password" id="loginPin" class="login-input" placeholder="PIN Code">
             <button class="btn" onclick="handleLogin()">Login & Open Register</button>
+          
       <!-- ATTENDANCE TRACKER INSIDE LOGIN CARD -->
 <hr style="border: none; border-top: 1px dashed #cbd5e1; margin: 20px 0;">
 
@@ -2558,23 +2574,7 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             }
         }
 
-        let isScreenReceiptEnabled = true;
-
-        function toggleScreenReceipt() {
-            isScreenReceiptEnabled = !isScreenReceiptEnabled;
-            let box = document.getElementById('screenReceiptBox');
-            let btn = document.getElementById('receiptToggleBtn');
-            
-            if (isScreenReceiptEnabled) {
-                box.style.display = 'block';
-                btn.innerText = 'ON';
-                btn.className = 'btn btn-success';
-            } else {
-                box.style.display = 'none';
-                btn.innerText = 'OFF';
-                btn.className = 'btn btn-secondary';
-            }
-        }
+  
 
         function printSpecificPlatformReport(platformName) {
             let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
@@ -2997,27 +2997,32 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             saveCategories();
         };
 
-        document.addEventListener("click", e => {
-            if (e.target.tagName !== "BUTTON") return;
-            const t = e.target.innerText;
-            const el = document.getElementById("paymentMethod");
-            if (!el) return;
-            const m = {
-                Blink: "Blink",
-                Card: "Card",
-                Cash: "Cash",
-                Juice: "Juice",
-                MyT: "MyT Money",
-                Delivoo: "Delivoo",
-                Hungry: "Hungry Dodo"
-            };
-            for (let k in m) {
-                if (t.includes(k)) {
-                    el.value = m[k];
-                    break;
-                }
-            }
-        });
+        // REPLACE THE GLOBAL LISTENERS AT THE BOTTOM WITH THIS:
+document.addEventListener("click", e => {
+    // Only run if clicking a button inside the payment/checkout area
+    if (e.target.tagName !== "BUTTON") return;
+    if (!e.target.closest('#paneRegister')) return; // Restrict strictly to POS Register View
+
+    const t = e.target.innerText;
+    const el = document.getElementById("paymentMethod");
+    if (!el) return;
+    
+    const m = {
+        Blink: "Blink",
+        Card: "Card",
+        Cash: "Cash",
+        Juice: "Juice",
+        MyT: "MyT Money",
+        Delivoo: "Delivoo",
+        Hungry: "Hungry Dodo"
+    };
+    for (let k in m) {
+        if (t.includes(k)) {
+            el.value = m[k];
+            break;
+        }
+    }
+  });
     </script>
 </body>
 </html>
