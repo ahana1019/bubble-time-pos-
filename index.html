@@ -478,7 +478,23 @@
       }
     })
     .subscribe();
+  async function loadInventory() {
+    // 1. Fetch live inventory data straight from Supabase
+    const { data, error } = await supabaseClient
+      .from('store_inventory')
+      .select('*');
 
+    if (!error && data) {
+      // 2. Render the live data onto your POS table
+      renderInventoryUI(data);
+      // 3. Keep local cache updated
+      localStorage.setItem('store_inventory', JSON.stringify(data));
+    } else {
+      // Fallback if offline
+      const localData = JSON.parse(localStorage.getItem('store_inventory')) || [];
+      renderInventoryUI(localData);
+    }
+  }
   function updateInventoryTitleVisibility() {
     const role = (typeof currentCashier !== 'undefined' && currentCashier) ? currentCashier.role : '';
     const isAdmin = role === 'admin' || role === 'manager';
