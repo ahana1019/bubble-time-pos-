@@ -14,6 +14,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+      
         :root {
             --primary: #f59e0b;
             --primary-hover: #d97706;
@@ -1965,12 +1966,90 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
           return JSON.parse(r) || [];
         }
 
+// Map drink names to raw inventory deductions
+function getRecipeIngredients(productName, category) {
+    const isLarge = productName.includes('(L)');
+    const nameLower = productName.toLowerCase();
+    const catLower = (category || '').toLowerCase();
+    
+    let ingredients = [];
+
+    // 1. DEDUCT CUPS & PACKAGING
+    if (isLarge) {
+        ingredients.push({ searchName: 'PLA Clear Cup 700 ML', qty: 1 });
+    } else {
+        ingredients.push({ searchName: 'PLA Clear Cup with Dome 500 ML', qty: 1 });
+    }
+    ingredients.push({ searchName: 'PLA Straws', qty: 1 });
+
+    // 2. POWDER DRINKS & MILK TEA
+    if (catLower.includes('milk tea') || catLower.includes('milk series')) {
+        const creamerScoops = isLarge ? 3 : 2; // 15g per scoop
+        ingredients.push({ searchName: 'Creamer', qty: creamerScoops * 15 });
+
+        const fructoseMl = isLarge ? 45 : 35;
+        ingredients.push({ searchName: 'Fructose', qty: fructoseMl });
+
+        // Matcha Milk
+        if (nameLower.includes('matcha')) {
+            ingredients.push({ searchName: 'Pure Matcha', qty: 8 }); // 1 scoop = 8g
+        } 
+        // Coffee Milk Tea
+        else if (nameLower.includes('coffee')) {
+            const scoops = isLarge ? 4 : 3;
+            ingredients.push({ searchName: 'Coffee', qty: scoops * 9 });
+        } 
+        // Coconut Milk Tea
+        else if (nameLower.includes('coconut')) {
+            const scoops = isLarge ? 4 : 3;
+            ingredients.push({ searchName: 'Coconut', qty: scoops * 10 });
+        } 
+        // Pearl Milk Tea / Taro / Chocolate / Almond / Honeydew / Vanilla / Caramel
+        else {
+            const scoops = isLarge ? 4 : 3;
+            let powderSearch = '3 in 1 Milk Tea';
+            if (nameLower.includes('taro')) powderSearch = 'Taro';
+            if (nameLower.includes('chocolate') || nameLower.includes('cocoa')) powderSearch = 'Supreme Chocolate';
+            if (nameLower.includes('almond')) powderSearch = 'Almond';
+            if (nameLower.includes('honeydew')) powderSearch = 'Honeydew';
+            if (nameLower.includes('vanilla')) powderSearch = 'Vanilla';
+
+            ingredients.push({ searchName: powderSearch, qty: scoops * 13 });
+        }
+    }
+
+    // 3. FRUIT TEA
+    else if (catLower.includes('fruits tea') || catLower.includes('fruit')) {
+        const syrupMl = isLarge ? 40 : 32;
+        const fructoseMl = isLarge ? 35 : 25;
+        
+        ingredients.push({ searchName: 'Fructose', qty: fructoseMl });
+        
+        let flavorKey = productName.replace('(M)', '').replace('(L)', '').trim();
+        ingredients.push({ searchName: flavorKey, qty: syrupMl });
+    }
+
+    // 4. SIGNATURE CHEWY (DOUBLE Q)
+    else if (catLower.includes('signature chewy')) {
+        const syrupMl = isLarge ? 40 : 32;
+        const fructoseMl = isLarge ? 25 : 15;
+        
+        ingredients.push({ searchName: 'Fructose', qty: fructoseMl });
+        let flavorKey = productName.replace('Double Q', '').replace('(M)', '').replace('(L)', '').trim();
+        ingredients.push({ searchName: flavorKey, qty: syrupMl });
+    }
+
+    return ingredients;
+}
+
+      
         async function completeSaleAndPrintReceipt() {
             if (!cart || cart.length === 0) {
                 showModal("Notice", "Your cart is empty.");
                 return;
             }
 
+            let salesHistory = getStoredSales();
             const orderId = 'ORD-' + Date.now().toString().slice(-6);
             const timestamp = new Date().toISOString();
 
@@ -2004,7 +2083,36 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             placedOrders.push(newOrder);
             localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
 
-            let salesHistory = getStoredSales();
+               // Automatically deduct finished catalog stock AND raw store inventory
+            cart.forEach(cartItem => {
+                const qty = cartItem.qty || 1;
+
+                // A. Deduct Finished Catalog Stock
+                const prod = products.find(p => p.id === cartItem.id || p.name === cartItem.name);
+                if (prod) {
+                    prod.stock = Math.max(0, (prod.stock || 0) - qty);
+                }
+
+                // B. Deduct Raw Store Inventory Items
+                const recipe = getRecipeIngredients(cartItem.name, cartItem.cat);
+                recipe.forEach(ing => {
+                    const invItem = inventoryList.find(i => 
+                        i.name.toLowerCase().includes(ing.searchName.toLowerCase())
+                    );
+                    if (invItem) {
+                        invItem.stock = Math.max(0, (invItem.stock || 0) - (ing.qty * qty));
+                    }
+                });
+            });
+
+            // Save updated catalog products and raw store inventory
+            localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+            saveInventory(); // Syncs to local storage and Supabase
+
+            // Refresh UI
+            if (typeof renderAccordion === 'function') renderAccordion();
+            if (typeof renderAdminCatalogEditTable === 'function') renderAdminCatalogEditTable();
+            if (typeof renderInventoryTable === 'function') renderInventoryTable();
             salesHistory.push({
                 id: orderId,
                 amount: total,
@@ -2032,15 +2140,15 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             } catch (printErr) {
                 console.warn("Thermal receipt printing failed:", printErr);
             }
-
             cart = [];
+            const cashInput = document.getElementById('cashGivenInput');
+            if (cashInput) cashInput.value = '';
+            if (typeof calculateChange === 'function') calculateChange();
+
             if (typeof renderCart === 'function') renderCart();
             if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
             if (typeof refreshReconData === 'function') refreshReconData();
-
-            showModal("Success", `Sale completed via ${selectedMethod} and recorded successfully!`);
         }
-
         /* PLACED ORDERS & SETTLEMENT */
         function renderPlacedOrders() {
             const container = document.getElementById('placedOrdersListContainer');
@@ -2238,47 +2346,36 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
         }
 
         function renderAdminCatalogEditTable() {
-            const container = document.getElementById('adminCatalogEditTableContainer');
-            if(!container) return;
-            const filter = (document.getElementById('catalogSearchFilter')?.value || '').toLowerCase();
+    const container = document.getElementById('adminCatalogEditTableContainer');
+    if(!container) return;
+    const filter = (document.getElementById('catalogSearchFilter')?.value || '').toLowerCase();
 
-            const filteredProds = products.filter(p => p.name.toLowerCase().includes(filter) || p.cat.toLowerCase().includes(filter));
+    const filteredProds = products.filter(p => p.name.toLowerCase().includes(filter) || p.cat.toLowerCase().includes(filter));
 
-            let html = '<table><thead><tr><th>Category</th><th>Product Name</th><th>Price (Rs)</th><th>Action</th></tr></thead><tbody>';
-            filteredProds.forEach(p => {
-                html += `
-                    <tr>
-                        <td><small>${p.cat}</small></td>
-                        <td>${p.name}</td>
-                        <td><input type="number" value="${p.price}" onchange="updateCatalogPrice(${p.id}, this.value)" style="width:70px; padding:2px; font-size:0.8rem;"></td>
-                        <td><button class="btn btn-danger" style="padding:2px 6px; font-size:0.7rem; width:auto; margin:0;" onclick="deleteCatalogProduct(${p.id})">Delete</button></td>
-                    </tr>
-                `;
-            });
-            html += '</tbody></table>';
-            container.innerHTML = html;
-        }
+    let html = '<table><thead><tr><th>Category</th><th>Product Name</th><th>Stock</th><th>Price (Rs)</th><th>Action</th></tr></thead><tbody>';
+    filteredProds.forEach(p => {
+        html += `
+            <tr>
+                <td><small>${p.cat}</small></td>
+                <td>${p.name}</td>
+                <td><input type="number" value="${p.stock || 0}" onchange="updateCatalogStock(${p.id}, this.value)" style="width:50px; padding:2px; font-size:0.8rem;"></td>
+                <td><input type="number" value="${p.price}" onchange="updateCatalogPrice(${p.id}, this.value)" style="width:65px; padding:2px; font-size:0.8rem;"></td>
+                <td><button class="btn btn-danger" style="padding:2px 6px; font-size:0.7rem; width:auto; margin:0;" onclick="deleteCatalogProduct(${p.id})">Delete</button></td>
+            </tr>
+        `;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
 
-        function updateCatalogPrice(id, val) {
-            const p = products.find(prod => prod.id === id);
-            if(p) {
-                p.price = parseFloat(val) || 0;
-                localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
-                renderAccordion();
-            }
-        }
-
-        function deleteCatalogProduct(id) {
-            showModal("Confirm Delete", "Delete this product from catalog?", true, (confirm) => {
-                if(confirm) {
-                    products = products.filter(p => p.id !== id);
-                    localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
-                    renderAccordion();
-                    renderAdminCatalogEditTable();
-                }
-            });
-        }
-
+function updateCatalogStock(id, val) {
+    const p = products.find(prod => prod.id === id);
+    if(p) {
+        p.stock = parseInt(val) || 0;
+        localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+        renderAccordion();
+    }
+}
         /* DAILY RECON REPORTS */
         function refreshReconData() {
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
@@ -3051,31 +3148,24 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
 
 
         // REPLACE THE GLOBAL LISTENERS AT THE BOTTOM WITH THIS:
-document.addEventListener("click", e => {
-    // Only run if clicking a button inside the payment/checkout area
-    if (e.target.tagName !== "BUTTON") return;
-    if (!e.target.closest('#paneRegister')) return; // Restrict strictly to POS Register View
+            document.addEventListener("click", e => {
+            if (e.target.tagName !== "BUTTON") return;
+            if (!e.target.closest('#paneRegister')) return;
 
-    const t = e.target.innerText;
-    const el = document.getElementById("paymentMethod");
-    if (!el) return;
-    
-    const m = {
-        Blink: "Blink",
-        Card: "Card",
-        Cash: "Cash",
-        Juice: "Juice",
-        MyT: "MyT Money",
-        Delivoo: "Delivoo",
-        Hungry: "Hungry Dodo"
-    };
-    for (let k in m) {
-        if (t.includes(k)) {
-            el.value = m[k];
-            break;
-        }
-    }
-  });
+            if (e.target.onclick && e.target.onclick.toString().includes("completeSaleAndPrintReceipt")) return;
+
+            const t = e.target.innerText;
+            const el = document.getElementById("paymentMethod");
+            if (!el) return;
+            
+            if (/\bCash\b/i.test(t)) el.value = "Cash";
+            else if (/\bCard\b/i.test(t)) el.value = "Card";
+            else if (/\bJuice\b/i.test(t)) el.value = "Juice";
+            else if (/\bMyT\b/i.test(t)) el.value = "MyT Money";
+            else if (/\bBlink\b/i.test(t)) el.value = "Blink";
+            else if (/\bDelivoo\b/i.test(t)) el.value = "Delivoo";
+            else if (/\bHungry\b/i.test(t)) el.value = "Hungry Dodo";
+        });
     </script>
 </body>
 </html>
