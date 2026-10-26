@@ -520,7 +520,40 @@ async function loadInventory() {
   }
 </script>
 
+  <!-- DISCOUNT POPUP MODAL OVERLAY -->
+<div id="discountModalOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); display: none; justify-content: center; align-items: center; z-index: 3000; padding: 15px; box-sizing: border-box;">
+    <div style="background: #f8fafc; padding: 22px; border-radius: 16px; width: 100%; max-width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); text-align: left; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0; font-size: 1.25rem; color: #1e293b; font-weight: 600;">Discount</h3>
+            <button onclick="closeDiscountModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748b; padding: 0;">✕</button>
+        </div>
 
+        <div style="font-size: 0.7rem; color: #94a3b8; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 700;">QUICK</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px;">
+            <button onclick="selectDiscountType('percent', 5, '5% Discount')" style="padding: 12px 0; background: #e2e8f0; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.9rem; color: #1e293b;">5%</button>
+            <button onclick="selectDiscountType('percent', 10, '10% Discount')" style="padding: 12px 0; background: #e2e8f0; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.9rem; color: #1e293b;">10%</button>
+            <button onclick="selectDiscountType('percent', 15, '15% Discount')" style="padding: 12px 0; background: #e2e8f0; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.9rem; color: #1e293b;">15%</button>
+            <button onclick="selectDiscountType('percent', 20, '20% Discount')" style="padding: 12px 0; background: #e2e8f0; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.9rem; color: #1e293b;">20%</button>
+        </div>
+
+        <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 14px; text-align: center;">Every discount is listed under your name in the reports.</div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px;">
+            <button onclick="selectDiscountType('percent', 30, 'Staff - 30%')" style="padding: 10px 4px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; font-weight: 600; cursor: pointer; font-size: 0.78rem; color: #334155;">Staff · 30%</button>
+            <button onclick="selectDiscountType('percent', 20, 'Student - 20%')" style="padding: 10px 4px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; font-weight: 600; cursor: pointer; font-size: 0.78rem; color: #334155;">Student · 20%</button>
+            <button onclick="selectDiscountType('percent', 10, 'VIP - 10%')" style="padding: 10px 4px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; font-weight: 600; cursor: pointer; font-size: 0.78rem; color: #334155;">VIP · 10%</button>
+        </div>
+
+                <div style="font-size: 0.7rem; color: #94a3b8; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 700;">CUSTOM AMOUNT (RS)</div>
+        <div style="display: flex; gap: 8px; margin-bottom: 18px; width: 100%; box-sizing: border-box;">
+            <input type="number" id="customDiscAmount" placeholder="e.g. 50" style="width: 50%; padding: 10px 12px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 0.85rem; color: #1e293b; outline: none; box-sizing: border-box;">
+            <input type="text" id="customDiscReason" placeholder="Reason" style="width: 50%; padding: 10px 12px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 0.85rem; color: #1e293b; outline: none; box-sizing: border-box;">
+        </div>
+
+
+        <button onclick="applyDiscountToCart()" style="width: 100%; background: #94a3b8; color: #ffffff; border: none; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">Apply</button>
+    </div>
+</div>
 <div id="customModalOverlay">
   <div class="custom-modal-card">
             <h3 id="customModalTitle">Notice</h3>
@@ -898,6 +931,13 @@ async function loadInventory() {
                             <div id="screenReceiptContent" style="margin-top: 3px; border-top: 1px dotted #d97706; padding-top: 2px;">No items in receipt preview</div>
                         </div>
 
+        <!-- DISCOUNT TOGGLE BUTTON -->
+    <div style="margin-bottom: 8px;">
+        <button type="button" class="btn btn-secondary" style="padding: 10px; font-size: 0.85rem; background: #475569; color: #ffffff; border: none; border-radius: 6px; margin: 0; width: 100%; cursor: pointer; font-weight: 600;" onclick="openDiscountModal()">🏷️ Add Discount / Promo</button>
+        <div id="appliedDiscountDisplay" style="font-size: 0.75rem; color: #059669; font-weight: bold; margin-top: 4px; display: none;"></div>
+    </div>
+
+
                         <div class="totals-box">
     <div class="totals-row">
         <span>Subtotal (Excl. VAT):</span>
@@ -912,9 +952,6 @@ async function loadInventory() {
         <span id="cartTotal">Rs 0.00</span>
     </div>
 </div>
-
-
-
                         <!-- Cash Given & Change Calculation Section -->
                         <div style="background: #f8fafc; border: 1px solid var(--border); padding: 6px; border-radius: 6px; margin-bottom: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
@@ -994,7 +1031,8 @@ async function loadInventory() {
                     <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0;" onclick="settleCurrentSelectedOrder('Delivoo')">🛵 DELIVOO</button>
                     <button class="btn btn-secondary" style="padding: 8px; font-size: 0.75rem; margin:0; grid-column: span 2;" onclick="settleCurrentSelectedOrder('Hungry Dodo')">🍔 HUNGRY DODO</button>
                 </div>
-
+              
+                <button class="btn btn-secondary" style="width: 100%; margin-bottom: 8px; background-color: #475569; padding: 9px; font-size: 0.85rem;" onclick="printSelectedPlacedOrderReceipt()">🖨️ Print Receipt</button>
                 <button class="btn btn-success" style="width: 100%; margin-bottom: 8px; background-color: #0284c7; padding: 9px; font-size: 0.85rem;" onclick="confirmAndFinishOrder()">✅ Confirm Sale & Finish</button>
                 <button class="btn btn-danger" style="width: 100%; margin-top: auto; padding: 9px; font-size: 0.85rem;" onclick="deleteSelectedPlacedOrder()">Delete Order (Cancel)</button>
             </div>
@@ -1840,6 +1878,64 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             });
         }
 
+        /* DISCOUNT SYSTEM HANDLERS */
+        let activeDiscount = null;
+        let selectedDiscountTemp = null;
+
+        function openDiscountModal() {
+            selectedDiscountTemp = null;
+            const amtInput = document.getElementById('customDiscAmount');
+            const reasonInput = document.getElementById('customDiscReason');
+            if (amtInput) amtInput.value = '';
+            if (reasonInput) reasonInput.value = '';
+
+            const buttons = document.querySelectorAll('#discountModalOverlay button');
+            buttons.forEach(b => {
+                if (b.innerText !== '✕' && b.innerText !== 'Apply') {
+                    b.style.borderColor = '#cbd5e1';
+                }
+            });
+
+            document.getElementById('discountModalOverlay').style.display = 'flex';
+        }
+
+        function closeDiscountModal() {
+            document.getElementById('discountModalOverlay').style.display = 'none';
+        }
+
+        function selectDiscountType(type, value, label) {
+            selectedDiscountTemp = { type, value, label };
+            
+            const buttons = document.querySelectorAll('#discountModalOverlay button');
+            buttons.forEach(b => {
+                if (b.innerText.includes(label) || b.innerText === `${value}%`) {
+                    b.style.borderColor = '#0284c7';
+                } else if (b.innerText !== '✕' && b.innerText !== 'Apply') {
+                    b.style.borderColor = '#cbd5e1';
+                }
+            });
+        }
+
+        function applyDiscountToCart() {
+            const customAmt = parseFloat(document.getElementById('customDiscAmount')?.value) || 0;
+            const customReason = document.getElementById('customDiscReason')?.value.trim() || 'Custom Discount';
+
+            if (customAmt > 0) {
+                activeDiscount = {
+                    type: 'fixed',
+                    value: customAmt,
+                    label: `${customReason} (-Rs ${customAmt.toFixed(2)})`
+                };
+            } else if (selectedDiscountTemp) {
+                activeDiscount = selectedDiscountTemp;
+            } else {
+                activeDiscount = null;
+            }
+
+            closeDiscountModal();
+            renderCart();
+        }
+
         /* CART & CHECKOUT LOGIC */
         function addToCart(product) {
             const existing = cart.find(i => i.id === product.id);
@@ -1893,9 +1989,28 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
                 container.appendChild(div);
             });
 
-            const grandTotal = total;
-            const vatAmount = grandTotal - (grandTotal / 1.15);
-            const netSubtotal = grandTotal - vatAmount;
+         let discountAmount = 0;
+    if (typeof activeDiscount !== 'undefined' && activeDiscount) {
+        if (activeDiscount.type === 'percent') {
+            discountAmount = (total * activeDiscount.value) / 100;
+        } else if (activeDiscount.type === 'fixed') {
+            discountAmount = activeDiscount.value;
+        }
+    }
+    const grandTotal = Math.max(0, total - discountAmount);
+
+    const discDisplay = document.getElementById('appliedDiscountDisplay');
+    if (discDisplay) {
+        if (typeof activeDiscount !== 'undefined' && activeDiscount) {
+            discDisplay.style.display = 'block';
+            discDisplay.innerText = `🏷️ Applied: ${activeDiscount.label} (-Rs ${discountAmount.toFixed(2)})`;
+        } else {
+            discDisplay.style.display = 'none';
+        }
+    }
+
+    const vatAmount = grandTotal - (grandTotal / 1.15);
+    const netSubtotal = grandTotal - vatAmount;
 
             document.getElementById('cartSubtotal').innerText = `Rs ${netSubtotal.toFixed(2)}`;
             document.getElementById('cartVat').innerText = `Rs ${vatAmount.toFixed(2)}`;
@@ -1904,7 +2019,6 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
             calculateChange();
             updateScreenReceipt();
         }
-
         function calculateChange() {
             const totalText = document.getElementById('cartTotal').innerText.replace('Rs ', '');
             const total = parseFloat(totalText) || 0;
@@ -2049,9 +2163,24 @@ function getRecipeIngredients(productName, category) {
                 return;
             }
 
-            let salesHistory = getStoredSales();
-            const orderId = 'ORD-' + Date.now().toString().slice(-6);
-            const timestamp = new Date().toISOString();
+                        let salesHistory = getStoredSales();
+
+            // Daily resetting order ID (last 3 digits start at 001 every day)
+            const todayKey = new Date().toISOString().split('T')[0];
+            const datePrefix = String(new Date().getMonth() + 1).padStart(2, '0') + String(new Date().getDate()).padStart(2, '0');
+            let lastDate = localStorage.getItem('pos_order_date');
+            let orderSeq = parseInt(localStorage.getItem('pos_order_seq') || '0', 10);
+
+            if (lastDate !== todayKey) {
+                orderSeq = 1;
+                localStorage.setItem('pos_order_date', todayKey);
+            } else {
+                orderSeq++;
+            }
+            localStorage.setItem('pos_order_seq', orderSeq);
+
+            const orderId = 'ORD-' + datePrefix + String(orderSeq).padStart(3, '0');
+            const timestamp = new Date().toLocaleString('en-GB');
 
             let total = 0;
             let totalQty = 0;
@@ -2064,6 +2193,17 @@ function getRecipeIngredients(productName, category) {
                 }
             }
 
+
+            let discountAmount = 0;
+            if (typeof activeDiscount !== 'undefined' && activeDiscount) {
+                if (activeDiscount.type === 'percent') {
+                    discountAmount = (total * activeDiscount.value) / 100;
+                } else if (activeDiscount.type === 'fixed') {
+                    discountAmount = activeDiscount.value;
+                }
+            }
+            const finalTotal = Math.max(0, total - discountAmount);
+
             const paymentMethodEl = document.getElementById('paymentMethod');
             const selectedMethod = paymentMethodEl ? paymentMethodEl.value : 'Cash';
 
@@ -2073,9 +2213,12 @@ function getRecipeIngredients(productName, category) {
                 timestamp: new Date().toLocaleString(),
                 date: timestamp,
                 items: [...cart],
-                total: total,
+                total: finalTotal,
+                discountLabel: typeof activeDiscount !== 'undefined' && activeDiscount ? activeDiscount.label : null,
+                discountAmount: discountAmount,
                 method: selectedMethod,
                 paymentType: selectedMethod,
+                paymentMethod: selectedMethod,
                 status: 'PAID'
             };
 
@@ -2136,6 +2279,19 @@ function getRecipeIngredients(productName, category) {
             }
 
             try {
+
+    cart = [];
+    const cashInput = document.getElementById('cashGivenInput');
+    if (cashInput) cashInput.value = '';
+    
+    // Reset discount for the next order
+    activeDiscount = null;
+    const discDisplay = document.getElementById('appliedDiscountDisplay');
+    if (discDisplay) discDisplay.style.display = 'none';
+
+    if (typeof calculateChange === 'function') calculateChange();
+    if (typeof renderCart === 'function') renderCart();
+      
                 await printThermalReceipt(newOrder);
             } catch (printErr) {
                 console.warn("Thermal receipt printing failed:", printErr);
@@ -2183,7 +2339,7 @@ function getRecipeIngredients(productName, category) {
             });
         }
 
-        function selectPlacedOrder(orderId) {
+                function selectPlacedOrder(orderId) {
             selectedPlacedOrderId = orderId;
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
             const ord = placedOrders.find(o => o.id === orderId);
@@ -2207,10 +2363,18 @@ function getRecipeIngredients(productName, category) {
                 (ord.items || []).forEach(i => {
                     tableHtml += `<tr><td>${i.name}</td><td>${i.qty}</td><td>Rs ${(i.price*i.qty).toFixed(2)}</td></tr>`;
                 });
-                tableHtml += `</tbody></table><div style="text-align:right; font-weight:bold; margin-top:8px; font-size:0.9rem;">Total: Rs ${ord.total.toFixed(2)}</div>`;
+                tableHtml += `</tbody></table>`;
+                
+                // Display discount if present
+                if (ord.discountAmount && ord.discountAmount > 0) {
+                    tableHtml += `<div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.85rem; color:#059669; font-weight:600;"><span>Discount (${ord.discountLabel || 'Promo'}):</span><span>-Rs ${ord.discountAmount.toFixed(2)}</span></div>`;
+                }
+
+                tableHtml += `<div style="text-align:right; font-weight:bold; margin-top:8px; font-size:0.9rem;">Total: Rs ${ord.total.toFixed(2)}</div>`;
                 itemsContainer.innerHTML = tableHtml;
             }
         }
+
 
         function setPaymentStatus(status) {
             if(!selectedPlacedOrderId) return;
@@ -2669,13 +2833,14 @@ function updateCatalogStock(id, val) {
             }
         }
 
-        function generateReceiptPrintText(order) {
+             function generateReceiptPrintText(order) {
             let orderId = order.id || 'ORD-000';
-            let cashierName = order.cashier || localStorage.getItem('loggedInUser') || (typeof currentShiftStaff !== 'undefined' ? currentShiftStaff : 'Alex Valentina');
-            let paymentMethod = order.paymentMethod || 'Blink';
+            let cashierName = order.cashier || localStorage.getItem('loggedInUser') || 'Alex Valentina';
+            let paymentMethod = order.paymentMethod || 'Cash';
             let orderDate = order.date || new Date().toLocaleString('en-GB');
 
             let total = parseFloat(order.total || 0);
+            let discountAmount = parseFloat(order.discountAmount || 0);
             let vatAmount = total - (total / 1.15);
 
             let rText = "================================\n";
@@ -2704,7 +2869,11 @@ function updateCatalogStock(id, val) {
                 });
             }
 
-            rText += "--------------------------------\n";
+                        rText += "--------------------------------\n";
+            if (discountAmount > 0) {
+                let discLabelText = order.discountLabel ? order.discountLabel : ("Discount (" + (order.discountPercent ? order.discountPercent + "%" : "Promo") + "):");
+                rText += discLabelText + " -Rs " + discountAmount.toFixed(2) + "\n";
+            }
             rText += "VAT (15% Included):   Rs " + vatAmount.toFixed(2) + "\n";
             rText += "TOTAL:                Rs " + total.toFixed(2) + "\n";
             rText += "Payment: " + paymentMethod + "\n";
@@ -2712,8 +2881,20 @@ function updateCatalogStock(id, val) {
             rText += "     Thank you for visiting!\n";
 
             return rText;
-        }     
+        }
 
+
+      async function printSelectedPlacedOrderReceipt() {
+    if (!selectedPlacedOrderId) {
+        showModal("Notice", "Please select an order from the list first.");
+        return;
+    }
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+    if (ord) {
+        await printThermalReceipt(ord);
+    }
+}
         async function printThermalReceipt(order) {
             let receiptText = generateReceiptPrintText(order);
             if (typeof bluetoothCharacteristic !== 'undefined' && bluetoothCharacteristic) {
@@ -2870,7 +3051,7 @@ function updateCatalogStock(id, val) {
                 let grandTotal = 0;
 
                 paidOrders.forEach(order => {
-                    let rawM = order.paymentType || order.paymentMethod || 'Cash';
+                    let rawM = order.method || order.paymentType || order.paymentMethod || 'Cash';
                     let mStr = String(rawM).toLowerCase();
                     let m = 'Cash';
 
