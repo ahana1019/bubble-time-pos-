@@ -641,12 +641,16 @@ async function loadInventory() {
                     </div>
 
                     <!-- ADMIN ONLY: GROSS SALES ANALYTICS TILE -->
-                    <div id="adminGrossSalesAnalyticsCard" class="dashboard-tile" style="display: none; background: #f0fdf4; border-color: #bbf7d0;" onclick="switchView('paneAdminSales', null, 'GROSS SALES ANALYTICS')">
-                        <div class="tile-icon-box" style="background: #dcfce7; border-color: #86efac;">
-                            <svg viewBox="0 0 24 24" style="fill: #16a34a;"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
-                        </div>
-                        <span class="tile-label" style="color: #15803d;">GROSS SALES ANALYTICS (DAILY, MONTHLY & YEARLY)</span>
-                    </div>
+<div id="adminGrossSalesAnalyticsCard" class="dashboard-tile">
+    <a href="https://docs.google.com/spreadsheets/d/1UlMdPHfgbVhJS2dc6eThYTPYNKqJAtZTfAqvilMkO2Y/edit?usp=drivesdk" target="_blank" style="text-decoration: none; color: inherit; display: flex; align-items: center; width: 100%; height: 100%;">
+        <div class="tile-icon-box" style="display: flex; align-items: center; justify-content: center; min-width: 40px; margin-right: 15px;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+        </div>
+        <span class="tile-label" style="color: #155724; font-size: 13px; line-height: 1.2;">GROSS SALES ANALYTICS (DAILY, MONTHLY & YEARLY)</span>
+    </a>
+</div>
+
+
 
                     <!-- ADMIN ONLY: ADMIN SETTINGS & STAFF MANAGEMENT TILE -->
                     <div id="adminHomeSettingsSection" class="dashboard-tile" style="display: none; background: #fdf4ff; border-color: #f5d0fe;" onclick="switchView('paneAdminStaff', null, 'ADMIN SETTINGS & STAFF MANAGEMENT')">
