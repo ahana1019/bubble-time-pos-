@@ -3126,14 +3126,25 @@ function updateCatalogStock(id, val) {
 
         /* DONUT CHART & DASHBOARD METRICS */
         function updateDashboardMetrics() {
-            document.getElementById('dashStaffName').innerText = currentStaff ? currentStaff.name : 'Administrator';
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-            document.getElementById('dashPendingCount').innerText = placedOrders.length;
+    document.getElementById('dashStaffName').innerText = currentStaff ? currentStaff.name : 'Administrator';
+    let placedOrders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
+    document.getElementById('dashPendingCount').innerText = placedOrders.filter(o => o.status === 'Pending' || o.status === 'Unpaid').length;
 
-            let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-            let rev = dailySales.reduce((sum, s) => sum + s.total, 0);
-            document.getElementById('dashRevenue').innerText = `Rs ${rev.toFixed(2)}`;
+    // Calculate today's sales from daily sales or orders storage
+    let todayStr = new Date().toISOString().split('T')[0];
+    let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales') || localStorage.getItem('pos_orders') || '[]');
+    
+    let todaysTotal = 0;
+    dailySales.forEach(s => {
+        let sDate = (s.date || s.timestamp || '').split('T')[0];
+        if (sDate === todayStr || !s.date) { // Falls back safely if date property is structured differently
+            todaysTotal += parseFloat(s.total || s.grandTotal || s.revenue || 0);
         }
+    });
+
+    document.getElementById('dashRevenue').innerText = `Rs ${todaysTotal.toFixed(2)}`;
+}
+
 
         function initSalesDonutChart() {
             const ctx = document.getElementById('salesDonutChart')?.getContext('2d');
