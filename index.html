@@ -1839,7 +1839,7 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
                 renderAdminCatalogEditTable();
             }
             if(paneId === 'paneAdminStaff') renderStaffDirectory();
-            if(paneId === 'paneDashboard') initSalesDonutChart();
+            if (paneId === 'paneDashboard') { initSalesDonutChart(); updateDashboardMetrics(); }
             if(paneId === 'paneRecon') refreshReconData();
             if(paneId === 'panePlacedOrders') renderPlacedOrders();
         }
@@ -3130,23 +3130,39 @@ function updateCatalogStock(id, val) {
     let placedOrders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
     document.getElementById('dashPendingCount').innerText = placedOrders.filter(o => o.status === 'Pending' || o.status === 'Unpaid').length;
 
-    // Pull directly from the reconciliation / daily sales storage keys
-    let reconData = JSON.parse(localStorage.getItem('pos_recon_data') || localStorage.getItem('pos_daily_sales') || '{}');
-    let todaysTotal = parseFloat(reconData.total || reconData.revenue || 0);
+        // Pull directly from reconciliation storage summary
+    let reconSummary = JSON.parse(localStorage.getItem('pos_recon_summary') || '{}');
+    let todaysTotal = parseFloat(reconSummary.total || reconSummary.grandTotal || 0);
 
-    // Fallback: if recon total is 0, sum up today's completed orders
     if (todaysTotal === 0) {
+        // Fallback: sum up all paid/completed orders for today
         let todayStr = new Date().toISOString().split('T')[0];
         placedOrders.forEach(o => {
             let oDate = (o.date || o.timestamp || '').split('T')[0];
-            if (oDate === todayStr && o.status !== 'Cancelled') {
+            if ((oDate === todayStr || !o.date) && o.status !== 'Cancelled') {
                 todaysTotal += parseFloat(o.total || o.grandTotal || 0);
+            }
+        });
+    }
+
+    // If still 0, try reading from daily sales items
+    if (todaysTotal === 0) {
+        let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales') || '[]');
+        dailySales.forEach(s => {
+            if (s.items && Array.isArray(s.items)) {
+                s.items.forEach(i => {
+                    todaysTotal += parseFloat(i.price || 0) * parseInt(i.qty || 1);
+                });
+            } else {
+                todaysTotal += parseFloat(s.total || s.grandTotal || s.revenue || 0);
             }
         });
     }
 
     document.getElementById('dashRevenue').innerText = `Rs ${todaysTotal.toFixed(2)}`;
 }
+
+
 
 
 
