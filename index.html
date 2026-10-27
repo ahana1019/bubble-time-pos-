@@ -2544,88 +2544,80 @@ function updateCatalogStock(id, val) {
         renderAccordion();
     }
 }
-        /* DAILY RECON REPORTS */
-        function refreshReconData() {
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-            
-            const nowStr = new Date().toLocaleString();
-            if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
-            
-            let activeCashierName = 'Alex Valentina';
-            if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
-                activeCashierName = currentStaff.name;
+
+/* DAILY RECON REPORTS */
+function refreshReconData() {
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    
+    const nowStr = new Date().toLocaleString();
+    if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
+    
+    let activeCashierName = 'Administrator';
+    if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
+        activeCashierName = currentStaff.name;
+    }
+    if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = activeCashierName;
+    if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = activeCashierName;
+
+    let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
+    let grandTotal = 0;
+    let itemCounts = {};
+    let totalTransactionsCount = 0;
+
+    placedOrders.forEach(order => {
+        let s = String(order.status || order.paymentStatus || '').toUpperCase();
+        if (s === 'PAID' || s === 'COMPLETED') {
+            let rawM = order.paymentType || order.paymentMethod || order.method || 'Cash';
+            let mStr = String(rawM).toLowerCase();
+            let m = 'Cash';
+
+            if (mStr.includes("blink")) m = "Blink";
+            else if (mStr.includes("card")) m = "Card";
+            else if (mStr.includes("juice")) m = "Juice";
+            else if (mStr.includes("myt")) m = "MyT Money";
+            else if (mStr.includes("delivoo")) m = "Delivoo";
+            else if (mStr.includes("hungry")) m = "Hungry Dodo";
+            else m = "Cash";
+
+            let amt = parseFloat(order.total || order.subtotal || order.amount || 0);
+
+            grandTotal += amt;
+            totalTransactionsCount++;
+
+            if (totals[m] !== undefined) {
+                totals[m] += amt;
             } else {
-                const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || localStorage.getItem('pos_active_cashier') || '{}');
-                if (storedStaff && storedStaff.name) {
-                    activeCashierName = storedStaff.name;
-                } else {
-                    const loggedInDisp = document.getElementById('loggedInUserDisplay');
-                    if (loggedInDisp && loggedInDisp.innerText) {
-                        activeCashierName = loggedInDisp.innerText.replace('👤', '').trim();
-                    }
-                }
+                totals.Cash += amt;
             }
-            let staffName = activeCashierName;
-            if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = staffName;
-            if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = staffName;
 
-            let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
-            let grandTotal = 0;
-            let itemCounts = {};
-            let totalTransactionsCount = 0;
-
-            placedOrders.forEach(order => {
-                if (order.status === 'PAID' || order.paymentStatus === 'PAID') {
-                    let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
-                    let mStr = String(rawM).toLowerCase();
-                    let m = 'Cash';
-
-                    if (mStr.includes("blink")) m = "Blink";
-                    else if (mStr.includes("card")) m = "Card";
-                    else if (mStr.includes("juice")) m = "Juice";
-                    else if (mStr.includes("myt") || mStr.includes("my t")) m = "MyT Money";
-                    else if (mStr.includes("delivoo")) m = "Delivoo";
-                    else if (mStr.includes("hungry")) m = "Hungry Dodo";
-                    else if (mStr.includes("cash")) m = "Cash";
-                    else m = "Cash";
-
-                    let amt = parseFloat(order.total || order.subtotal || order.amount || 0);
-
-                    grandTotal += amt;
-                    totalTransactionsCount++;
-
-                    if (totals[m] !== undefined) {
-                        totals[m] += amt;
-                    } else {
-                        totals.Cash += amt;
-                    }
-
-                    if (order.items && Array.isArray(order.items)) {
-                        order.items.forEach(i => {
-                            let n = i.name || i.title || i.item || 'Item';
-                            let q = parseInt(i.qty || i.quantity || 1);
-                            itemCounts[n] = (itemCounts[n] || 0) + q;
-                        });
-                    }
-                }
-            });
-            const salesBreakdownArray = Object.keys(itemCounts).map(name => ({
-                name: name,
-                quantity: itemCounts[name]
-            }));
-            loadReconSalesBreakdown(salesBreakdownArray);
-
-            if (document.getElementById('adminReconTransCount')) document.getElementById('adminReconTransCount').innerText = totalTransactionsCount;
-            if (document.getElementById('reconCashTotal')) document.getElementById('reconCashTotal').innerText = totals.Cash.toFixed(2);
-            if (document.getElementById('reconCardTotal')) document.getElementById('reconCardTotal').innerText = totals.Card.toFixed(2);
-            if (document.getElementById('reconJuiceTotal')) document.getElementById('reconJuiceTotal').innerText = totals.Juice.toFixed(2);
-            if (document.getElementById('reconMytTotal')) document.getElementById('reconMytTotal').innerText = totals['MyT Money'].toFixed(2);
-            if (document.getElementById('reconBlinkTotal')) document.getElementById('reconBlinkTotal').innerText = totals.Blink.toFixed(2);
-            if (document.getElementById('reconDelivooTotal')) document.getElementById('reconDelivooTotal').innerText = totals.Delivoo.toFixed(2);
-            if (document.getElementById('reconHungryDodoTotal')) document.getElementById('reconHungryDodoTotal').innerText = totals['Hungry Dodo'].toFixed(2);
-            if (document.getElementById('reconGrandTotal')) document.getElementById('reconGrandTotal').innerText = grandTotal.toFixed(2);
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach(i => {
+                    let n = i.name || i.title || 'Item';
+                    let q = parseInt(i.qty || i.quantity || 1);
+                    itemCounts[n] = (itemCounts[n] || 0) + q;
+                });
+            }
         }
+    });
 
+    const salesBreakdownArray = Object.keys(itemCounts).map(name => ({
+        name: name,
+        quantity: itemCounts[name]
+    }));
+    loadReconSalesBreakdown(salesBreakdownArray);
+
+    if (document.getElementById('adminReconTransCount')) document.getElementById('adminReconTransCount').innerText = totalTransactionsCount;
+    if (document.getElementById('reconCashTotal')) document.getElementById('reconCashTotal').innerText = totals.Cash.toFixed(2);
+    if (document.getElementById('reconCardTotal')) document.getElementById('reconCardTotal').innerText = totals.Card.toFixed(2);
+    if (document.getElementById('reconJuiceTotal')) document.getElementById('reconJuiceTotal').innerText = totals.Juice.toFixed(2);
+    if (document.getElementById('reconMytTotal')) document.getElementById('reconMytTotal').innerText = totals['MyT Money'].toFixed(2);
+    if (document.getElementById('reconBlinkTotal')) document.getElementById('reconBlinkTotal').innerText = totals.Blink.toFixed(2);
+    if (document.getElementById('reconDelivooTotal')) document.getElementById('reconDelivooTotal').innerText = totals.Delivoo.toFixed(2);
+    if (document.getElementById('reconHungryDodoTotal')) document.getElementById('reconHungryDodoTotal').innerText = totals['Hungry Dodo'].toFixed(2);
+    if (document.getElementById('reconGrandTotal')) document.getElementById('reconGrandTotal').innerText = grandTotal.toFixed(2);
+}
+
+      
         function printCombinedDailySalesReport() {
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
             
@@ -3123,93 +3115,102 @@ function updateCatalogStock(id, val) {
                 refreshReconData();
             });
         }
-
-        /* DONUT CHART & DASHBOARD METRICS */
-        function updateDashboardMetrics() {
+/* DONUT CHART & DASHBOARD METRICS */
+function updateDashboardMetrics() {
     // 1. Set staff name
     const staffNameEl = document.getElementById('dashStaffName');
     if (staffNameEl) staffNameEl.innerText = currentStaff ? currentStaff.name : 'Administrator';
 
     // 2. Count pending orders
-    const placedOrders = JSON.parse(localStorage.getItem('pos_orders') || localStorage.getItem('pos_placed_orders') || '[]');
+    const placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
     const pendingEl = document.getElementById('dashPendingCount');
     if (pendingEl) {
-        pendingEl.innerText = placedOrders.filter(o => o.status === 'Pending' || o.status === 'Unpaid').length;
+        pendingEl.innerText = placedOrders.filter(o => {
+            let s = String(o.status || o.paymentStatus || '').toUpperCase();
+            return s === 'PENDING' || s === 'UNPAID';
+        }).length;
     }
 
-    // 3. Get total directly from daily sales items or fallback to calculated recon
+    // 3. Calculate today's total from active paid orders
     let todaysTotal = 0;
-    const dailySales = JSON.parse(localStorage.getItem('pos_daily_sales') || '[]');
-    
-    dailySales.forEach(s => {
-        if (s.items && Array.isArray(s.items)) {
-            s.items.forEach(i => {
-                todaysTotal += parseFloat(i.price || 0) * parseInt(i.qty || 1);
-            });
+    placedOrders.forEach(order => {
+        let s = String(order.status || order.paymentStatus || '').toUpperCase();
+        if (s === 'PAID' || s === 'COMPLETED') {
+            todaysTotal += parseFloat(order.total || order.subtotal || order.amount || 0);
         }
     });
 
-    // If 0, calculate from placed orders for today
+    // Fallback if active orders were cleared after closing shift
     if (todaysTotal === 0) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        placedOrders.forEach(o => {
-            const oDate = (o.date || o.timestamp || '').split('T')[0];
-            if ((oDate === todayStr || !o.date) && o.status !== 'Cancelled') {
-                todaysTotal += parseFloat(o.total || o.grandTotal || 0);
-            }
+        const dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history') || '[]');
+        dailySales.forEach(s => {
+            todaysTotal += parseFloat(s.total || s.amount || s.revenue || 0);
         });
     }
 
-    // Hardcode fallback to match your current 630 recon if arrays are cleared/reset
-    if (todaysTotal === 0) {
-        todaysTotal = 630;
-    }
-
-    // 4. Update the dashboard revenue element
+    // 4. Update the dashboard revenue element automatically
     const revenueEl = document.getElementById('dashRevenue');
     if (revenueEl) {
         revenueEl.innerText = `Rs ${todaysTotal.toFixed(2)}`;
     }
 }
 
+function initSalesDonutChart() {
+    const ctx = document.getElementById('salesDonutChart')?.getContext('2d');
+    if(!ctx) return;
 
+    if(donutChartInstance) donutChartInstance.destroy();
 
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    let catTotals = {};
 
-
-        function initSalesDonutChart() {
-            const ctx = document.getElementById('salesDonutChart')?.getContext('2d');
-            if(!ctx) return;
-
-            if(donutChartInstance) donutChartInstance.destroy();
-
-            let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-            let catTotals = {};
-
-            dailySales.forEach(s => {
-                s.items.forEach(i => {
-                    catTotals[i.cat] = (catTotals[i.cat] || 0) + (i.price * i.qty);
+    placedOrders.forEach(order => {
+        let s = String(order.status || order.paymentStatus || '').toUpperCase();
+        if (s === 'PAID' || s === 'COMPLETED') {
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach(i => {
+                    let catName = i.cat || 'OTHER';
+                    let itemTotal = parseFloat(i.price || 0) * parseInt(i.qty || i.quantity || 1);
+                    catTotals[catName] = (catTotals[catName] || 0) + itemTotal;
                 });
-            });
-
-            const labels = Object.keys(catTotals).length > 0 ? Object.keys(catTotals) : ['No Sales'];
-            const data = Object.keys(catTotals).length > 0 ? Object.values(catTotals) : [1];
-
-            donutChartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: ['#f59e0b', '#2563eb', '#16a34a', '#dc2626', '#9333ea', '#0284c7', '#d97706']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
+            }
         }
+    });
+
+    // Fallback to daily sales history if active orders are empty
+    if (Object.keys(catTotals).length === 0) {
+        let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history') || '[]');
+        dailySales.forEach(s => {
+            if (s.items && Array.isArray(s.items)) {
+                s.items.forEach(i => {
+                    let catName = i.cat || 'OTHER';
+                    let itemTotal = parseFloat(i.price || 0) * parseInt(i.qty || i.quantity || 1);
+                    catTotals[catName] = (catTotals[catName] || 0) + itemTotal;
+                });
+            }
+        });
+    }
+
+    const labels = Object.keys(catTotals).length > 0 ? Object.keys(catTotals) : ['No Sales'];
+    const data = Object.keys(catTotals).length > 0 ? Object.values(catTotals) : [1];
+
+    donutChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: ['#f59e0b', '#2563eb', '#16a34a', '#dc2626', '#9333ea', '#0284c7', '#d97706']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+
 
         function resetAllSalesAndShiftData() {
             if (confirm("Clear all sales data?")) {
