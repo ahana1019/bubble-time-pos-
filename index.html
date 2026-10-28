@@ -588,13 +588,10 @@ async function loadInventory() {
     <option value="Valentina">Valentina</option>
   </select>
 
-      <select id="attStaffSelect" style="width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#1e293b; font-size:0.9rem;">
-  <option value="">-- Select Staff --</option>
-  <option value="Ahana Lead">Ahana Lead</option>
-  <option value="Alex Valentina">Alex Valentina</option>
-</select>
-
-
+  <!-- Dynamic Attendance Staff Selector -->
+  <select id="attStaffSelect" style="width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; color:#1e293b; font-size:0.9rem;">
+    <option value="">-- Select Staff --</option>
+  </select>
 
   <!-- Action Buttons -->
   <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
@@ -1240,6 +1237,7 @@ async function loadInventory() {
                     selectEl.appendChild(opt);
                 });
             }
+            updateAttendanceStaffDropdown();
         }
 
         let currentStaff = null;
@@ -2924,12 +2922,13 @@ function refreshReconData() {
             if (!attSelect) return;
 
             attSelect.innerHTML = '<option value="">-- Select Staff --</option>';
-            const staffList = ["Ahana Lead", "Alex Valentina"];
 
-            staffList.forEach(name => {
+            staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
+
+            staffList.forEach(s => {
                 let opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name;
+                opt.value = s.name;
+                opt.textContent = s.name;
                 attSelect.appendChild(opt);
             });
         }
@@ -3240,6 +3239,7 @@ function initSalesDonutChart() {
             document.getElementById('homeNewStaffUserInput').value = '';
             document.getElementById('homeNewStaffPinInput').value = '';
             renderStaffDirectory();
+            populateLoginDropdown();
             showModal("Staff Added", `Staff member ${name} created successfully.`);
         }
 
@@ -3266,6 +3266,7 @@ function initSalesDonutChart() {
                     staffList.splice(idx, 1);
                     localStorage.setItem('pos_staff_list', JSON.stringify(staffList));
                     renderStaffDirectory();
+                    populateLoginDropdown();
                 }
             });
         }
