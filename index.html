@@ -465,9 +465,80 @@
 
 <script>
   // SUPABASE INITIALIZATION
-  const SUPABASE_URL = https://pwchodxnnrxcrntaiosz.supabase.co
+  const SUPABASE_URL = "https://pwchodxnnrxcrntaiosz.supabase.co";
   const SUPABASE_KEY = "sb_publishable_AgGIv2KvXKcQPE-nCQ5_sQ_s0EgwnBK";
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let supabaseOrdersCache = [];
+
+  function isAdminLoggedIn() {
+    if (typeof currentStaff === 'undefined' || !currentStaff) return false;
+    const uname = (currentStaff.username || '').toLowerCase();
+    const sname = (currentStaff.name || '').toLowerCase();
+    return uname.includes('admin') || sname.includes('admin') || uname === 'admin';
+  }
+
+  async function syncOrderToSupabase(order) {
+    try {
+      const payload = {
+        id: String(order.id),
+        cashier: typeof order.cashier === 'object' ? (order.cashier?.name || 'Staff') : (order.cashier || 'Staff'),
+        timestamp: order.timestamp || new Date().toLocaleString(),
+        date: order.date || new Date().toLocaleString('en-GB'),
+        items: order.items || [],
+        total: Number(order.total || 0),
+        discount_label: order.discountLabel || null,
+        discount_amount: Number(order.discountAmount || 0),
+        method: order.method || order.paymentMethod || 'Cash',
+        status: order.status || 'PAID'
+      };
+      await supabaseClient.from('placed_orders').upsert(payload);
+    } catch (err) {
+      console.error('Error syncing order to Supabase:', err);
+    }
+  }
+
+  async function deleteOrderFromSupabase(orderId) {
+    try {
+      await supabaseClient.from('placed_orders').delete().eq('id', String(orderId));
+    } catch (err) {
+      console.error('Error deleting order from Supabase:', err);
+    }
+  }
+
+  async function loadLiveOrdersForAdmin() {
+    if (!isAdminLoggedIn()) return;
+    try {
+      const { data, error } = await supabaseClient
+        .from('placed_orders')
+        .select('*');
+      if (!error && Array.isArray(data)) {
+        supabaseOrdersCache = data.map(row => ({
+          ...row,
+          discountLabel: row.discount_label || row.discountLabel || null,
+          discountAmount: row.discount_amount || row.discountAmount || 0,
+          paymentType: row.method || 'Cash',
+          paymentMethod: row.method || 'Cash',
+          items: Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : [])
+        }));
+        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+        if (typeof refreshReconData === 'function') refreshReconData();
+        if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+      }
+    } catch (err) {
+      console.error('Error loading live orders for Admin:', err);
+    }
+  }
+
+  // REALTIME ORDERS SYNC (All Outlet Tablets -> Admin Laptop)
+  supabaseClient
+    .channel('public:placed_orders')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'placed_orders' }, () => {
+      if (isAdminLoggedIn()) {
+        loadLiveOrdersForAdmin();
+      }
+    })
+    .subscribe();
 
 // REALTIME INVENTORY SYNC (Laptop & Tablet)
 supabaseClient
@@ -1801,6 +1872,10 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
                 document.getElementById('adminHomeSettingsSection').style.display = isAdmin ? 'flex' : 'none';
                 document.getElementById('homeInventoryTile').style.display = isAdmin ? 'flex' : 'none';
 
+                if (isAdmin) {
+                    loadLiveOrdersForAdmin();
+                }
+
                 switchView('paneRegister', document.querySelectorAll('.bottom-nav .nav-item')[1], 'POS REGISTER');
                 renderAccordion();
                 renderPlacedOrders();
@@ -1835,9 +1910,19 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
                 renderAdminCatalogEditTable();
             }
             if(paneId === 'paneAdminStaff') renderStaffDirectory();
-            if (paneId === 'paneDashboard') { initSalesDonutChart(); updateDashboardMetrics(); }
-            if(paneId === 'paneRecon') refreshReconData();
-            if(paneId === 'panePlacedOrders') renderPlacedOrders();
+            if (paneId === 'paneDashboard') {
+                if (isAdminLoggedIn()) loadLiveOrdersForAdmin();
+                initSalesDonutChart();
+                updateDashboardMetrics();
+            }
+            if(paneId === 'paneRecon') {
+                if (isAdminLoggedIn()) loadLiveOrdersForAdmin();
+                refreshReconData();
+            }
+            if(paneId === 'panePlacedOrders') {
+                if (isAdminLoggedIn()) loadLiveOrdersForAdmin();
+                renderPlacedOrders();
+            }
         }
 
         /* MENU CATALOG & ACCORDION RENDER */
@@ -2179,7 +2264,10 @@ function getRecipeIngredients(productName, category) {
             }
             localStorage.setItem('pos_order_seq', orderSeq);
 
-            const orderId = 'ORD-' + datePrefix + String(orderSeq).padStart(3, '0');
+            const staffCode = (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.username)
+                ? currentStaff.username.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase()
+                : 'STF';
+            const orderId = 'ORD-' + datePrefix + String(orderSeq).padStart(3, '0') + '-' + staffCode;
             const timestamp = new Date().toLocaleString('en-GB');
 
             let total = 0;
@@ -2225,6 +2313,10 @@ function getRecipeIngredients(productName, category) {
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
             placedOrders.push(newOrder);
             localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+            syncOrderToSupabase(newOrder);
+            if (isAdminLoggedIn()) {
+                loadLiveOrdersForAdmin();
+            }
 
                // Automatically deduct finished catalog stock AND raw store inventory
             cart.forEach(cartItem => {
@@ -2306,11 +2398,18 @@ function getRecipeIngredients(productName, category) {
             if (typeof refreshReconData === 'function') refreshReconData();
         }
         /* PLACED ORDERS & SETTLEMENT */
+        function getActiveOrdersList() {
+            if (isAdminLoggedIn() && supabaseOrdersCache.length > 0) {
+                return supabaseOrdersCache;
+            }
+            return JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+        }
+
         function renderPlacedOrders() {
             const container = document.getElementById('placedOrdersListContainer');
             if (!container) return;
             
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+            let placedOrders = getActiveOrdersList();
 
             if (placedOrders.length === 0) {
                 container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
@@ -2332,7 +2431,7 @@ function getRecipeIngredients(productName, category) {
                             <span>${ord.id}</span>
                             <span style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</span>
                         </div>
-                        <div style="font-size:0.75rem; color:#64748b; margin-top: 2px;">${ord.cashier?.name || ord.cashier || 'Staff'} | Rs ${ord.total.toFixed(2)} (${ord.method || 'Cash'})</div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-top: 2px;">${ord.cashier?.name || ord.cashier || 'Staff'} | Rs ${Number(ord.total || 0).toFixed(2)} (${ord.method || 'Cash'})</div>
                     </div>
                 `;
                 container.appendChild(div);
@@ -2341,7 +2440,7 @@ function getRecipeIngredients(productName, category) {
 
                 function selectPlacedOrder(orderId) {
             selectedPlacedOrderId = orderId;
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+            let placedOrders = getActiveOrdersList();
             const ord = placedOrders.find(o => o.id === orderId);
             if(!ord) return;
 
@@ -2370,7 +2469,7 @@ function getRecipeIngredients(productName, category) {
                     tableHtml += `<div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.85rem; color:#059669; font-weight:600;"><span>Discount (${ord.discountLabel || 'Promo'}):</span><span>-Rs ${ord.discountAmount.toFixed(2)}</span></div>`;
                 }
 
-                tableHtml += `<div style="text-align:right; font-weight:bold; margin-top:8px; font-size:0.9rem;">Total: Rs ${ord.total.toFixed(2)}</div>`;
+                tableHtml += `<div style="text-align:right; font-weight:bold; margin-top:8px; font-size:0.9rem;">Total: Rs ${Number(ord.total || 0).toFixed(2)}</div>`;
                 itemsContainer.innerHTML = tableHtml;
             }
         }
@@ -2379,10 +2478,16 @@ function getRecipeIngredients(productName, category) {
         function setPaymentStatus(status) {
             if(!selectedPlacedOrderId) return;
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            let ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
             if(ord) {
                 ord.status = status;
                 localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+            } else if (isAdminLoggedIn()) {
+                ord = supabaseOrdersCache.find(o => o.id === selectedPlacedOrderId);
+                if (ord) ord.status = status;
+            }
+            if(ord) {
+                syncOrderToSupabase(ord);
                 selectPlacedOrder(selectedPlacedOrderId);
             }
         }
@@ -2390,11 +2495,20 @@ function getRecipeIngredients(productName, category) {
         function settleCurrentSelectedOrder(method) {
             if(!selectedPlacedOrderId) return;
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            let ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
             if(ord) {
                 ord.method = method;
                 ord.status = 'PAID';
                 localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+            } else if (isAdminLoggedIn()) {
+                ord = supabaseOrdersCache.find(o => o.id === selectedPlacedOrderId);
+                if (ord) {
+                    ord.method = method;
+                    ord.status = 'PAID';
+                }
+            }
+            if(ord) {
+                syncOrderToSupabase(ord);
                 selectPlacedOrder(selectedPlacedOrderId);
             }
         }
@@ -2405,10 +2519,16 @@ function getRecipeIngredients(productName, category) {
                 return;
             }
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            let ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
             if(ord) {
                 ord.status = 'PAID';
                 localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+            } else if (isAdminLoggedIn()) {
+                ord = supabaseOrdersCache.find(o => o.id === selectedPlacedOrderId);
+                if (ord) ord.status = 'PAID';
+            }
+            if(ord) {
+                syncOrderToSupabase(ord);
                 renderPlacedOrders();
                 if (typeof refreshReconData === 'function') {
                     refreshReconData();
@@ -2430,6 +2550,8 @@ function getRecipeIngredients(productName, category) {
                     let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
                     placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
                     localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                    supabaseOrdersCache = supabaseOrdersCache.filter(o => o.id !== selectedPlacedOrderId);
+                    deleteOrderFromSupabase(selectedPlacedOrderId);
                     selectedPlacedOrderId = null;
                     renderPlacedOrders();
                     refreshReconData();
@@ -2574,14 +2696,14 @@ function deleteCatalogProduct(id) {
 
 /* DAILY RECON REPORTS */
 function refreshReconData() {
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    let placedOrders = getActiveOrdersList();
     
     const nowStr = new Date().toLocaleString();
     if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
     
     let activeCashierName = 'Administrator';
     if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
-        activeCashierName = currentStaff.name;
+        activeCashierName = isAdminLoggedIn() ? `${currentStaff.name} (All Outlets Live)` : currentStaff.name;
     }
     if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = activeCashierName;
     if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = activeCashierName;
@@ -2646,7 +2768,7 @@ function refreshReconData() {
 
       
         function printCombinedDailySalesReport() {
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+            let placedOrders = getActiveOrdersList();
             
             let dailySales = placedOrders.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID').map(order => {
                 let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
@@ -2766,7 +2888,7 @@ function refreshReconData() {
                     }
                 }
             }
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+            let placedOrders = getActiveOrdersList();
             let paidOrders = placedOrders.filter(order => {
                 let s = String(order.status || order.paymentStatus || '').toUpperCase();
                 return s === 'PAID' || s === 'COMPLETED';
@@ -2912,7 +3034,7 @@ function refreshReconData() {
         showModal("Notice", "Please select an order from the list first.");
         return;
     }
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    let placedOrders = getActiveOrdersList();
     const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
     if (ord) {
         await printThermalReceipt(ord);
@@ -3048,7 +3170,7 @@ function refreshReconData() {
         }
 
         function approveCloseShiftAndPrintReport() {
-            let checkOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+            let checkOrders = getActiveOrdersList();
             let checkPaid = checkOrders.filter(o => {
                 let s = String(o.status || o.paymentStatus || '').toUpperCase();
                 return s === 'PAID' || s === 'COMPLETED';
@@ -3063,7 +3185,7 @@ function refreshReconData() {
                 if (!confirmed) return;
 
                 let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-                let paidOrders = placedOrders.filter(order => {
+                let paidOrders = checkOrders.filter(order => {
                     let s = String(order.status || order.paymentStatus || '').toUpperCase();
                     return s === 'PAID' || s === 'COMPLETED';
                 });
@@ -3150,7 +3272,7 @@ function updateDashboardMetrics() {
     if (staffNameEl) staffNameEl.innerText = currentStaff ? currentStaff.name : 'Administrator';
 
     // 2. Count pending orders
-    const placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    const placedOrders = getActiveOrdersList();
     const pendingEl = document.getElementById('dashPendingCount');
     if (pendingEl) {
         pendingEl.innerText = placedOrders.filter(o => {
@@ -3189,7 +3311,7 @@ function initSalesDonutChart() {
 
     if(donutChartInstance) donutChartInstance.destroy();
 
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+    let placedOrders = getActiveOrdersList();
     let catTotals = {};
 
     placedOrders.forEach(order => {
@@ -3426,3 +3548,4 @@ function initSalesDonutChart() {
     </script>
 </body>
 </html>
+
