@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -31,7 +31,7 @@
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            p adding: 0;
+            padding: 0;
             height: 100vh;
             height: 100dvh;
             display: flex;
@@ -465,7 +465,7 @@
 
 <script>
   // SUPABASE INITIALIZATION
-  const SUPABASE_URL = "https://pwchodxnnrxcrntaiosz.supabase.co";
+  const SUPABASE_URL = https://pwchodxnnrxcrntaiosz.supabase.co
   const SUPABASE_KEY = "sb_publishable_AgGIv2KvXKcQPE-nCQ5_sQ_s0EgwnBK";
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -2539,6 +2539,37 @@ function updateCatalogStock(id, val) {
         localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
         renderAccordion();
     }
+}
+function updateCatalogStock(id, val) {
+    const p = products.find(prod => prod.id === id);
+    if(p) {
+        p.stock = parseInt(val) || 0;
+        localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+        renderAccordion();
+    }
+}
+
+function updateCatalogPrice(id, val) {
+    const p = products.find(prod => prod.id === id);
+    if (p) {
+        p.price = parseFloat(val) || 0;
+        localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+        renderAccordion();
+    }
+}
+
+function deleteCatalogProduct(id) {
+    const prod = products.find(p => p.id === id);
+    if (!prod) return;
+
+    showModal("Delete Product", `Are you sure you want to delete "${prod.name}"?`, true, (confirmed) => {
+        if (confirmed) {
+            products = products.filter(p => p.id !== id);
+            localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+            renderAccordion();
+            renderAdminCatalogEditTable();
+        }
+    });
 }
 
 /* DAILY RECON REPORTS */
