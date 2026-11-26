@@ -465,80 +465,9 @@
 
 <script>
   // SUPABASE INITIALIZATION
-  const SUPABASE_URL = "https://pwchodxnnrxcrntaiosz.supabase.co";
+  const SUPABASE_URL = https://pwchodxnnrxcrntaiosz.supabase.co
   const SUPABASE_KEY = "sb_publishable_AgGIv2KvXKcQPE-nCQ5_sQ_s0EgwnBK";
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-  let supabaseOrdersCache = [];
-
-  function isAdminLoggedIn() {
-    if (typeof currentStaff === 'undefined' || !currentStaff) return false;
-    const uname = (currentStaff.username || '').toLowerCase();
-    const sname = (currentStaff.name || '').toLowerCase();
-    return uname.includes('admin') || sname.includes('admin') || uname === 'admin';
-  }
-
-  async function syncOrderToSupabase(order) {
-    try {
-      const payload = {
-        id: String(order.id),
-        cashier: typeof order.cashier === 'object' ? (order.cashier?.name || 'Staff') : (order.cashier || 'Staff'),
-        timestamp: order.timestamp || new Date().toLocaleString(),
-        date: order.date || new Date().toLocaleString('en-GB'),
-        items: order.items || [],
-        total: Number(order.total || 0),
-        discount_label: order.discountLabel || null,
-        discount_amount: Number(order.discountAmount || 0),
-        method: order.method || order.paymentMethod || 'Cash',
-        status: order.status || 'PAID'
-      };
-      await supabaseClient.from('placed_orders').upsert(payload);
-    } catch (err) {
-      console.error('Error syncing order to Supabase:', err);
-    }
-  }
-
-  async function deleteOrderFromSupabase(orderId) {
-    try {
-      await supabaseClient.from('placed_orders').delete().eq('id', String(orderId));
-    } catch (err) {
-      console.error('Error deleting order from Supabase:', err);
-    }
-  }
-
-  async function loadLiveOrdersForAdmin() {
-    if (!isAdminLoggedIn()) return;
-    try {
-      const { data, error } = await supabaseClient
-        .from('placed_orders')
-        .select('*');
-      if (!error && Array.isArray(data)) {
-        supabaseOrdersCache = data.map(row => ({
-          ...row,
-          discountLabel: row.discount_label || row.discountLabel || null,
-          discountAmount: row.discount_amount || row.discountAmount || 0,
-          paymentType: row.method || 'Cash',
-          paymentMethod: row.method || 'Cash',
-          items: Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : [])
-        }));
-        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
-        if (typeof refreshReconData === 'function') refreshReconData();
-        if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
-      }
-    } catch (err) {
-      console.error('Error loading live orders for Admin:', err);
-    }
-  }
-
-  // REALTIME ORDERS SYNC (All Outlet Tablets -> Admin Laptop)
-  supabaseClient
-    .channel('public:placed_orders')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'placed_orders' }, () => {
-      if (isAdminLoggedIn()) {
-        loadLiveOrdersForAdmin();
-      }
-    })
-    .subscribe();
 
 // REALTIME INVENTORY SYNC (Laptop & Tablet)
 supabaseClient
@@ -1872,10 +1801,6 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
                 document.getElementById('adminHomeSettingsSection').style.display = isAdmin ? 'flex' : 'none';
                 document.getElementById('homeInventoryTile').style.display = isAdmin ? 'flex' : 'none';
 
-                if (isAdmin) {
-                    loadLiveOrdersForAdmin();
-                }
-
                 switchView('paneRegister', document.querySelectorAll('.bottom-nav .nav-item')[1], 'POS REGISTER');
                 renderAccordion();
                 renderPlacedOrders();
@@ -1910,19 +1835,9 @@ let closedShiftRecords = JSON.parse(localStorage.getItem('pos_closed_shift_recor
                 renderAdminCatalogEditTable();
             }
             if(paneId === 'paneAdminStaff') renderStaffDirectory();
-            if (paneId === 'paneDashboard') {
-                if (isAdminLoggedIn()) loadLiveOrdersForAdmin();
-                initSalesDonutChart();
-                updateDashboardMetrics();
-            }
-            if(paneId === 'paneRecon') {
-                if (isAdminLoggedIn()) loadLiveOrdersForAdmin();
-                refreshReconData();
-            }
-            if(paneId === 'panePlacedOrders') {
-                if (isAdminLoggedIn()) loadLiveOrdersForAdmin();
-                renderPlacedOrders();
-            }
+            if (paneId === 'paneDashboard') { initSalesDonutChart(); updateDashboardMetrics(); }
+            if(paneId === 'paneRecon') refreshReconData();
+            if(paneId === 'panePlacedOrders') renderPlacedOrders();
         }
 
         /* MENU CATALOG & ACCORDION RENDER */
@@ -2264,10 +2179,7 @@ function getRecipeIngredients(productName, category) {
             }
             localStorage.setItem('pos_order_seq', orderSeq);
 
-            const staffCode = (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.username)
-                ? currentStaff.username.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase()
-                : 'STF';
-            const orderId = 'ORD-' + datePrefix + String(orderSeq).padStart(3, '0') + '-' + staffCode;
+            const orderId = 'ORD-' + datePrefix + String(orderSeq).padStart(3, '0');
             const timestamp = new Date().toLocaleString('en-GB');
 
             let total = 0;
@@ -2313,10 +2225,6 @@ function getRecipeIngredients(productName, category) {
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
             placedOrders.push(newOrder);
             localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-            syncOrderToSupabase(newOrder);
-            if (isAdminLoggedIn()) {
-                loadLiveOrdersForAdmin();
-            }
 
                // Automatically deduct finished catalog stock AND raw store inventory
             cart.forEach(cartItem => {
@@ -2398,18 +2306,11 @@ function getRecipeIngredients(productName, category) {
             if (typeof refreshReconData === 'function') refreshReconData();
         }
         /* PLACED ORDERS & SETTLEMENT */
-        function getActiveOrdersList() {
-            if (isAdminLoggedIn() && supabaseOrdersCache.length > 0) {
-                return supabaseOrdersCache;
-            }
-            return JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-        }
-
         function renderPlacedOrders() {
             const container = document.getElementById('placedOrdersListContainer');
             if (!container) return;
             
-            let placedOrders = getActiveOrdersList();
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
 
             if (placedOrders.length === 0) {
                 container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
@@ -2431,7 +2332,7 @@ function getRecipeIngredients(productName, category) {
                             <span>${ord.id}</span>
                             <span style="color:${ord.status === 'PAID' ? '#059669' : '#dc2626'}">${ord.status}</span>
                         </div>
-                        <div style="font-size:0.75rem; color:#64748b; margin-top: 2px;">${ord.cashier?.name || ord.cashier || 'Staff'} | Rs ${Number(ord.total || 0).toFixed(2)} (${ord.method || 'Cash'})</div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-top: 2px;">${ord.cashier?.name || ord.cashier || 'Staff'} | Rs ${ord.total.toFixed(2)} (${ord.method || 'Cash'})</div>
                     </div>
                 `;
                 container.appendChild(div);
@@ -2440,7 +2341,7 @@ function getRecipeIngredients(productName, category) {
 
                 function selectPlacedOrder(orderId) {
             selectedPlacedOrderId = orderId;
-            let placedOrders = getActiveOrdersList();
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
             const ord = placedOrders.find(o => o.id === orderId);
             if(!ord) return;
 
@@ -2469,7 +2370,7 @@ function getRecipeIngredients(productName, category) {
                     tableHtml += `<div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.85rem; color:#059669; font-weight:600;"><span>Discount (${ord.discountLabel || 'Promo'}):</span><span>-Rs ${ord.discountAmount.toFixed(2)}</span></div>`;
                 }
 
-                tableHtml += `<div style="text-align:right; font-weight:bold; margin-top:8px; font-size:0.9rem;">Total: Rs ${Number(ord.total || 0).toFixed(2)}</div>`;
+                tableHtml += `<div style="text-align:right; font-weight:bold; margin-top:8px; font-size:0.9rem;">Total: Rs ${ord.total.toFixed(2)}</div>`;
                 itemsContainer.innerHTML = tableHtml;
             }
         }
@@ -2478,16 +2379,10 @@ function getRecipeIngredients(productName, category) {
         function setPaymentStatus(status) {
             if(!selectedPlacedOrderId) return;
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-            let ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
             if(ord) {
                 ord.status = status;
                 localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-            } else if (isAdminLoggedIn()) {
-                ord = supabaseOrdersCache.find(o => o.id === selectedPlacedOrderId);
-                if (ord) ord.status = status;
-            }
-            if(ord) {
-                syncOrderToSupabase(ord);
                 selectPlacedOrder(selectedPlacedOrderId);
             }
         }
@@ -2495,20 +2390,11 @@ function getRecipeIngredients(productName, category) {
         function settleCurrentSelectedOrder(method) {
             if(!selectedPlacedOrderId) return;
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-            let ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
             if(ord) {
                 ord.method = method;
                 ord.status = 'PAID';
                 localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-            } else if (isAdminLoggedIn()) {
-                ord = supabaseOrdersCache.find(o => o.id === selectedPlacedOrderId);
-                if (ord) {
-                    ord.method = method;
-                    ord.status = 'PAID';
-                }
-            }
-            if(ord) {
-                syncOrderToSupabase(ord);
                 selectPlacedOrder(selectedPlacedOrderId);
             }
         }
@@ -2519,16 +2405,10 @@ function getRecipeIngredients(productName, category) {
                 return;
             }
             let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-            let ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+            const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
             if(ord) {
                 ord.status = 'PAID';
                 localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-            } else if (isAdminLoggedIn()) {
-                ord = supabaseOrdersCache.find(o => o.id === selectedPlacedOrderId);
-                if (ord) ord.status = 'PAID';
-            }
-            if(ord) {
-                syncOrderToSupabase(ord);
                 renderPlacedOrders();
                 if (typeof refreshReconData === 'function') {
                     refreshReconData();
@@ -2550,8 +2430,6 @@ function getRecipeIngredients(productName, category) {
                     let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
                     placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
                     localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
-                    supabaseOrdersCache = supabaseOrdersCache.filter(o => o.id !== selectedPlacedOrderId);
-                    deleteOrderFromSupabase(selectedPlacedOrderId);
                     selectedPlacedOrderId = null;
                     renderPlacedOrders();
                     refreshReconData();
@@ -2696,14 +2574,14 @@ function deleteCatalogProduct(id) {
 
 /* DAILY RECON REPORTS */
 function refreshReconData() {
-    let placedOrders = getActiveOrdersList();
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
     
     const nowStr = new Date().toLocaleString();
     if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
     
     let activeCashierName = 'Administrator';
     if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
-        activeCashierName = isAdminLoggedIn() ? `${currentStaff.name} (All Outlets Live)` : currentStaff.name;
+        activeCashierName = currentStaff.name;
     }
     if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = activeCashierName;
     if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = activeCashierName;
@@ -2768,7 +2646,7 @@ function refreshReconData() {
 
       
         function printCombinedDailySalesReport() {
-            let placedOrders = getActiveOrdersList();
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
             
             let dailySales = placedOrders.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID').map(order => {
                 let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
@@ -2888,7 +2766,7 @@ function refreshReconData() {
                     }
                 }
             }
-            let placedOrders = getActiveOrdersList();
+            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
             let paidOrders = placedOrders.filter(order => {
                 let s = String(order.status || order.paymentStatus || '').toUpperCase();
                 return s === 'PAID' || s === 'COMPLETED';
@@ -3034,7 +2912,7 @@ function refreshReconData() {
         showModal("Notice", "Please select an order from the list first.");
         return;
     }
-    let placedOrders = getActiveOrdersList();
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
     const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
     if (ord) {
         await printThermalReceipt(ord);
@@ -3170,7 +3048,7 @@ function refreshReconData() {
         }
 
         function approveCloseShiftAndPrintReport() {
-            let checkOrders = getActiveOrdersList();
+            let checkOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
             let checkPaid = checkOrders.filter(o => {
                 let s = String(o.status || o.paymentStatus || '').toUpperCase();
                 return s === 'PAID' || s === 'COMPLETED';
@@ -3185,7 +3063,7 @@ function refreshReconData() {
                 if (!confirmed) return;
 
                 let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-                let paidOrders = checkOrders.filter(order => {
+                let paidOrders = placedOrders.filter(order => {
                     let s = String(order.status || order.paymentStatus || '').toUpperCase();
                     return s === 'PAID' || s === 'COMPLETED';
                 });
@@ -3272,7 +3150,7 @@ function updateDashboardMetrics() {
     if (staffNameEl) staffNameEl.innerText = currentStaff ? currentStaff.name : 'Administrator';
 
     // 2. Count pending orders
-    const placedOrders = getActiveOrdersList();
+    const placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
     const pendingEl = document.getElementById('dashPendingCount');
     if (pendingEl) {
         pendingEl.innerText = placedOrders.filter(o => {
@@ -3311,7 +3189,7 @@ function initSalesDonutChart() {
 
     if(donutChartInstance) donutChartInstance.destroy();
 
-    let placedOrders = getActiveOrdersList();
+    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
     let catTotals = {};
 
     placedOrders.forEach(order => {
@@ -3543,9 +3421,130 @@ function initSalesDonutChart() {
             else if (/\bMyT\b/i.test(t)) el.value = "MyT Money";
             else if (/\bBlink\b/i.test(t)) el.value = "Blink";
             else if (/\bDelivoo\b/i.test(t)) el.value = "Delivoo";
-            else if (/\bHungry\b/i.test(t)) el.value = "Hungry Dodo";
+            else if (/\bHungry\b/i.test(t)) el.value = "Hungry Dodo"
+     });
+     function downloadLocalStorageBackup() {
+  const backup = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    try {
+      backup[key] = JSON.parse(localStorage.getItem(key));
+    } catch {
+      backup[key] = localStorage.getItem(key);
+    }
+  }
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bubble-time-tablet-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  alert('Backup downloaded! Now click "2. Upload Tablet Data to Supabase".');
+}
+
+async function syncAllTabletDataToSupabase() {
+  try {
+    downloadLocalStorageBackup();
+
+    const sb = window.supabaseClient || window.supabase;
+    if (!sb || typeof sb.from !== 'function') {
+      throw new Error('Supabase client not found on window. Check your Supabase variable name.');
+    }
+
+    const allKeys = Object.keys(localStorage);
+    console.log('Found localStorage keys:', allKeys);
+
+    // 1. Upload Orders
+    const orderKey = allKeys.find(k => k === 'pos_placed_orders') || allKeys.find(k => k.toLowerCase().includes('order'));
+    let ordersCount = 0;
+    if (orderKey) {
+      const rawOrders = JSON.parse(localStorage.getItem(orderKey) || '[]');
+      if (Array.isArray(rawOrders) && rawOrders.length > 0) {
+        const formattedOrders = rawOrders.map((o, idx) => ({
+          id: String(o.id || `ORD-MIG-${Date.now()}-${idx}`),
+          cashier: o.cashier || 'Unknown',
+          timestamp: o.timestamp || o.date || '',
+          date: o.date || o.timestamp || '',
+          items: o.items || [],
+          total: Number(o.total || 0),
+          discount_label: o.discount_label || o.discountLabel || null,
+          discount_amount: Number(o.discount_amount || o.discountAmount || 0),
+          method: o.method || 'Cash',
+          status: o.status || 'PAID'
+        }));
+        const { error: ordErr } = await sb.from('placed_orders').upsert(formattedOrders, { onConflict: 'id' });
+        if (ordErr) throw new Error('Orders upload failed: ' + ordErr.message);
+        ordersCount = formattedOrders.length;
+      }
+    }
+
+    // 2. Upload Menu Items / Products & Categories
+    const productKey = allKeys.find(k => /menu|product|item|catalog|inventory/i.test(k));
+    let productsCount = 0;
+    let categoriesCount = 0;
+
+    if (productKey) {
+      const rawMenu = JSON.parse(localStorage.getItem(productKey) || '[]');
+      let flatProducts = [];
+
+      if (Array.isArray(rawMenu)) {
+        flatProducts = rawMenu;
+      } else if (rawMenu && typeof rawMenu === 'object') {
+        Object.entries(rawMenu).forEach(([catName, items]) => {
+          if (Array.isArray(items)) {
+            items.forEach(item => flatProducts.push({ ...item, category: item.category || item.cat || catName }));
+          }
         });
+      }
+
+      if (flatProducts.length > 0) {
+        const formattedProducts = flatProducts.map((p, idx) => ({
+          id: String(p.id || `${(p.category || p.cat || 'CAT')}-${(p.name || 'ITEM')}-${idx}`.replace(/\s+/g, '_').toUpperCase()),
+          name: p.name || 'Unnamed Item',
+          category: p.category || p.cat || 'OTHER',
+          price: Number(p.price || 0),
+          stock: Number(p.stock ?? p.qty ?? 0)
+        }));
+
+        const { error: prodErr } = await sb.from('pos_products').upsert(formattedProducts, { onConflict: 'id' });
+        if (prodErr) throw new Error('Products upload failed: ' + prodErr.message);
+        productsCount = formattedProducts.length;
+
+        const uniqueCats = [...new Set(formattedProducts.map(p => p.category))];
+        const formattedCats = uniqueCats.map((catName, idx) => ({
+          id: catName.replace(/\s+/g, '_').toUpperCase(),
+          name: catName,
+          sort_order: idx
+        }));
+
+        const { error: catErr } = await sb.from('pos_categories').upsert(formattedCats, { onConflict: 'id' });
+        if (catErr) throw new Error('Categories upload failed: ' + catErr.message);
+        categoriesCount = formattedCats.length;
+      }
+    }
+
+    alert(
+      `Sync Complete!\n\n` +
+      `• Categories uploaded: ${categoriesCount}\n` +
+      `• Products uploaded: ${productsCount}\n` +
+      `• Orders uploaded: ${ordersCount}\n\n` +
+      `Keys found on tablet: ${allKeys.join(', ')}`
+    );
+  } catch (err) {
+    console.error(err);
+    alert('Error during upload: ' + err.message);
+  }
+}
     </script>
+    <!-- TEMPORARY TABLET MIGRATION BAR (Remove after migration is verified) -->
+<div id="migrationBar" style="position:fixed;bottom:70px;right:16px;z-index:9999;display:flex;gap:8px;background:#1e1e1e;padding:10px 14px;border-radius:10px;border:2px solid #f59e0b;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
+  <button onclick="downloadLocalStorageBackup()" style="background:#374151;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">
+    1. Download Backup
+  </button>
+  <button onclick="syncAllTabletDataToSupabase()" style="background:#16a34a;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">
+    2. Upload Tablet Data to Supabase
+  </button>
+</div>
 </body>
 </html>
-
