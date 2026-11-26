@@ -480,22 +480,170 @@
 <body>
 
 <script>
-  // SUPABASE INITIALIZATION
+  // SUPABASE INITIALIZATION & LIVE CROSS-DEVICE SYNC
   const SUPABASE_URL = "https://pwchodxnnrxcrntaiosz.supabase.co";
   const SUPABASE_KEY = "sb_publishable_AgGIv2KvXKcQPE-nCQ5_sQ_s0EgwnBK";
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   window.supabaseClient = supabaseClient;
 
-  // REALTIME INVENTORY SYNC (Laptop & Tablet)
-  supabaseClient
-    .channel('public:store_inventory')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'store_inventory' }, (payload) => {
-      console.log('Realtime inventory event:', payload);
-      if (typeof loadInventory === 'function') {
-        loadInventory();
+  function slugifyCategoryId(catName, idx = 0) {
+    return String(catName || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || `cat-${idx}`;
+  }
+
+  async function syncCategoriesToSupabase(catArray) {
+    try {
+      const list = Array.isArray(catArray) ? catArray : [];
+      if (list.length === 0) return;
+      const rows = list.map((name, idx) => ({
+        id: slugifyCategoryId(name, idx),
+        name: String(name).trim().toUpperCase(),
+        sort_order: idx
+      }));
+      const { error } = await supabaseClient
+        .from('pos_categories')
+        .upsert(rows, { onConflict: 'id' });
+      if (error) console.error('Error syncing categories to Supabase:', error);
+    } catch (err) {
+      console.error('Exception syncing categories:', err);
+    }
+  }
+
+  async function syncProductsToSupabase(prodArray) {
+    try {
+      const list = Array.isArray(prodArray) ? prodArray : [];
+      if (list.length === 0) return;
+      const rows = list
+        .filter(p => p && (p.name || p.id !== undefined))
+        .map((p, idx) => ({
+          id: String(p.id ?? `prod-${idx}`),
+          name: String(p.name || 'Unnamed Item'),
+          category: String(p.cat || p.category || 'OTHER').toUpperCase(),
+          price: Number(p.price ?? 0),
+          stock: Number(p.stock ?? 0)
+        }));
+      const { error } = await supabaseClient
+        .from('pos_products')
+        .upsert(rows, { onConflict: 'id' });
+      if (error) console.error('Error syncing products to Supabase:', error);
+    } catch (err) {
+      console.error('Exception syncing products:', err);
+    }
+  }
+
+  async function syncOrderToSupabase(orderObj) {
+    try {
+      if (!orderObj || !orderObj.id) return;
+      const row = {
+        id: String(orderObj.id),
+        cashier: orderObj.cashier || null,
+        timestamp: orderObj.timestamp || orderObj.date || null,
+        items: orderObj.items || [],
+        total: Number(orderObj.total ?? 0),
+        discount_label: orderObj.discountLabel || null,
+        discount_amount: Number(orderObj.discountAmount ?? 0),
+        method: orderObj.method || orderObj.paymentMethod || orderObj.paymentType || 'Cash',
+        status: orderObj.status || 'PAID'
+      };
+      const { error } = await supabaseClient
+        .from('placed_orders')
+        .upsert(row, { onConflict: 'id' });
+      if (error) console.error('Error syncing order to Supabase:', error);
+    } catch (err) {
+      console.error('Exception syncing order:', err);
+    }
+  }
+
+  async function loadCategoriesAndProductsFromSupabase() {
+    try {
+      const { data: catData, error: catErr } = await supabaseClient
+        .from('pos_categories')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+      if (!catErr && Array.isArray(catData) && catData.length > 0) {
+        const fetchedCats = catData
+          .map(c => String(c.name || '').trim().toUpperCase())
+          .filter(Boolean);
+        if (fetchedCats.length > 0 && typeof categories !== 'undefined') {
+          categories = fetchedCats;
+          localStorage.setItem('pos_menu_categories', JSON.stringify(categories));
+          if (typeof renderCategoryList === 'function') renderCategoryList();
+          if (typeof renderCategoryDropdowns === 'function') renderCategoryDropdowns();
+        }
       }
-    })
-    .subscribe();
+
+      const { data: prodData, error: prodErr } = await supabaseClient
+        .from('pos_products')
+        .select('*');
+
+      if (!prodErr && Array.isArray(prodData) && prodData.length > 0 && typeof products !== 'undefined') {
+        const existingById = new Map((products || []).map(p => [String(p.id), p]));
+        products = prodData.map((row, idx) => {
+          const prev = existingById.get(String(row.id));
+          const parsedId = /^\d+$/.test(String(row.id)) ? Number(row.id) : (prev ? prev.id : (row.id || `prod_${idx}`));
+          return {
+            id: parsedId,
+            name: String(row.name || 'Unnamed Item'),
+            price: Number(row.price ?? 0),
+            cat: String(row.category || row.cat || 'OTHER').toUpperCase(),
+            stock: Number(row.stock ?? 0)
+          };
+        });
+        localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+        if (typeof renderAccordion === 'function') renderAccordion();
+        if (typeof renderAdminCatalogEditTable === 'function') renderAdminCatalogEditTable();
+      }
+    } catch (err) {
+      console.error('Error loading menu from Supabase:', err);
+    }
+  }
+
+  async function loadOrdersFromSupabase() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('placed_orders')
+        .select('*');
+
+      if (!error && Array.isArray(data)) {
+        const mappedOrders = data.map(row => ({
+          id: String(row.id),
+          cashier: row.cashier || 'Staff',
+          timestamp: row.timestamp || '',
+          date: row.timestamp || '',
+          items: Array.isArray(row.items) ? row.items : [],
+          total: Number(row.total ?? 0),
+          discountLabel: row.discount_label || null,
+          discountAmount: Number(row.discount_amount ?? 0),
+          method: row.method || 'Cash',
+          paymentType: row.method || 'Cash',
+          paymentMethod: row.method || 'Cash',
+          status: row.status || 'PAID'
+        }));
+
+        mappedOrders.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        placedOrders = mappedOrders;
+        localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+
+        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+        if (selectedPlacedOrderId && typeof selectPlacedOrder === 'function') {
+          selectPlacedOrder(selectedPlacedOrderId);
+        }
+        if (typeof refreshReconData === 'function') refreshReconData();
+        if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+        if (typeof initSalesDonutChart === 'function') {
+          const dashPane = document.getElementById('paneDashboard');
+          if (dashPane && dashPane.classList.contains('active')) {
+            initSalesDonutChart();
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error loading placed orders from Supabase:', err);
+    }
+  }
 
   async function loadInventory() {
     const { data, error } = await supabaseClient
@@ -503,11 +651,11 @@
       .select('*');
 
     if (!error && data && data.length > 0) {
-      inventoryList = data.map(item => ({
-        id: item.id ? String(item.id) : ('inv_' + item.name.replace(/\s+/g, '_').toLowerCase()),
-        cat: (item.cat || '').toUpperCase(),
-        name: item.name,
-        stock: Number(item.stock) || 0
+      inventoryList = data.map((item, idx) => ({
+        id: item.id ? String(item.id) : ('inv_' + idx + '_' + String(item.name || item.Name || 'item').replace(/\s+/g, '_').toLowerCase()),
+        cat: String(item.cat ?? item.Cat ?? '').toUpperCase(),
+        name: String(item.name ?? item.Name ?? ''),
+        stock: Number(item.stock ?? item.Stock ?? 0)
       }));
 
       localStorage.setItem('pos_store_inventory', JSON.stringify(inventoryList));
@@ -522,6 +670,23 @@
       }
     }
   }
+
+  // REALTIME SUBSCRIPTIONS ACROSS ALL TABLES
+  supabaseClient
+    .channel('public:pos_realtime_sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'store_inventory' }, () => {
+      if (typeof loadInventory === 'function') loadInventory();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_categories' }, () => {
+      loadCategoriesAndProductsFromSupabase();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_products' }, () => {
+      loadCategoriesAndProductsFromSupabase();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'placed_orders' }, () => {
+      loadOrdersFromSupabase();
+    })
+    .subscribe();
 
   function updateInventoryTitleVisibility() {
     const role = (typeof currentCashier !== 'undefined' && currentCashier) ? currentCashier.role : '';
@@ -1262,11 +1427,14 @@
     ];
     let categories = JSON.parse(localStorage.getItem('pos_menu_categories')) || defaultCategories;
 
-    function saveCategories() {
+    function saveCategories(syncCloud = true) {
         localStorage.setItem('pos_menu_categories', JSON.stringify(categories));
         renderCategoryList();
         renderCategoryDropdowns();
         renderAccordion();
+        if (syncCloud && typeof syncCategoriesToSupabase === 'function') {
+            syncCategoriesToSupabase(categories);
+        }
     }
 
     function renderCategoryList() {
@@ -1314,11 +1482,11 @@
         }
         categories.push(catName);
         input.value = '';
-        saveCategories();
+        saveCategories(true);
         showModal('Success', `Category "${catName}" added successfully.`);
     }
 
-    function editCategory(index) {
+    async function editCategory(index) {
         const oldCat = categories[index];
         const newCat = prompt(`Edit category name for "${oldCat}":`, oldCat);
         if (!newCat || !newCat.trim()) return;
@@ -1330,6 +1498,7 @@
             return;
         }
 
+        const oldId = slugifyCategoryId(oldCat, index);
         categories[index] = formattedCat;
         products.forEach(p => {
             if (p.cat === oldCat) {
@@ -1337,14 +1506,19 @@
             }
         });
         localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
-        saveCategories();
+        saveCategories(true);
+        if (typeof syncProductsToSupabase === 'function') syncProductsToSupabase(products);
+        try {
+            await supabaseClient.from('pos_categories').delete().eq('id', oldId);
+        } catch (e) {}
         renderAdminCatalogEditTable();
         showModal('Success', `Category updated from "${oldCat}" to "${formattedCat}".`);
     }
 
-    function deleteCategory(index) {
+    async function deleteCategory(index) {
         const catName = categories[index];
-        showModal('Confirm Delete', `Are you sure you want to delete category "${catName}"? Products in this category will move to "OTHER".`, true, (confirmed) => {
+        const catId = slugifyCategoryId(catName, index);
+        showModal('Confirm Delete', `Are you sure you want to delete category "${catName}"? Products in this category will move to "OTHER".`, true, async (confirmed) => {
             if (confirmed) {
                 categories.splice(index, 1);
                 if (!categories.includes("OTHER")) categories.push("OTHER");
@@ -1352,7 +1526,11 @@
                     if (p.cat === catName) p.cat = "OTHER";
                 });
                 localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
-                saveCategories();
+                saveCategories(true);
+                if (typeof syncProductsToSupabase === 'function') syncProductsToSupabase(products);
+                try {
+                    await supabaseClient.from('pos_categories').delete().eq('id', catId);
+                } catch (e) {}
                 renderAdminCatalogEditTable();
             }
         });
@@ -1795,6 +1973,8 @@
             renderPlacedOrders();
             refreshReconData();
             updateDashboardMetrics();
+            loadCategoriesAndProductsFromSupabase();
+            loadOrdersFromSupabase();
         } else {
             showModal("Login Failed", "Incorrect PIN Code.");
         }
@@ -1824,9 +2004,18 @@
             renderAdminCatalogEditTable();
         }
         if (paneId === 'paneAdminStaff') renderStaffDirectory();
-        if (paneId === 'paneDashboard') { initSalesDonutChart(); updateDashboardMetrics(); }
-        if (paneId === 'paneRecon') refreshReconData();
-        if (paneId === 'panePlacedOrders') renderPlacedOrders();
+        if (paneId === 'paneDashboard') {
+            loadOrdersFromSupabase().then(() => {
+                initSalesDonutChart();
+                updateDashboardMetrics();
+            });
+        }
+        if (paneId === 'paneRecon') {
+            loadOrdersFromSupabase().then(() => refreshReconData());
+        }
+        if (paneId === 'panePlacedOrders') {
+            loadOrdersFromSupabase().then(() => renderPlacedOrders());
+        }
     }
 
     /* MENU CATALOG & ACCORDION RENDER */
@@ -1855,7 +2044,7 @@
                 btn.onclick = () => addToCart(p);
                 btn.innerHTML = `
                     <span class="product-name">${p.name}</span>
-                    <span class="product-price">Rs ${p.price.toFixed(2)}</span>
+                    <span class="product-price">Rs ${Number(p.price || 0).toFixed(2)}</span>
                     <span class="product-stock">In Stock: ${p.stock}</span>
                 `;
                 content.appendChild(btn);
@@ -2070,7 +2259,6 @@
         return JSON.parse(r) || [];
     }
 
-    // Map drink names to raw inventory deductions
     function getRecipeIngredients(productName, category) {
         const isLarge = productName.includes('(L)');
         const nameLower = productName.toLowerCase();
@@ -2194,9 +2382,14 @@
             status: 'PAID'
         };
 
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-        placedOrders.push(newOrder);
+        let localOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        localOrders.push(newOrder);
+        placedOrders = localOrders;
         localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+
+        if (typeof syncOrderToSupabase === 'function') {
+            await syncOrderToSupabase(newOrder);
+        }
 
         cart.forEach(cartItem => {
             const qty = cartItem.qty || 1;
@@ -2218,6 +2411,9 @@
         });
 
         localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+        if (typeof syncProductsToSupabase === 'function') {
+            syncProductsToSupabase(products);
+        }
         saveInventory();
 
         if (typeof renderAccordion === 'function') renderAccordion();
@@ -2226,7 +2422,7 @@
 
         salesHistory.push({
             id: orderId,
-            amount: total,
+            amount: finalTotal,
             itemsCount: totalQty,
             date: timestamp,
             method: selectedMethod,
@@ -2278,9 +2474,9 @@
         const container = document.getElementById('placedOrdersListContainer');
         if (!container) return;
 
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || placedOrders || [];
 
-        if (placedOrders.length === 0) {
+        if (ordersList.length === 0) {
             container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
             document.getElementById('selectedOrderDetailsHeader').innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details.</p>';
             document.getElementById('selectedOrderItemsTable').innerHTML = '';
@@ -2289,7 +2485,7 @@
         }
 
         container.innerHTML = '';
-        placedOrders.slice().reverse().forEach(ord => {
+        ordersList.slice().reverse().forEach(ord => {
             const div = document.createElement('div');
             div.id = `order-item-${ord.id}`;
             div.className = `order-item-card ${ord.id === selectedPlacedOrderId ? 'active' : ''}`;
@@ -2309,9 +2505,13 @@
 
     function selectPlacedOrder(orderId) {
         selectedPlacedOrderId = orderId;
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-        const ord = placedOrders.find(o => o.id === orderId);
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || placedOrders || [];
+        const ord = ordersList.find(o => o.id === orderId);
         if (!ord) return;
+
+        document.querySelectorAll('.order-item-card').forEach(el => {
+            el.classList.toggle('active', el.id === `order-item-${orderId}`);
+        });
 
         const headerContainer = document.getElementById('selectedOrderDetailsHeader');
         if (headerContainer) {
@@ -2342,39 +2542,51 @@
         }
     }
 
-    function setPaymentStatus(status) {
+    async function setPaymentStatus(status) {
         if (!selectedPlacedOrderId) return;
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-        const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+        const ord = ordersList.find(o => o.id === selectedPlacedOrderId);
         if (ord) {
             ord.status = status;
-            localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+            placedOrders = ordersList;
+            localStorage.setItem('pos_placed_orders', JSON.stringify(ordersList));
+            await syncOrderToSupabase(ord);
+            renderPlacedOrders();
             selectPlacedOrder(selectedPlacedOrderId);
+            refreshReconData();
         }
     }
 
-    function settleCurrentSelectedOrder(method) {
+    async function settleCurrentSelectedOrder(method) {
         if (!selectedPlacedOrderId) return;
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-        const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+        const ord = ordersList.find(o => o.id === selectedPlacedOrderId);
         if (ord) {
             ord.method = method;
+            ord.paymentMethod = method;
+            ord.paymentType = method;
             ord.status = 'PAID';
-            localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+            placedOrders = ordersList;
+            localStorage.setItem('pos_placed_orders', JSON.stringify(ordersList));
+            await syncOrderToSupabase(ord);
+            renderPlacedOrders();
             selectPlacedOrder(selectedPlacedOrderId);
+            refreshReconData();
         }
     }
 
-    function confirmAndFinishOrder() {
+    async function confirmAndFinishOrder() {
         if (!selectedPlacedOrderId) {
             showModal("Notice", "Please select an order to confirm.");
             return;
         }
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-        const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+        const ord = ordersList.find(o => o.id === selectedPlacedOrderId);
         if (ord) {
             ord.status = 'PAID';
-            localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+            placedOrders = ordersList;
+            localStorage.setItem('pos_placed_orders', JSON.stringify(ordersList));
+            await syncOrderToSupabase(ord);
             renderPlacedOrders();
             if (typeof refreshReconData === 'function') {
                 refreshReconData();
@@ -2391,11 +2603,16 @@
 
     function deleteSelectedPlacedOrder() {
         if (!selectedPlacedOrderId) return;
-        showModal("Cancel Order", `Are you sure you want to delete ${selectedPlacedOrderId}?`, true, (confirm) => {
+        const targetId = selectedPlacedOrderId;
+        showModal("Cancel Order", `Are you sure you want to delete ${targetId}?`, true, async (confirm) => {
             if (confirm) {
-                let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
-                placedOrders = placedOrders.filter(o => o.id !== selectedPlacedOrderId);
-                localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+                let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+                ordersList = ordersList.filter(o => o.id !== targetId);
+                placedOrders = ordersList;
+                localStorage.setItem('pos_placed_orders', JSON.stringify(ordersList));
+                try {
+                    await supabaseClient.from('placed_orders').delete().eq('id', String(targetId));
+                } catch (e) {}
                 selectedPlacedOrderId = null;
                 renderPlacedOrders();
                 refreshReconData();
@@ -2468,6 +2685,9 @@
 
         products.push(newProd);
         localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+        if (typeof syncProductsToSupabase === 'function') {
+            syncProductsToSupabase(products);
+        }
         document.getElementById('homeNewProdName').value = '';
         document.getElementById('homeNewProdPrice').value = '';
         renderAccordion();
@@ -2484,13 +2704,14 @@
 
         let html = '<table><thead><tr><th>Category</th><th>Product Name</th><th>Stock</th><th>Price (Rs)</th><th>Action</th></tr></thead><tbody>';
         filteredProds.forEach(p => {
+            const safeIdArg = typeof p.id === 'number' ? p.id : `'${String(p.id).replace(/'/g, "\\'")}'`;
             html += `
                 <tr>
                     <td><small>${p.cat}</small></td>
                     <td>${p.name}</td>
-                    <td><input type="number" value="${p.stock || 0}" onchange="updateCatalogStock(${p.id}, this.value)" style="width:50px; padding:2px; font-size:0.8rem;"></td>
-                    <td><input type="number" value="${p.price}" onchange="updateCatalogPrice(${p.id}, this.value)" style="width:65px; padding:2px; font-size:0.8rem;"></td>
-                    <td><button class="btn btn-danger" style="padding:2px 6px; font-size:0.7rem; width:auto; margin:0;" onclick="deleteCatalogProduct(${p.id})">Delete</button></td>
+                    <td><input type="number" value="${p.stock || 0}" onchange="updateCatalogStock(${safeIdArg}, this.value)" style="width:50px; padding:2px; font-size:0.8rem;"></td>
+                    <td><input type="number" value="${p.price}" onchange="updateCatalogPrice(${safeIdArg}, this.value)" style="width:65px; padding:2px; font-size:0.8rem;"></td>
+                    <td><button class="btn btn-danger" style="padding:2px 6px; font-size:0.7rem; width:auto; margin:0;" onclick="deleteCatalogProduct(${safeIdArg})">Delete</button></td>
                 </tr>
             `;
         });
@@ -2499,31 +2720,40 @@
     }
 
     function updateCatalogStock(id, val) {
-        const p = products.find(prod => prod.id === id);
+        const p = products.find(prod => String(prod.id) === String(id));
         if (p) {
             p.stock = parseInt(val) || 0;
             localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+            if (typeof syncProductsToSupabase === 'function') {
+                syncProductsToSupabase(products);
+            }
             renderAccordion();
         }
     }
 
     function updateCatalogPrice(id, val) {
-        const p = products.find(prod => prod.id === id);
+        const p = products.find(prod => String(prod.id) === String(id));
         if (p) {
             p.price = parseFloat(val) || 0;
             localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+            if (typeof syncProductsToSupabase === 'function') {
+                syncProductsToSupabase(products);
+            }
             renderAccordion();
         }
     }
 
     function deleteCatalogProduct(id) {
-        const prod = products.find(p => p.id === id);
+        const prod = products.find(p => String(p.id) === String(id));
         if (!prod) return;
 
-        showModal("Delete Product", `Are you sure you want to delete "${prod.name}"?`, true, (confirmed) => {
+        showModal("Delete Product", `Are you sure you want to delete "${prod.name}"?`, true, async (confirmed) => {
             if (confirmed) {
-                products = products.filter(p => p.id !== id);
+                products = products.filter(p => String(p.id) !== String(id));
                 localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
+                try {
+                    await supabaseClient.from('pos_products').delete().eq('id', String(id));
+                } catch (e) {}
                 renderAccordion();
                 renderAdminCatalogEditTable();
             }
@@ -2532,7 +2762,7 @@
 
     /* DAILY RECON REPORTS */
     function refreshReconData() {
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
 
         const nowStr = new Date().toLocaleString();
         if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
@@ -2549,7 +2779,7 @@
         let itemCounts = {};
         let totalTransactionsCount = 0;
 
-        placedOrders.forEach(order => {
+        ordersList.forEach(order => {
             let s = String(order.status || order.paymentStatus || '').toUpperCase();
             if (s === 'PAID' || s === 'COMPLETED') {
                 let rawM = order.paymentType || order.paymentMethod || order.method || 'Cash';
@@ -2603,9 +2833,9 @@
     }
 
     function printCombinedDailySalesReport() {
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
 
-        let dailySales = placedOrders.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID').map(order => {
+        let dailySales = ordersList.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID').map(order => {
             let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
             let mStr = String(rawM).toLowerCase();
             let m = 'Cash';
@@ -2651,11 +2881,11 @@
             }
         });
 
-        let currentStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
+        let currentStaffLocal = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
         let now = new Date();
         let dateStr = now.toLocaleDateString('en-GB');
         let timeStr = now.toTimeString().split(' ')[0];
-        let cashierName = currentStaff.name || 'Ahana Lead';
+        let cashierName = currentStaffLocal.name || 'Ahana Lead';
 
         let rText = "================================\n";
         rText += "      BUBBLE TIME MD LTD      \n";
@@ -2723,8 +2953,8 @@
                 }
             }
         }
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-        let paidOrders = placedOrders.filter(order => {
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        let paidOrders = ordersList.filter(order => {
             let s = String(order.status || order.paymentStatus || '').toUpperCase();
             return s === 'PAID' || s === 'COMPLETED';
         });
@@ -2812,7 +3042,7 @@
     function generateReceiptPrintText(order) {
         let orderId = order.id || 'ORD-000';
         let cashierName = order.cashier || localStorage.getItem('loggedInUser') || 'Alex Valentina';
-        let paymentMethod = order.paymentMethod || 'Cash';
+        let paymentMethod = order.paymentMethod || order.method || 'Cash';
         let orderDate = order.date || new Date().toLocaleString('en-GB');
 
         let total = parseFloat(order.total || 0);
@@ -2864,8 +3094,8 @@
             showModal("Notice", "Please select an order from the list first.");
             return;
         }
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-        const ord = placedOrders.find(o => o.id === selectedPlacedOrderId);
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        const ord = ordersList.find(o => o.id === selectedPlacedOrderId);
         if (ord) {
             await printThermalReceipt(ord);
         }
@@ -2882,8 +3112,8 @@
 
     function printSpecificPlatformReport(platformName) {
         let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
-        let platformSales = dailySales.filter(s => s.method.toLowerCase() === platformName.toLowerCase());
-        let total = platformSales.reduce((sum, s) => sum + s.total, 0);
+        let platformSales = dailySales.filter(s => (s.method || '').toLowerCase() === platformName.toLowerCase());
+        let total = platformSales.reduce((sum, s) => sum + (parseFloat(s.total || s.amount || 0) || 0), 0);
 
         let rText = "================================\n";
         rText += `     ${platformName.toUpperCase()} SALES REPORT     \n`;
@@ -3010,11 +3240,11 @@
             return;
         }
 
-        showModal("Close Shift", "Are you sure you want to close the shift?", true, (confirmed) => {
+        showModal("Close Shift", "Are you sure you want to close the shift?", true, async (confirmed) => {
             if (!confirmed) return;
 
-            let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
-            let paidOrders = placedOrders.filter(order => {
+            let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+            let paidOrders = ordersList.filter(order => {
                 let s = String(order.status || order.paymentStatus || '').toUpperCase();
                 return s === 'PAID' || s === 'COMPLETED';
             });
@@ -3085,12 +3315,20 @@
             generateClosingShiftReport();
 
             localStorage.removeItem('pos_daily_sales_history');
-            let remainingOrders = placedOrders.filter(order => {
+            let remainingOrders = ordersList.filter(order => {
                 let s = String(order.status || order.paymentStatus || '').toUpperCase();
                 return s !== 'PAID' && s !== 'COMPLETED';
             });
+            placedOrders = remainingOrders;
             localStorage.setItem('pos_placed_orders', JSON.stringify(remainingOrders));
 
+            for (const paidOrd of paidOrders) {
+                try {
+                    await supabaseClient.from('placed_orders').delete().eq('id', String(paidOrd.id));
+                } catch (e) {}
+            }
+
+            renderPlacedOrders();
             refreshReconData();
         });
     }
@@ -3100,17 +3338,17 @@
         const staffNameEl = document.getElementById('dashStaffName');
         if (staffNameEl) staffNameEl.innerText = currentStaff ? currentStaff.name : 'Administrator';
 
-        const placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        const ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
         const pendingEl = document.getElementById('dashPendingCount');
         if (pendingEl) {
-            pendingEl.innerText = placedOrders.filter(o => {
+            pendingEl.innerText = ordersList.filter(o => {
                 let s = String(o.status || o.paymentStatus || '').toUpperCase();
                 return s === 'PENDING' || s === 'UNPAID';
             }).length;
         }
 
         let todaysTotal = 0;
-        placedOrders.forEach(order => {
+        ordersList.forEach(order => {
             let s = String(order.status || order.paymentStatus || '').toUpperCase();
             if (s === 'PAID' || s === 'COMPLETED') {
                 todaysTotal += parseFloat(order.total || order.subtotal || order.amount || 0);
@@ -3136,10 +3374,10 @@
 
         if (donutChartInstance) donutChartInstance.destroy();
 
-        let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
         let catTotals = {};
 
-        placedOrders.forEach(order => {
+        ordersList.forEach(order => {
             let s = String(order.status || order.paymentStatus || '').toUpperCase();
             if (s === 'PAID' || s === 'COMPLETED') {
                 if (order.items && Array.isArray(order.items)) {
@@ -3341,11 +3579,13 @@
         `;
     }
 
-    window.onload = () => {
+    window.onload = async () => {
         populateLoginDropdown();
-        loadInventory();
         renderBatchPrepUI();
-        saveCategories();
+        saveCategories(false);
+        await loadInventory();
+        await loadCategoriesAndProductsFromSupabase();
+        await loadOrdersFromSupabase();
     };
 
     document.addEventListener("click", e => {
@@ -3418,7 +3658,7 @@
                 : [];
 
             const categoryRows = catNames.map((name, idx) => ({
-                id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `cat-${idx}`,
+                id: slugifyCategoryId(name, idx),
                 name,
                 sort_order: idx
             }));
