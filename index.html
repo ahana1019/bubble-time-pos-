@@ -621,8 +621,10 @@
         error = retry.error;
       }
       if (error) console.error('Error syncing order to Supabase:', error);
+      return !error;
     } catch (err) {
       console.error('Exception syncing order:', err);
+      return false;
     }
   }
 
@@ -671,11 +673,27 @@
     }
   }
 
+  function applyOutletViewState(targetOutlet, ordersArray) {
+    placedOrders = ordersArray;
+    if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+    if (selectedPlacedOrderId && typeof selectPlacedOrder === 'function') {
+      selectPlacedOrder(selectedPlacedOrderId);
+    }
+    if (typeof refreshReconData === 'function') refreshReconData();
+    if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+    if (typeof initSalesDonutChart === 'function') {
+      const dashPane = document.getElementById('paneDashboard');
+      if (dashPane && dashPane.classList.contains('active')) {
+        initSalesDonutChart();
+      }
+    }
+  }
+
   async function loadOrdersFromSupabase(outletName = null) {
     const targetOutlet = normalizeOutletName(outletName || getActiveOutlet());
-    const localCurrent = getOutletJson('pos_placed_orders', [], targetOutlet).filter(
-      loc => loc && loc.id && (!loc.outlet || normalizeOutletName(loc.outlet) === targetOutlet)
-    ).map(loc => ({ ...loc, outlet: targetOutlet }));
+    const localCurrent = getOutletJson('pos_placed_orders', [], targetOutlet)
+      .filter(loc => loc && loc.id && (!loc.outlet || normalizeOutletName(loc.outlet) === targetOutlet))
+      .map(loc => ({ ...loc, outlet: targetOutlet }));
 
     try {
       let { data, error } = await supabaseClient
@@ -684,12 +702,14 @@
 
       if (!error && Array.isArray(data)) {
         const outletRows = data.filter(row => {
-          if (!row || !row.outlet) return false;
+          if (!row) return false;
+          if (!row.outlet) return targetOutlet === 'Valentina';
           return normalizeOutletName(row.outlet) === targetOutlet;
         });
 
         const mappedById = new Map();
         outletRows.forEach(row => {
+          const rowOutlet = row.outlet ? normalizeOutletName(row.outlet) : targetOutlet;
           mappedById.set(String(row.id), {
             id: String(row.id),
             cashier: row.cashier || 'Staff',
@@ -703,7 +723,7 @@
             paymentType: row.method || 'Cash',
             paymentMethod: row.method || 'Cash',
             status: row.status || 'PAID',
-            outlet: targetOutlet
+            outlet: rowOutlet
           });
         });
 
@@ -719,32 +739,15 @@
         setOutletJson('pos_placed_orders', mergedOrders, targetOutlet);
 
         if (getActiveOutlet() === targetOutlet) {
-          placedOrders = mergedOrders;
-          if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
-          if (selectedPlacedOrderId && typeof selectPlacedOrder === 'function') {
-            selectPlacedOrder(selectedPlacedOrderId);
-          }
-          if (typeof refreshReconData === 'function') refreshReconData();
-          if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
-          if (typeof initSalesDonutChart === 'function') {
-            const dashPane = document.getElementById('paneDashboard');
-            if (dashPane && dashPane.classList.contains('active')) {
-              initSalesDonutChart();
-            }
-          }
+          applyOutletViewState(targetOutlet, mergedOrders);
         }
       } else if (getActiveOutlet() === targetOutlet) {
-        placedOrders = localCurrent;
-        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
-        if (typeof refreshReconData === 'function') refreshReconData();
-        if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+        applyOutletViewState(targetOutlet, localCurrent);
       }
     } catch (err) {
       console.error('Error loading placed orders from Supabase:', err);
       if (getActiveOutlet() === targetOutlet) {
-        placedOrders = localCurrent;
-        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
-        if (typeof refreshReconData === 'function') refreshReconData();
+        applyOutletViewState(targetOutlet, localCurrent);
       }
     }
   }
@@ -805,25 +808,19 @@
     const attOutletEl = document.getElementById('attOutletSelect');
     if (attOutletEl) attOutletEl.value = activeOutlet;
 
-    placedOrders = getOutletJson('pos_placed_orders', [], activeOutlet).filter(
-      o => o && (!o.outlet || normalizeOutletName(o.outlet) === activeOutlet)
-    ).map(o => ({ ...o, outlet: activeOutlet }));
+    const currentLocalOrders = getOutletJson('pos_placed_orders', [], activeOutlet)
+      .filter(o => o && (!o.outlet || normalizeOutletName(o.outlet) === activeOutlet))
+      .map(o => ({ ...o, outlet: activeOutlet }));
+
     dailyBatchLogs = getOutletJson('pos_daily_batch_logs', [], activeOutlet);
     selectedPlacedOrderId = null;
 
     if (typeof renderBatchPrepUI === 'function') renderBatchPrepUI();
-    if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
-    if (typeof refreshReconData === 'function') refreshReconData();
-    if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+    applyOutletViewState(activeOutlet, currentLocalOrders);
     if (typeof loadActiveOutletStaff === 'function') loadActiveOutletStaff();
 
     loadInventory(activeOutlet);
-    loadOrdersFromSupabase(activeOutlet);
-
-    const dashPane = document.getElementById('paneDashboard');
-    if (dashPane && dashPane.classList.contains('active') && typeof initSalesDonutChart === 'function') {
-      initSalesDonutChart();
-    }
+    await loadOrdersFromSupabase(activeOutlet);
   }
 
   // REALTIME SUBSCRIPTIONS ACROSS ALL TABLES
@@ -1385,7 +1382,8 @@
                     <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #0284c7;" onclick="printCombinedDailySalesReport()">🖨️ PRINT QBC</button>
                     <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #d97706;" onclick="printSpecificPlatformReport('Delivoo')">🖨️ DELIVOO</button>
                     <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #e11d48;" onclick="printSpecificPlatformReport('Hungry Dodo')">🖨️ HUNGRY DODO</button>
-                    <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #059669;" onclick="refreshReconData()">🔄 UPDATE</button>
+                    <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #7c3aed;" onclick="syncAllTabletDataToSupabase()">☁️ SYNC TO CLOUD</button>
+                    <button class="btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem; background: #059669;" onclick="refreshReconData(); loadOrdersFromSupabase(getActiveOutlet());">🔄 UPDATE</button>
                 </div>
             </div>
 
@@ -2227,9 +2225,13 @@
         document.getElementById(paneId).classList.add('active');
         document.getElementById('currentViewTitle').innerText = title;
 
+        const navItems = document.querySelectorAll('.bottom-nav .nav-item');
         if (navBtn) {
-            document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active'));
+            navItems.forEach(n => n.classList.remove('active'));
             navBtn.classList.add('active');
+        } else if (paneId === 'paneDashboard' && navItems[0]) {
+            navItems.forEach(n => n.classList.remove('active'));
+            navItems[0].classList.add('active');
         }
 
         if (paneId === 'paneInventory') renderInventoryTable();
@@ -3989,13 +3991,10 @@
         a.download = `bubble-time-tablet-backup-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        alert('Backup downloaded! Now click "2. Upload Tablet Data to Supabase".');
     }
 
     async function syncAllTabletDataToSupabase() {
         try {
-            downloadLocalStorageBackup();
-
             const sb =
                 window.supabaseClient ||
                 (typeof supabaseClient !== 'undefined' ? supabaseClient : null) ||
@@ -4081,18 +4080,20 @@
                 if (ordErr) throw new Error('Orders error: ' + ordErr.message);
             }
 
-            alert(
-                `Sync Complete (${currentOutletName})!\n\n` +
-                `• Categories uploaded: ${categoryRows.length}\n` +
-                `• Products uploaded: ${productRows.length}\n` +
-                `• Orders uploaded: ${orderRows.length}`
+            await loadOrdersFromSupabase(currentOutletName);
+
+            showModal(
+                'Cloud Sync Complete',
+                `Outlet: ${currentOutletName}\n• Categories synced: ${categoryRows.length}\n• Products synced: ${productRows.length}\n• Orders synced: ${orderRows.length}`
             );
         } catch (err) {
             console.error(err);
-            alert('Error during upload: ' + err.message);
+            showModal('Cloud Sync Error', err.message);
         }
     }
 </script>
 </body>
 </html>
+
+
 
