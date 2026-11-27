@@ -146,6 +146,18 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             box-sizing: border-box;
             width: 100%;
+            gap: 8px;
+        }
+
+        .outlet-switcher-select {
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid #d97706;
+            background: #fef3c7;
+            color: #713f12;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
         }
 
         .view-container {
@@ -289,11 +301,11 @@
         @media (max-width: 900px) {
             .pos-grid {
                 grid-template-columns: 1fr;
-                overflow-y: auto;
+                overflow-y: visible;
                 height: auto;
             }
             .pos-grid .card {
-                min-height: 380px;
+                min-height: auto;
                 overflow: visible !important;
             }
         }
@@ -329,13 +341,15 @@
 
         .category-header {
             background: #f1f5f9;
-            padding: 10px 12px;
+            padding: 12px;
             font-weight: 600;
             cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
             user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
             font-size: 0.85rem;
         }
 
@@ -486,6 +500,55 @@
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   window.supabaseClient = supabaseClient;
 
+  const OUTLET_NAMES = ['Mahebourge', 'Port Louis', 'Valentina'];
+  let activeOutlet = localStorage.getItem('pos_active_outlet') || 'Mahebourge';
+
+  function normalizeOutletName(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return 'Mahebourge';
+    const lower = raw.toLowerCase();
+    if (lower.startsWith('mahebour')) return 'Mahebourge';
+    if (lower.includes('port louis')) return 'Port Louis';
+    if (lower.includes('valentina')) return 'Valentina';
+    return raw;
+  }
+
+  function getActiveOutlet() {
+    if (typeof currentStaff !== 'undefined' && currentStaff && isAdminStaff(currentStaff)) {
+      const headerSel = document.getElementById('adminOutletSwitcher');
+      if (headerSel && headerSel.value) {
+        activeOutlet = normalizeOutletName(headerSel.value);
+        localStorage.setItem('pos_active_outlet', activeOutlet);
+      }
+    }
+    return normalizeOutletName(activeOutlet || localStorage.getItem('pos_active_outlet') || 'Mahebourge');
+  }
+
+  function outletKey(baseKey, outletName = null) {
+    const targetOutlet = normalizeOutletName(outletName || getActiveOutlet());
+    return `${baseKey}::${targetOutlet}`;
+  }
+
+  function getOutletJson(baseKey, fallback = [], outletName = null) {
+    const targetOutlet = normalizeOutletName(outletName || getActiveOutlet());
+    const key = outletKey(baseKey, targetOutlet);
+    const raw = localStorage.getItem(key);
+    if (raw !== null) {
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        return fallback;
+      }
+    }
+    return fallback;
+  }
+
+  function setOutletJson(baseKey, value, outletName = null) {
+    const targetOutlet = normalizeOutletName(outletName || getActiveOutlet());
+    const key = outletKey(baseKey, targetOutlet);
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
   function slugifyCategoryId(catName, idx = 0) {
     return String(catName || '')
       .toLowerCase()
@@ -533,9 +596,10 @@
     }
   }
 
-  async function syncOrderToSupabase(orderObj) {
+  async function syncOrderToSupabase(orderObj, outletName = null) {
     try {
       if (!orderObj || !orderObj.id) return;
+      const targetOutlet = normalizeOutletName(orderObj.outlet || outletName || getActiveOutlet());
       const row = {
         id: String(orderObj.id),
         cashier: orderObj.cashier || null,
@@ -545,11 +609,17 @@
         discount_label: orderObj.discountLabel || null,
         discount_amount: Number(orderObj.discountAmount ?? 0),
         method: orderObj.method || orderObj.paymentMethod || orderObj.paymentType || 'Cash',
-        status: orderObj.status || 'PAID'
+        status: orderObj.status || 'PAID',
+        outlet: targetOutlet
       };
-      const { error } = await supabaseClient
+      let { error } = await supabaseClient
         .from('placed_orders')
         .upsert(row, { onConflict: 'id' });
+      if (error && String(error.message || '').toLowerCase().includes('outlet')) {
+        const { outlet, ...fallbackRow } = row;
+        const retry = await supabaseClient.from('placed_orders').upsert(fallbackRow, { onConflict: 'id' });
+        error = retry.error;
+      }
       if (error) console.error('Error syncing order to Supabase:', error);
     } catch (err) {
       console.error('Exception syncing order:', err);
@@ -601,73 +671,158 @@
     }
   }
 
-  async function loadOrdersFromSupabase() {
+  async function loadOrdersFromSupabase(outletName = null) {
+    const targetOutlet = normalizeOutletName(outletName || getActiveOutlet());
+    const localCurrent = getOutletJson('pos_placed_orders', [], targetOutlet).filter(
+      loc => loc && loc.id && loc.outlet && normalizeOutletName(loc.outlet) === targetOutlet
+    );
+
     try {
-      const { data, error } = await supabaseClient
+      let { data, error } = await supabaseClient
         .from('placed_orders')
         .select('*');
 
       if (!error && Array.isArray(data)) {
-        const mappedOrders = data.map(row => ({
-          id: String(row.id),
-          cashier: row.cashier || 'Staff',
-          timestamp: row.timestamp || '',
-          date: row.timestamp || '',
-          items: Array.isArray(row.items) ? row.items : [],
-          total: Number(row.total ?? 0),
-          discountLabel: row.discount_label || null,
-          discountAmount: Number(row.discount_amount ?? 0),
-          method: row.method || 'Cash',
-          paymentType: row.method || 'Cash',
-          paymentMethod: row.method || 'Cash',
-          status: row.status || 'PAID'
-        }));
+        // Strict per-outlet filtering: only orders explicitly belonging to targetOutlet
+        const outletRows = data.filter(row => {
+          if (!row || !row.outlet) return false;
+          return normalizeOutletName(row.outlet) === targetOutlet;
+        });
 
-        mappedOrders.sort((a, b) => String(a.id).localeCompare(String(b.id)));
-        placedOrders = mappedOrders;
-        localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+        const mappedById = new Map();
+        outletRows.forEach(row => {
+          mappedById.set(String(row.id), {
+            id: String(row.id),
+            cashier: row.cashier || 'Staff',
+            timestamp: row.timestamp || '',
+            date: row.timestamp || '',
+            items: Array.isArray(row.items) ? row.items : [],
+            total: Number(row.total ?? 0),
+            discountLabel: row.discount_label || null,
+            discountAmount: Number(row.discount_amount ?? 0),
+            method: row.method || 'Cash',
+            paymentType: row.method || 'Cash',
+            paymentMethod: row.method || 'Cash',
+            status: row.status || 'PAID',
+            outlet: targetOutlet
+          });
+        });
 
-        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
-        if (selectedPlacedOrderId && typeof selectPlacedOrder === 'function') {
-          selectPlacedOrder(selectedPlacedOrderId);
-        }
-        if (typeof refreshReconData === 'function') refreshReconData();
-        if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
-        if (typeof initSalesDonutChart === 'function') {
-          const dashPane = document.getElementById('paneDashboard');
-          if (dashPane && dashPane.classList.contains('active')) {
-            initSalesDonutChart();
+        localCurrent.forEach(loc => {
+          if (loc && loc.id && !mappedById.has(String(loc.id))) {
+            mappedById.set(String(loc.id), { ...loc, outlet: targetOutlet });
+          }
+        });
+
+        const mergedOrders = Array.from(mappedById.values());
+        mergedOrders.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+
+        setOutletJson('pos_placed_orders', mergedOrders, targetOutlet);
+
+        if (getActiveOutlet() === targetOutlet) {
+          placedOrders = mergedOrders;
+          if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+          if (selectedPlacedOrderId && typeof selectPlacedOrder === 'function') {
+            selectPlacedOrder(selectedPlacedOrderId);
+          }
+          if (typeof refreshReconData === 'function') refreshReconData();
+          if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+          if (typeof initSalesDonutChart === 'function') {
+            const dashPane = document.getElementById('paneDashboard');
+            if (dashPane && dashPane.classList.contains('active')) {
+              initSalesDonutChart();
+            }
           }
         }
+      } else if (getActiveOutlet() === targetOutlet) {
+        placedOrders = localCurrent;
+        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+        if (typeof refreshReconData === 'function') refreshReconData();
+        if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
       }
     } catch (err) {
       console.error('Error loading placed orders from Supabase:', err);
+      if (getActiveOutlet() === targetOutlet) {
+        placedOrders = localCurrent;
+        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+        if (typeof refreshReconData === 'function') refreshReconData();
+      }
     }
   }
 
-  async function loadInventory() {
-    const { data, error } = await supabaseClient
-      .from('store_inventory')
-      .select('*');
-
-    if (!error && data && data.length > 0) {
-      inventoryList = data.map((item, idx) => ({
-        id: item.id ? String(item.id) : ('inv_' + idx + '_' + String(item.name || item.Name || 'item').replace(/\s+/g, '_').toLowerCase()),
-        cat: String(item.cat ?? item.Cat ?? '').toUpperCase(),
-        name: String(item.name ?? item.Name ?? ''),
-        stock: Number(item.stock ?? item.Stock ?? 0)
-      }));
-
-      localStorage.setItem('pos_store_inventory', JSON.stringify(inventoryList));
-      if (typeof renderInventoryTable === 'function') {
-        renderInventoryTable();
-      }
-    } else {
-      const localData = JSON.parse(localStorage.getItem('pos_store_inventory')) || [];
+  async function loadInventory(outletName = null) {
+    const targetOutlet = normalizeOutletName(outletName || getActiveOutlet());
+    const localData = getOutletJson('pos_store_inventory', [], targetOutlet);
+    if (localData.length > 0 && (!Array.isArray(inventoryList) || inventoryList.length === 0)) {
       inventoryList = localData;
-      if (typeof renderInventoryTable === 'function') {
-        renderInventoryTable();
+      if (typeof renderInventoryTable === 'function') renderInventoryTable();
+    }
+
+    try {
+      let { data, error } = await supabaseClient
+        .from('store_inventory')
+        .select('*');
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const outletRows = data.filter(item => {
+          if (!item.outlet) return false;
+          return normalizeOutletName(item.outlet) === targetOutlet;
+        });
+
+        if (outletRows.length > 0) {
+          inventoryList = outletRows.map((item, idx) => ({
+            id: item.id ? String(item.id) : ('inv_' + targetOutlet + '_' + idx + '_' + String(item.name || item.Name || 'item').replace(/\s+/g, '_').toLowerCase()),
+            cat: String(item.cat ?? item.Cat ?? '').toUpperCase(),
+            name: String(item.name ?? item.Name ?? ''),
+            stock: Number(item.stock ?? item.Stock ?? 0),
+            outlet: targetOutlet
+          }));
+          setOutletJson('pos_store_inventory', inventoryList, targetOutlet);
+          if (typeof renderInventoryTable === 'function') renderInventoryTable();
+          return;
+        }
       }
+    } catch (err) {
+      console.error('Error loading inventory:', err);
+    }
+
+    inventoryList = localData.length > 0 ? localData : defaultInventoryList.map(item => ({ ...item, outlet: targetOutlet }));
+    if (typeof renderInventoryTable === 'function') renderInventoryTable();
+  }
+
+  async function switchActiveOutlet(newOutlet) {
+    if (!newOutlet) return;
+    const normalized = normalizeOutletName(newOutlet);
+    activeOutlet = normalized;
+    localStorage.setItem('pos_active_outlet', activeOutlet);
+
+    const headerSelect = document.getElementById('adminOutletSwitcher');
+    if (headerSelect && headerSelect.value !== activeOutlet) {
+      headerSelect.value = activeOutlet;
+    }
+
+    const loginOutletEl = document.getElementById('loginOutlet');
+    if (loginOutletEl) loginOutletEl.value = activeOutlet;
+    const attOutletEl = document.getElementById('attOutletSelect');
+    if (attOutletEl) attOutletEl.value = activeOutlet;
+
+    placedOrders = getOutletJson('pos_placed_orders', [], activeOutlet).filter(
+      o => o && o.outlet && normalizeOutletName(o.outlet) === activeOutlet
+    );
+    dailyBatchLogs = getOutletJson('pos_daily_batch_logs', [], activeOutlet);
+    selectedPlacedOrderId = null;
+
+    if (typeof renderBatchPrepUI === 'function') renderBatchPrepUI();
+    if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+    if (typeof refreshReconData === 'function') refreshReconData();
+    if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+
+    loadInventory(activeOutlet);
+    loadOrdersFromSupabase(activeOutlet);
+
+    const dashPane = document.getElementById('paneDashboard');
+    if (dashPane && dashPane.classList.contains('active') && typeof initSalesDonutChart === 'function') {
+      initSalesDonutChart();
     }
   }
 
@@ -675,7 +830,7 @@
   supabaseClient
     .channel('public:pos_realtime_sync')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'store_inventory' }, () => {
-      if (typeof loadInventory === 'function') loadInventory();
+      if (typeof loadInventory === 'function') loadInventory(getActiveOutlet());
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_categories' }, () => {
       loadCategoriesAndProductsFromSupabase();
@@ -684,7 +839,7 @@
       loadCategoriesAndProductsFromSupabase();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'placed_orders' }, () => {
-      loadOrdersFromSupabase();
+      loadOrdersFromSupabase(getActiveOutlet());
     })
     .subscribe();
 
@@ -751,6 +906,12 @@
             <option value="" disabled selected>Select Staff Name...</option>
         </select>
         <input type="password" id="loginPin" class="login-input" placeholder="PIN Code">
+        <select id="loginOutlet" class="login-input">
+            <option value="Mahebourge">Mahebourge</option>
+            <option value="Port Louis">Port Louis</option>
+            <option value="Valentina">Valentina</option>
+        </select>
+
         <button class="btn" onclick="handleLogin()">Login & Open Register</button>
 
         <!-- ATTENDANCE TRACKER INSIDE LOGIN CARD -->
@@ -790,7 +951,12 @@
         <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             <span id="currentViewTitle" style="font-weight: bold;">HOME USER</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            <select id="adminOutletSwitcher" class="outlet-switcher-select" style="display: none;" onchange="switchActiveOutlet(this.value)" title="Switch Active Outlet">
+                <option value="Mahebourge">📍 Mahebourge</option>
+                <option value="Port Louis">📍 Port Louis</option>
+                <option value="Valentina">📍 Valentina</option>
+            </select>
             <span id="loggedInUserDisplay" style="font-size: 0.85rem; color: #713f12;"></span>
             <button class="btn btn-danger" style="width: auto; padding: 4px 8px; font-size: 0.75rem; margin:0;" onclick="logout()">Logout</button>
         </div>
@@ -1031,8 +1197,8 @@
                 <div style="border-top: 2px dashed #cbd5e1; padding-top: 14px; margin-top: 20px;">
                     <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 8px;">
                         <h4 style="margin: 0 0 2px 0; color: #b91c1c; font-size: 0.9rem;">🔄 Reset & Restart Shift</h4>
-                        <p style="margin: 0 0 8px 0; font-size: 0.75rem; color: #7f1d1d;">Clear all sales history and analytics.</p>
-                        <button class="btn btn-danger" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="resetAllSalesAndShiftData()">🗑️ Reset All Sales Data</button>
+                        <p style="margin: 0 0 8px 0; font-size: 0.75rem; color: #7f1d1d;">Clear sales data for the active outlet or clean un-tagged/cross-outlet rows.</p>
+                        <button class="btn btn-danger" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.8rem;" onclick="resetAllSalesAndShiftData()">🗑️ Reset Active Outlet Sales Data</button>
                     </div>
                 </div>
             </div>
@@ -1286,7 +1452,12 @@
                         <p id="dashRevenue" style="font-size: 1rem; font-weight: bold; margin: 0;">Rs 0.00</p>
                     </div>
                 </div>
-
+                <div style="margin-top: 16px; background: white; padding: 14px; border-radius: 8px; border: 1px solid var(--border);">
+                    <h3 style="margin: 0 0 8px 0; font-size: 0.9rem; color: #1e293b;">👥 Active Outlet Staff (Excl. Admin)</h3>
+                    <div id="activeOutletStaffList" style="font-size: 0.85rem; color: #334155;">
+                        Loading active staff...
+                    </div>
+                </div>
                 <!-- Donut Chart Container -->
                 <div style="margin-top: 20px; background: white; padding: 16px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center;">
                     <h3 style="margin-top: 0; font-size: 0.9rem; color: #334155; width: 100%; text-align: left; border-bottom: 1px solid var(--border); padding-bottom: 6px;">Sales Distribution by Category (Today)</h3>
@@ -1390,6 +1561,22 @@
 
     let staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
 
+    function getActiveStaffDisplayName() {
+        if (currentStaff && currentStaff.name) {
+            return String(currentStaff.name).trim();
+        }
+        try {
+            const stored = JSON.parse(localStorage.getItem('pos_current_staff') || localStorage.getItem('pos_active_cashier') || 'null');
+            if (stored && stored.name) return String(stored.name).trim();
+        } catch (e) {}
+        const headerEl = document.getElementById('loggedInUserDisplay');
+        if (headerEl && headerEl.innerText) {
+            const cleaned = headerEl.innerText.replace('👤', '').trim();
+            if (cleaned) return cleaned;
+        }
+        return 'Administrator';
+    }
+
     function populateLoginDropdown() {
         staffList = JSON.parse(localStorage.getItem('pos_staff_list')) || defaultStaffList;
         const selectEl = document.getElementById('loginUser');
@@ -1409,11 +1596,13 @@
     let selectedPlacedOrderId = null;
     let donutChartInstance = null;
     let showScreenReceipt = true;
-    let placedOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+    let placedOrders = getOutletJson('pos_placed_orders', []).filter(
+        o => o && o.outlet && normalizeOutletName(o.outlet) === getActiveOutlet()
+    );
     let cart = [];
     let orderSequenceNumber = parseInt(localStorage.getItem('pos_order_seq')) || 11;
     let deletedOrdersLog = JSON.parse(localStorage.getItem('pos_deleted_orders_log')) || { count: 0, quantity: 0, amount: 0 };
-    let dailyBatchLogs = JSON.parse(localStorage.getItem('pos_daily_batch_logs')) || [];
+    let dailyBatchLogs = getOutletJson('pos_daily_batch_logs', []);
     let historicalClosedDailySales = JSON.parse(localStorage.getItem('pos_historical_closed_daily_sales')) || [
         { date: '2026-09-01', transactions: 12, revenue: 2150.00, methods: { Cash: 1500, Card: 400, Delivoo: 250 }, itemsSummary: {} },
         { date: '2026-09-02', transactions: 15, revenue: 2840.00, methods: { Cash: 1800, Blink: 540, 'Hungry Dodo': 500 }, itemsSummary: {} }
@@ -1742,28 +1931,35 @@
         { id: 'inv_o7', cat: 'OTHERS', name: 'PLA Sealing Roll', stock: 5 }
     ];
 
-    let inventoryList = defaultInventoryList;
+    let inventoryList = defaultInventoryList.map(item => ({ ...item, outlet: getActiveOutlet() }));
 
-    async function saveInventory() {
-        localStorage.setItem('pos_store_inventory', JSON.stringify(inventoryList));
+    async function saveInventory(outletName = null) {
+        const targetOutlet = normalizeOutletName(outletName || getActiveOutlet());
+        const scopedList = inventoryList.map(item => ({ ...item, outlet: targetOutlet }));
+        setOutletJson('pos_store_inventory', scopedList, targetOutlet);
         renderInventoryTable();
 
-        try {
-            for (let item of inventoryList) {
-                const payload = {
-                    cat: item.cat,
-                    name: item.name,
-                    stock: item.stock
-                };
-                if (item.id && !item.id.startsWith('inv_')) {
-                    payload.id = item.id;
-                }
-                await supabaseClient
-                    .from('store_inventory')
-                    .upsert(payload);
-            }
-        } catch (err) {
-            console.error('Error syncing inventory to Supabase:', err);
+        const cloudRows = scopedList
+            .filter(item => item.id && !String(item.id).startsWith('inv_'))
+            .map(item => ({
+                id: item.id,
+                cat: item.cat,
+                name: item.name,
+                stock: item.stock,
+                outlet: targetOutlet
+            }));
+
+        if (cloudRows.length > 0) {
+            supabaseClient
+                .from('store_inventory')
+                .upsert(cloudRows, { onConflict: 'id' })
+                .then(({ error }) => {
+                    if (error && String(error.message || '').toLowerCase().includes('outlet')) {
+                        const fallbackRows = cloudRows.map(({ outlet, ...rest }) => rest);
+                        return supabaseClient.from('store_inventory').upsert(fallbackRows, { onConflict: 'id' });
+                    }
+                })
+                .catch(err => console.error('Background inventory sync error:', err));
         }
     }
 
@@ -1839,17 +2035,19 @@
             showModal('Validation Error', 'Please enter a stock item name.');
             return;
         }
-        inventoryList.push({ id: 'inv_' + Date.now(), cat, name, stock: qty });
+        inventoryList.push({ id: 'inv_' + Date.now(), cat, name, stock: qty, outlet: getActiveOutlet() });
         document.getElementById('stockName').value = '';
         document.getElementById('stockQty').value = '';
         saveInventory();
     }
 
     function printStoreStockReport() {
+        const currentOutletName = getActiveOutlet();
         let report = "--------------------------------\n";
         report += "       BUBBLE TIME MD LTD       \n";
         report += "       STORE STOCK REPORT       \n";
         report += "================================\n";
+        report += "Outlet: " + currentOutletName + "\n";
         report += "Date: " + new Date().toLocaleDateString() + "\n";
         report += "--------------------------------\n";
 
@@ -1942,7 +2140,7 @@
     }
 
     /* LOGIN & VIEW MANAGEMENT */
-    function handleLogin() {
+    async function handleLogin() {
         const userSelect = document.getElementById('loginUser').value;
         const pinInput = document.getElementById('loginPin').value;
         if (!userSelect) {
@@ -1954,6 +2152,20 @@
             currentStaff = found;
             localStorage.setItem('pos_current_staff', JSON.stringify(found));
             localStorage.setItem('pos_active_cashier', JSON.stringify(found));
+
+            const chosenOutlet = normalizeOutletName(
+                document.getElementById('loginOutlet')?.value ||
+                document.getElementById('attOutletSelect')?.value ||
+                'Mahebourge'
+            );
+            activeOutlet = chosenOutlet;
+            localStorage.setItem('pos_active_outlet', activeOutlet);
+
+            if (!isAdminStaff(found)) {
+                await syncStaffPresence(found, chosenOutlet, 'LOGGED_IN');
+            }
+            loadActiveOutletStaff();
+
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('mainApp').classList.remove('hidden');
             document.getElementById('loggedInUserDisplay').innerText = `👤 ${currentStaff.name}`;
@@ -1962,6 +2174,18 @@
             const uname = (currentStaff.username || '').toLowerCase();
             const sname = (currentStaff.name || '').toLowerCase();
             const isAdmin = uname.includes('admin') || sname.includes('admin') || uname === 'admin';
+
+            const switcherEl = document.getElementById('adminOutletSwitcher');
+            if (switcherEl) {
+                switcherEl.style.display = isAdmin ? 'inline-block' : 'none';
+                switcherEl.value = OUTLET_NAMES.includes(activeOutlet) ? activeOutlet : 'Mahebourge';
+            }
+
+            placedOrders = getOutletJson('pos_placed_orders', [], activeOutlet).filter(
+                o => o && o.outlet && normalizeOutletName(o.outlet) === activeOutlet
+            );
+            dailyBatchLogs = getOutletJson('pos_daily_batch_logs', [], activeOutlet);
+            renderBatchPrepUI();
 
             document.getElementById('adminAddNewProductsCard').style.display = isAdmin ? 'flex' : 'none';
             document.getElementById('adminGrossSalesAnalyticsCard').style.display = isAdmin ? 'flex' : 'none';
@@ -1973,14 +2197,25 @@
             renderPlacedOrders();
             refreshReconData();
             updateDashboardMetrics();
+            loadInventory(activeOutlet);
             loadCategoriesAndProductsFromSupabase();
-            loadOrdersFromSupabase();
+            loadOrdersFromSupabase(activeOutlet);
         } else {
             showModal("Login Failed", "Incorrect PIN Code.");
         }
     }
 
     function logout() {
+        if (currentStaff && !isAdminStaff(currentStaff)) {
+            const currentOutlet = normalizeOutletName(
+                document.getElementById('loginOutlet')?.value ||
+                document.getElementById('attOutletSelect')?.value ||
+                getActiveOutlet()
+            );
+            syncStaffPresence(currentStaff, currentOutlet, 'LOGGED_OUT');
+        }
+        const switcherEl = document.getElementById('adminOutletSwitcher');
+        if (switcherEl) switcherEl.style.display = 'none';
         currentStaff = null;
         document.getElementById('mainApp').classList.add('hidden');
         document.getElementById('loginOverlay').style.display = 'flex';
@@ -1998,6 +2233,7 @@
         }
 
         if (paneId === 'paneInventory') renderInventoryTable();
+        if (paneId === 'paneBatchPrep') renderBatchPrepUI();
         if (paneId === 'paneAdminAddProducts') {
             renderCategoryList();
             renderCategoryDropdowns();
@@ -2005,23 +2241,129 @@
         }
         if (paneId === 'paneAdminStaff') renderStaffDirectory();
         if (paneId === 'paneDashboard') {
-            loadOrdersFromSupabase().then(() => {
-                initSalesDonutChart();
-                updateDashboardMetrics();
-            });
+            initSalesDonutChart();
+            updateDashboardMetrics();
+            loadActiveOutletStaff();
+            loadOrdersFromSupabase(getActiveOutlet());
         }
         if (paneId === 'paneRecon') {
-            loadOrdersFromSupabase().then(() => refreshReconData());
+            refreshReconData();
+            loadOrdersFromSupabase(getActiveOutlet());
         }
         if (paneId === 'panePlacedOrders') {
-            loadOrdersFromSupabase().then(() => renderPlacedOrders());
+            renderPlacedOrders();
+            loadOrdersFromSupabase(getActiveOutlet());
         }
     }
+
+    function isAdminStaff(staffObjOrName) {
+        const raw = typeof staffObjOrName === 'string'
+            ? staffObjOrName
+            : `${staffObjOrName?.username || ''} ${staffObjOrName?.name || ''}`;
+        return raw.toLowerCase().includes('admin');
+    }
+
+    async function syncStaffPresence(staffObj, outletName, statusText) {
+        if (!staffObj || !staffObj.username || isAdminStaff(staffObj)) return;
+        const normalizedOutlet = normalizeOutletName(outletName || getActiveOutlet());
+        const record = {
+            username: String(staffObj.username),
+            staff_name: String(staffObj.name || staffObj.username),
+            outlet: normalizedOutlet,
+            status: String(statusText || 'LOGGED_IN'),
+            updated_at: new Date().toISOString()
+        };
+
+        try {
+            const localMap = JSON.parse(localStorage.getItem('pos_local_staff_presence') || '{}');
+            localMap[record.username] = record;
+            localStorage.setItem('pos_local_staff_presence', JSON.stringify(localMap));
+        } catch (e) {}
+
+        try {
+            const { error } = await supabaseClient
+                .from('staff_presence')
+                .upsert(record, { onConflict: 'username' });
+            if (error) console.error('Presence sync error:', error);
+        } catch (err) {
+            console.error('Presence sync exception:', err);
+        }
+    }
+
+    async function loadActiveOutletStaff() {
+        const container = document.getElementById('activeOutletStaffList');
+        if (!container) return;
+
+        const mergedByUser = new Map();
+
+        try {
+            const localMap = JSON.parse(localStorage.getItem('pos_local_staff_presence') || '{}');
+            Object.values(localMap).forEach(row => {
+                if (row && row.username) mergedByUser.set(String(row.username), row);
+            });
+        } catch (e) {}
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('staff_presence')
+                .select('*')
+                .order('outlet', { ascending: true });
+
+            if (!error && Array.isArray(data)) {
+                data.forEach(row => {
+                    const key = row.username || row.staff_name || row.name;
+                    if (row && key) {
+                        mergedByUser.set(String(key), {
+                            ...row,
+                            username: String(key),
+                            staff_name: row.staff_name || row.name || String(key)
+                        });
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Load active staff error:', err);
+        }
+
+        const activeStaff = Array.from(mergedByUser.values()).filter(row => {
+            if (isAdminStaff(row.username) || isAdminStaff(row.staff_name)) return false;
+            const st = String(row.status || '').toUpperCase();
+            return st === 'LOGGED_IN' || st === 'CLOCK IN' || st === 'CLOCKED IN' || st === 'BREAK IN' || st === 'BREAK OUT';
+        });
+
+        if (activeStaff.length === 0) {
+            container.innerHTML = '<span style="color:#94a3b8;">No non-admin staff currently active at any outlet.</span>';
+            return;
+        }
+
+        container.innerHTML = activeStaff.map(s => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; border-bottom:1px solid #f1f5f9;">
+                <div>
+                    <strong>${s.staff_name || s.username}</strong>
+                    <span style="color:#64748b; font-size:0.8rem;">— ${normalizeOutletName(s.outlet)}</span>
+                </div>
+                <span style="font-size:0.75rem; font-weight:700; color:#059669;">${s.status}</span>
+            </div>
+        `).join('');
+    }
+
+    supabaseClient
+        .channel('public:staff_presence_live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_presence' }, () => {
+            loadActiveOutletStaff();
+        })
+        .subscribe();
 
     /* MENU CATALOG & ACCORDION RENDER */
     function renderAccordion() {
         const container = document.getElementById('accordionContainer');
         if (!container) return;
+
+        const openCategories = new Set();
+        container.querySelectorAll('.category-dropdown.active .category-header span:first-child').forEach(span => {
+            openCategories.add(span.textContent.trim());
+        });
+
         container.innerHTML = '';
 
         categories.forEach(cat => {
@@ -2030,10 +2372,17 @@
 
             const drop = document.createElement('div');
             drop.className = 'category-dropdown';
+            if (openCategories.has(cat)) {
+                drop.classList.add('active');
+            }
+
             const header = document.createElement('div');
             header.className = 'category-header';
             header.innerHTML = `<span>${cat}</span> <span>▼</span>`;
-            header.onclick = () => drop.classList.toggle('active');
+            header.addEventListener('click', (e) => {
+                e.preventDefault();
+                drop.classList.toggle('active');
+            });
 
             const content = document.createElement('div');
             content.className = 'category-content';
@@ -2041,7 +2390,7 @@
             prodsInCat.forEach(p => {
                 const btn = document.createElement('div');
                 btn.className = 'product-btn';
-                btn.onclick = () => addToCart(p);
+                btn.addEventListener('click', () => addToCart(p));
                 btn.innerHTML = `
                     <span class="product-name">${p.name}</span>
                     <span class="product-price">Rs ${Number(p.price || 0).toFixed(2)}</span>
@@ -2254,9 +2603,12 @@
 
     const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyZY3DP6RcODUdYwtgGhEeS_TGmGDWahcG5EZkVRoS0QFzmqN5l_3PYZkkcu3-45Myo/exec";
 
-    function getStoredSales() {
-        const r = localStorage.getItem('pos_daily_sales_history');
-        return JSON.parse(r) || [];
+    function getStoredSales(outletName = null) {
+        return getOutletJson('pos_daily_sales_history', [], normalizeOutletName(outletName || getActiveOutlet()));
+    }
+
+    function setStoredSales(salesArr, outletName = null) {
+        setOutletJson('pos_daily_sales_history', salesArr, normalizeOutletName(outletName || getActiveOutlet()));
     }
 
     function getRecipeIngredients(productName, category) {
@@ -2319,40 +2671,42 @@
         return ingredients;
     }
 
-    async function completeSaleAndPrintReceipt() {
+    function completeSaleAndPrintReceipt() {
         if (!cart || cart.length === 0) {
             showModal("Notice", "Your cart is empty.");
             return;
         }
 
-        let salesHistory = getStoredSales();
+        const currentOutletName = getActiveOutlet();
+        let salesHistory = getStoredSales(currentOutletName);
 
         const todayKey = new Date().toISOString().split('T')[0];
         const datePrefix = String(new Date().getMonth() + 1).padStart(2, '0') + String(new Date().getDate()).padStart(2, '0');
-        let lastDate = localStorage.getItem('pos_order_date');
-        let orderSeq = parseInt(localStorage.getItem('pos_order_seq') || '0', 10);
+        const seqDateKey = `pos_order_date::${currentOutletName}`;
+        const seqNumKey = `pos_order_seq::${currentOutletName}`;
+        let lastDate = localStorage.getItem(seqDateKey);
+        let orderSeq = parseInt(localStorage.getItem(seqNumKey) || '0', 10);
 
         if (lastDate !== todayKey) {
             orderSeq = 1;
-            localStorage.setItem('pos_order_date', todayKey);
+            localStorage.setItem(seqDateKey, todayKey);
         } else {
             orderSeq++;
         }
-        localStorage.setItem('pos_order_seq', orderSeq);
+        localStorage.setItem(seqNumKey, orderSeq);
 
         const orderId = 'ORD-' + datePrefix + String(orderSeq).padStart(3, '0');
         const timestamp = new Date().toLocaleString('en-GB');
 
         let total = 0;
         let totalQty = 0;
-        if (cart && cart.length > 0) {
-            for (let i = 0; i < cart.length; i++) {
-                let p = cart[i].price || 0;
-                let q = cart[i].qty || 1;
-                total += p * q;
-                totalQty += q;
-            }
-        }
+        const snapshotItems = cart.map(item => {
+            const p = item.price || 0;
+            const q = item.qty || 1;
+            total += p * q;
+            totalQty += q;
+            return { ...item, qty: q };
+        });
 
         let discountAmount = 0;
         if (typeof activeDiscount !== 'undefined' && activeDiscount) {
@@ -2366,32 +2720,32 @@
 
         const paymentMethodEl = document.getElementById('paymentMethod');
         const selectedMethod = paymentMethodEl ? paymentMethodEl.value : 'Cash';
+        const cashierName = getActiveStaffDisplayName();
 
         const newOrder = {
             id: orderId,
-            cashier: typeof currentStaff !== 'undefined' && currentStaff ? currentStaff.name : 'Staff',
+            cashier: cashierName,
             timestamp: new Date().toLocaleString(),
             date: timestamp,
-            items: [...cart],
+            items: snapshotItems,
             total: finalTotal,
             discountLabel: typeof activeDiscount !== 'undefined' && activeDiscount ? activeDiscount.label : null,
             discountAmount: discountAmount,
             method: selectedMethod,
             paymentType: selectedMethod,
             paymentMethod: selectedMethod,
-            status: 'PAID'
+            status: 'PAID',
+            outlet: currentOutletName
         };
 
-        let localOrders = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        let localOrders = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
+            o => o && o.outlet && normalizeOutletName(o.outlet) === currentOutletName
+        );
         localOrders.push(newOrder);
         placedOrders = localOrders;
-        localStorage.setItem('pos_placed_orders', JSON.stringify(placedOrders));
+        setOutletJson('pos_placed_orders', placedOrders, currentOutletName);
 
-        if (typeof syncOrderToSupabase === 'function') {
-            await syncOrderToSupabase(newOrder);
-        }
-
-        cart.forEach(cartItem => {
+        snapshotItems.forEach(cartItem => {
             const qty = cartItem.qty || 1;
 
             const prod = products.find(p => p.id === cartItem.id || p.name === cartItem.name);
@@ -2411,14 +2765,7 @@
         });
 
         localStorage.setItem('pos_menu_catalog_products', JSON.stringify(products));
-        if (typeof syncProductsToSupabase === 'function') {
-            syncProductsToSupabase(products);
-        }
-        saveInventory();
-
-        if (typeof renderAccordion === 'function') renderAccordion();
-        if (typeof renderAdminCatalogEditTable === 'function') renderAdminCatalogEditTable();
-        if (typeof renderInventoryTable === 'function') renderInventoryTable();
+        setOutletJson('pos_store_inventory', inventoryList.map(item => ({ ...item, outlet: currentOutletName })), currentOutletName);
 
         salesHistory.push({
             id: orderId,
@@ -2427,10 +2774,34 @@
             date: timestamp,
             method: selectedMethod,
             paymentType: selectedMethod,
-            items: [...cart]
+            items: snapshotItems,
+            outlet: currentOutletName
         });
-        localStorage.setItem('pos_daily_sales_history', JSON.stringify(salesHistory));
+        setStoredSales(salesHistory, currentOutletName);
 
+        cart = [];
+        activeDiscount = null;
+        const cashInput = document.getElementById('cashGivenInput');
+        if (cashInput) cashInput.value = '';
+        const discDisplay = document.getElementById('appliedDiscountDisplay');
+        if (discDisplay) discDisplay.style.display = 'none';
+
+        if (typeof calculateChange === 'function') calculateChange();
+        if (typeof renderCart === 'function') renderCart();
+        if (typeof renderAccordion === 'function') renderAccordion();
+        if (typeof renderAdminCatalogEditTable === 'function') renderAdminCatalogEditTable();
+        if (typeof renderInventoryTable === 'function') renderInventoryTable();
+        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+        if (typeof refreshReconData === 'function') refreshReconData();
+        if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+
+        printThermalReceipt(newOrder);
+
+        syncOrderToSupabase(newOrder, currentOutletName);
+        saveInventory(currentOutletName);
+        if (typeof syncProductsToSupabase === 'function') {
+            syncProductsToSupabase(products);
+        }
         try {
             fetch(GOOGLE_SHEET_WEB_APP_URL, {
                 method: "POST",
@@ -2441,32 +2812,6 @@
         } catch (err) {
             console.error("Error sending to Google Sheets:", err);
         }
-
-        try {
-            cart = [];
-            const cashInput = document.getElementById('cashGivenInput');
-            if (cashInput) cashInput.value = '';
-
-            activeDiscount = null;
-            const discDisplay = document.getElementById('appliedDiscountDisplay');
-            if (discDisplay) discDisplay.style.display = 'none';
-
-            if (typeof calculateChange === 'function') calculateChange();
-            if (typeof renderCart === 'function') renderCart();
-
-            await printThermalReceipt(newOrder);
-        } catch (printErr) {
-            console.warn("Thermal receipt printing failed:", printErr);
-        }
-
-        cart = [];
-        const cashInput = document.getElementById('cashGivenInput');
-        if (cashInput) cashInput.value = '';
-        if (typeof calculateChange === 'function') calculateChange();
-
-        if (typeof renderCart === 'function') renderCart();
-        if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
-        if (typeof refreshReconData === 'function') refreshReconData();
     }
 
     /* PLACED ORDERS & SETTLEMENT */
@@ -2474,7 +2819,11 @@
         const container = document.getElementById('placedOrdersListContainer');
         if (!container) return;
 
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || placedOrders || [];
+        const currentOutletName = getActiveOutlet();
+        let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
+            o => o && o.outlet && normalizeOutletName(o.outlet) === currentOutletName
+        );
+        placedOrders = ordersList;
 
         if (ordersList.length === 0) {
             container.innerHTML = '<p style="color: #94a3b8; text-align: center; margin-top: 20px; font-size: 0.8rem;">No placed orders</p>';
@@ -2505,7 +2854,8 @@
 
     function selectPlacedOrder(orderId) {
         selectedPlacedOrderId = orderId;
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || placedOrders || [];
+        const currentOutletName = getActiveOutlet();
+        let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName);
         const ord = ordersList.find(o => o.id === orderId);
         if (!ord) return;
 
@@ -2518,7 +2868,8 @@
             headerContainer.innerHTML = `
                 <h3 style="margin:0 0 4px 0; font-size:1rem;">${ord.id} Details</h3>
                 <div style="font-size:0.8rem; color:#64748b;">
-                    <strong>Cashier:</strong> ${ord.cashier || 'Hanaa'}<br>
+                    <strong>Outlet:</strong> ${normalizeOutletName(ord.outlet || currentOutletName)}<br>
+                    <strong>Cashier:</strong> ${ord.cashier || getActiveStaffDisplayName()}<br>
                     <strong>Time:</strong> ${ord.timestamp || ''}<br>
                     <strong>Payment:</strong> ${ord.method || 'Cash'} (${ord.status})
                 </div>
@@ -2544,13 +2895,14 @@
 
     async function setPaymentStatus(status) {
         if (!selectedPlacedOrderId) return;
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+        const currentOutletName = getActiveOutlet();
+        let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName);
         const ord = ordersList.find(o => o.id === selectedPlacedOrderId);
         if (ord) {
             ord.status = status;
             placedOrders = ordersList;
-            localStorage.setItem('pos_placed_orders', JSON.stringify(ordersList));
-            await syncOrderToSupabase(ord);
+            setOutletJson('pos_placed_orders', ordersList, currentOutletName);
+            await syncOrderToSupabase(ord, currentOutletName);
             renderPlacedOrders();
             selectPlacedOrder(selectedPlacedOrderId);
             refreshReconData();
@@ -2559,7 +2911,8 @@
 
     async function settleCurrentSelectedOrder(method) {
         if (!selectedPlacedOrderId) return;
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+        const currentOutletName = getActiveOutlet();
+        let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName);
         const ord = ordersList.find(o => o.id === selectedPlacedOrderId);
         if (ord) {
             ord.method = method;
@@ -2567,8 +2920,8 @@
             ord.paymentType = method;
             ord.status = 'PAID';
             placedOrders = ordersList;
-            localStorage.setItem('pos_placed_orders', JSON.stringify(ordersList));
-            await syncOrderToSupabase(ord);
+            setOutletJson('pos_placed_orders', ordersList, currentOutletName);
+            await syncOrderToSupabase(ord, currentOutletName);
             renderPlacedOrders();
             selectPlacedOrder(selectedPlacedOrderId);
             refreshReconData();
@@ -2580,13 +2933,14 @@
             showModal("Notice", "Please select an order to confirm.");
             return;
         }
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+        const currentOutletName = getActiveOutlet();
+        let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName);
         const ord = ordersList.find(o => o.id === selectedPlacedOrderId);
         if (ord) {
             ord.status = 'PAID';
             placedOrders = ordersList;
-            localStorage.setItem('pos_placed_orders', JSON.stringify(ordersList));
-            await syncOrderToSupabase(ord);
+            setOutletJson('pos_placed_orders', ordersList, currentOutletName);
+            await syncOrderToSupabase(ord, currentOutletName);
             renderPlacedOrders();
             if (typeof refreshReconData === 'function') {
                 refreshReconData();
@@ -2604,12 +2958,13 @@
     function deleteSelectedPlacedOrder() {
         if (!selectedPlacedOrderId) return;
         const targetId = selectedPlacedOrderId;
+        const currentOutletName = getActiveOutlet();
         showModal("Cancel Order", `Are you sure you want to delete ${targetId}?`, true, async (confirm) => {
             if (confirm) {
-                let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+                let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName);
                 ordersList = ordersList.filter(o => o.id !== targetId);
                 placedOrders = ordersList;
-                localStorage.setItem('pos_placed_orders', JSON.stringify(ordersList));
+                setOutletJson('pos_placed_orders', ordersList, currentOutletName);
                 try {
                     await supabaseClient.from('placed_orders').delete().eq('id', String(targetId));
                 } catch (e) {}
@@ -2629,21 +2984,25 @@
             return;
         }
 
+        const currentOutletName = getActiveOutlet();
+        dailyBatchLogs = getOutletJson('pos_daily_batch_logs', [], currentOutletName);
         dailyBatchLogs.push({
             item,
             grams,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            outlet: currentOutletName
         });
 
-        localStorage.setItem('pos_daily_batch_logs', JSON.stringify(dailyBatchLogs));
+        setOutletJson('pos_daily_batch_logs', dailyBatchLogs, currentOutletName);
         document.getElementById('batchGramInput').value = '';
         renderBatchPrepUI();
-        showModal("Batch Recorded", `Added ${grams}g of ${item}`);
+        showModal("Batch Recorded", `Added ${grams}g of ${item} (${currentOutletName})`);
     }
 
     function renderBatchPrepUI() {
+        const logs = getOutletJson('pos_daily_batch_logs', [], getActiveOutlet());
         let greenTotal = 0, blackTotal = 0, tapiocaTotal = 0;
-        dailyBatchLogs.forEach(b => {
+        logs.forEach(b => {
             if (b.item === 'GREEN TEA') greenTotal += b.grams;
             if (b.item === 'BLACK TEA') blackTotal += b.grams;
             if (b.item === 'TAPIOCA PEARLS') tapiocaTotal += b.grams;
@@ -2654,11 +3013,11 @@
         document.getElementById('totalTapiocaPreparedDisplay').innerText = `${tapiocaTotal} g`;
 
         const container = document.getElementById('batchHistoryContainer');
-        if (dailyBatchLogs.length === 0) {
+        if (logs.length === 0) {
             container.innerHTML = '<span style="color: #94a3b8;">No batches recorded yet today</span>';
             return;
         }
-        container.innerHTML = dailyBatchLogs.slice().reverse().map(b =>
+        container.innerHTML = logs.slice().reverse().map(b =>
             `<div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>${b.time} - ${b.item}</span><strong>+${b.grams}g</strong></div>`
         ).join('');
     }
@@ -2762,17 +3121,17 @@
 
     /* DAILY RECON REPORTS */
     function refreshReconData() {
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        const currentOutletName = getActiveOutlet();
+        let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
+            o => o && o.outlet && normalizeOutletName(o.outlet) === currentOutletName
+        );
 
         const nowStr = new Date().toLocaleString();
         if (document.getElementById('reconTimestamp')) document.getElementById('reconTimestamp').innerText = nowStr;
 
-        let activeCashierName = 'Administrator';
-        if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
-            activeCashierName = currentStaff.name;
-        }
-        if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = activeCashierName;
-        if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = activeCashierName;
+        const activeCashierName = getActiveStaffDisplayName();
+        if (document.getElementById('reconCashierName')) document.getElementById('reconCashierName').innerText = `${activeCashierName} (${currentOutletName})`;
+        if (document.getElementById('adminReconCashier')) document.getElementById('adminReconCashier').innerText = `${activeCashierName} (${currentOutletName})`;
 
         let totals = { Cash: 0, Card: 0, Juice: 0, 'MyT Money': 0, Blink: 0, Delivoo: 0, 'Hungry Dodo': 0 };
         let grandTotal = 0;
@@ -2833,7 +3192,10 @@
     }
 
     function printCombinedDailySalesReport() {
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        const currentOutletName = getActiveOutlet();
+        let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
+            o => o && o.outlet && normalizeOutletName(o.outlet) === currentOutletName
+        );
 
         let dailySales = ordersList.filter(order => order.status === 'PAID' || order.paymentStatus === 'PAID').map(order => {
             let rawM = order.paymentType || order.paymentMethod || order.payment || order.payment_method || order.paymentMode || order.mode || order.type || order.method || 'Cash';
@@ -2881,11 +3243,10 @@
             }
         });
 
-        let currentStaffLocal = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
         let now = new Date();
         let dateStr = now.toLocaleDateString('en-GB');
         let timeStr = now.toTimeString().split(' ')[0];
-        let cashierName = currentStaffLocal.name || 'Ahana Lead';
+        let cashierName = getActiveStaffDisplayName();
 
         let rText = "================================\n";
         rText += "      BUBBLE TIME MD LTD      \n";
@@ -2922,6 +3283,7 @@
         rText += "================================\n";
         rText += "         DATE AND TIME          \n";
         rText += "--------------------------------\n";
+        rText += `Outlet: ${currentOutletName}\n`;
         rText += `Date: ${dateStr}\n`;
         rText += `Timestamp: ${timeStr}\n`;
         rText += `Cashier: ${cashierName}\n`;
@@ -2935,25 +3297,15 @@
     }
 
     function generateClosingShiftReport() {
+        const currentOutletName = getActiveOutlet();
         let now = new Date();
         let dateStr = now.toLocaleDateString('en-GB');
         let timeStr = now.toTimeString().split(' ')[0];
+        let cashierName = getActiveStaffDisplayName();
 
-        let cashierName = 'Alex Valentina';
-        if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
-            cashierName = currentStaff.name;
-        } else {
-            const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || '{}');
-            if (storedStaff && storedStaff.name) {
-                cashierName = storedStaff.name;
-            } else {
-                const loggedInDisp = document.getElementById('loggedInUserDisplay');
-                if (loggedInDisp && loggedInDisp.innerText) {
-                    cashierName = loggedInDisp.innerText.replace('👤', '').trim();
-                }
-            }
-        }
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
+            o => o && o.outlet && normalizeOutletName(o.outlet) === currentOutletName
+        );
         let paidOrders = ordersList.filter(order => {
             let s = String(order.status || order.paymentStatus || '').toUpperCase();
             return s === 'PAID' || s === 'COMPLETED';
@@ -3025,6 +3377,7 @@
         rText += "================================\n";
         rText += "         DATE AND TIME          \n";
         rText += "--------------------------------\n";
+        rText += " Outlet: " + currentOutletName + "\n";
         rText += " Date: " + dateStr + "\n";
         rText += " Timestamp: " + timeStr + "\n";
         rText += " Cashier: " + cashierName + "\n";
@@ -3041,9 +3394,10 @@
 
     function generateReceiptPrintText(order) {
         let orderId = order.id || 'ORD-000';
-        let cashierName = order.cashier || localStorage.getItem('loggedInUser') || 'Alex Valentina';
+        let cashierName = order.cashier || getActiveStaffDisplayName();
         let paymentMethod = order.paymentMethod || order.method || 'Cash';
         let orderDate = order.date || new Date().toLocaleString('en-GB');
+        let outletLabel = normalizeOutletName(order.outlet || getActiveOutlet());
 
         let total = parseFloat(order.total || 0);
         let discountAmount = parseFloat(order.discountAmount || 0);
@@ -3054,6 +3408,7 @@
         rText += "   Louis Pasteur st, Curepipe\n";
         rText += "  Tel: 52573727 | BRN: C24206010\n";
         rText += "================================\n";
+        rText += "Outlet: " + outletLabel + "\n";
         rText += "Order: " + orderId + "\n";
         rText += "Cashier: " + cashierName + "\n";
         rText += "Date: " + orderDate + "\n";
@@ -3094,7 +3449,7 @@
             showModal("Notice", "Please select an order from the list first.");
             return;
         }
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        let ordersList = getOutletJson('pos_placed_orders', [], getActiveOutlet());
         const ord = ordersList.find(o => o.id === selectedPlacedOrderId);
         if (ord) {
             await printThermalReceipt(ord);
@@ -3111,13 +3466,15 @@
     }
 
     function printSpecificPlatformReport(platformName) {
-        let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history')) || [];
+        const currentOutletName = getActiveOutlet();
+        let dailySales = getStoredSales(currentOutletName);
         let platformSales = dailySales.filter(s => (s.method || '').toLowerCase() === platformName.toLowerCase());
         let total = platformSales.reduce((sum, s) => sum + (parseFloat(s.total || s.amount || 0) || 0), 0);
 
         let rText = "================================\n";
         rText += `     ${platformName.toUpperCase()} SALES REPORT     \n`;
         rText += "================================\n";
+        rText += `Outlet: ${currentOutletName}\n`;
         rText += `Date: ${new Date().toLocaleDateString()}\n`;
         rText += `Orders: ${platformSales.length}\n`;
         rText += `Total Revenue: Rs ${total.toFixed(2)}\n`;
@@ -3173,7 +3530,7 @@
         const statusMsg = document.getElementById('attStatusMsg');
 
         const staffName = staffSelectEl ? staffSelectEl.value.trim() : "";
-        const outletName = outletSelectEl ? outletSelectEl.value.trim() : "";
+        const outletName = normalizeOutletName(outletSelectEl ? outletSelectEl.value.trim() : "");
 
         if (!staffName) {
             if (statusMsg) {
@@ -3181,6 +3538,13 @@
                 statusMsg.style.color = "#dc2626";
             }
             return;
+        }
+
+        const matchedStaff = staffList.find(s => s.name === staffName) || { username: staffName, name: staffName };
+        if (!isAdminStaff(matchedStaff)) {
+            const nextStatus = actionType === 'CLOCK OUT' ? 'LOGGED_OUT' : actionType;
+            syncStaffPresence(matchedStaff, outletName, nextStatus);
+            loadActiveOutletStaff();
         }
 
         const now = new Date();
@@ -3229,21 +3593,26 @@
     }
 
     function approveCloseShiftAndPrintReport() {
-        let checkOrders = JSON.parse(localStorage.getItem('pos_placed_orders')) || [];
+        const currentOutletName = getActiveOutlet();
+        let checkOrders = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
+            o => o && o.outlet && normalizeOutletName(o.outlet) === currentOutletName
+        );
         let checkPaid = checkOrders.filter(o => {
             let s = String(o.status || o.paymentStatus || '').toUpperCase();
             return s === 'PAID' || s === 'COMPLETED';
         });
 
         if (checkPaid.length === 0) {
-            showModal("Notice", "No paid transactions to close for this shift.");
+            showModal("Notice", `No paid transactions to close for this shift at ${currentOutletName}.`);
             return;
         }
 
-        showModal("Close Shift", "Are you sure you want to close the shift?", true, async (confirmed) => {
+        showModal("Close Shift", `Are you sure you want to close the shift for ${currentOutletName}?`, true, async (confirmed) => {
             if (!confirmed) return;
 
-            let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+            let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
+                o => o && o.outlet && normalizeOutletName(o.outlet) === currentOutletName
+            );
             let paidOrders = ordersList.filter(order => {
                 let s = String(order.status || order.paymentStatus || '').toUpperCase();
                 return s === 'PAID' || s === 'COMPLETED';
@@ -3276,30 +3645,14 @@
             let now = new Date();
             let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
             let dateStr = now.toLocaleDateString('en-GB');
+            let cashierName = getActiveStaffDisplayName();
+            let morningStaff = localStorage.getItem('pos_morning_staff') || cashierName;
 
-            let activeStaffName = 'Alex Valentina';
-            if (typeof currentStaff !== 'undefined' && currentStaff && currentStaff.name) {
-                activeStaffName = currentStaff.name;
-            } else {
-                const storedStaff = JSON.parse(localStorage.getItem('pos_current_staff') || localStorage.getItem('pos_active_cashier') || '{}');
-                if (storedStaff && storedStaff.name) {
-                    activeStaffName = storedStaff.name;
-                } else {
-                    const loggedInDisp = document.getElementById('loggedInUserDisplay');
-                    if (loggedInDisp && loggedInDisp.innerText) {
-                        activeStaffName = loggedInDisp.innerText.replace('👤', '').trim();
-                    }
-                }
-            }
-
-            let closingStaff = activeStaffName;
-            let morningStaff = localStorage.getItem('pos_morning_staff') || closingStaff;
-            let shiftId = morningStaff;
-            let cashierName = closingStaff;
             let sheetPayload = {
                 day: dayName,
                 date: dateStr,
-                shiftId: shiftId,
+                outlet: currentOutletName,
+                shiftId: morningStaff,
                 delivoo: methodTotals['Delivoo'],
                 hungryDodo: methodTotals['Hungry Dodo'],
                 juice: methodTotals['Juice'],
@@ -3314,13 +3667,13 @@
             syncShiftToGoogleSheets(sheetPayload);
             generateClosingShiftReport();
 
-            localStorage.removeItem('pos_daily_sales_history');
+            localStorage.removeItem(outletKey('pos_daily_sales_history', currentOutletName));
             let remainingOrders = ordersList.filter(order => {
                 let s = String(order.status || order.paymentStatus || '').toUpperCase();
                 return s !== 'PAID' && s !== 'COMPLETED';
             });
             placedOrders = remainingOrders;
-            localStorage.setItem('pos_placed_orders', JSON.stringify(remainingOrders));
+            setOutletJson('pos_placed_orders', remainingOrders, currentOutletName);
 
             for (const paidOrd of paidOrders) {
                 try {
@@ -3335,10 +3688,16 @@
 
     /* DONUT CHART & DASHBOARD METRICS */
     function updateDashboardMetrics() {
+        const currentOutletName = getActiveOutlet();
         const staffNameEl = document.getElementById('dashStaffName');
-        if (staffNameEl) staffNameEl.innerText = currentStaff ? currentStaff.name : 'Administrator';
+        if (staffNameEl) {
+            const baseName = getActiveStaffDisplayName();
+            staffNameEl.innerText = `${baseName} (${currentOutletName})`;
+        }
 
-        const ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        const ordersList = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
+            o => o && o.outlet && normalizeOutletName(o.outlet) === currentOutletName
+        );
         const pendingEl = document.getElementById('dashPendingCount');
         if (pendingEl) {
             pendingEl.innerText = ordersList.filter(o => {
@@ -3355,13 +3714,6 @@
             }
         });
 
-        if (todaysTotal === 0) {
-            const dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history') || '[]');
-            dailySales.forEach(s => {
-                todaysTotal += parseFloat(s.total || s.amount || s.revenue || 0);
-            });
-        }
-
         const revenueEl = document.getElementById('dashRevenue');
         if (revenueEl) {
             revenueEl.innerText = `Rs ${todaysTotal.toFixed(2)}`;
@@ -3374,7 +3726,10 @@
 
         if (donutChartInstance) donutChartInstance.destroy();
 
-        let ordersList = JSON.parse(localStorage.getItem('pos_placed_orders') || '[]');
+        const currentOutletName = getActiveOutlet();
+        let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
+            o => o && o.outlet && normalizeOutletName(o.outlet) === currentOutletName
+        );
         let catTotals = {};
 
         ordersList.forEach(order => {
@@ -3389,19 +3744,6 @@
                 }
             }
         });
-
-        if (Object.keys(catTotals).length === 0) {
-            let dailySales = JSON.parse(localStorage.getItem('pos_daily_sales_history') || '[]');
-            dailySales.forEach(s => {
-                if (s.items && Array.isArray(s.items)) {
-                    s.items.forEach(i => {
-                        let catName = i.cat || 'OTHER';
-                        let itemTotal = parseFloat(i.price || 0) * parseInt(i.qty || i.quantity || 1);
-                        catTotals[catName] = (catTotals[catName] || 0) + itemTotal;
-                    });
-                }
-            });
-        }
 
         const labels = Object.keys(catTotals).length > 0 ? Object.keys(catTotals) : ['No Sales'];
         const data = Object.keys(catTotals).length > 0 ? Object.values(catTotals) : [1];
@@ -3423,15 +3765,33 @@
         });
     }
 
-    function resetAllSalesAndShiftData() {
-        if (confirm("Clear all sales data?")) {
-            localStorage.removeItem('pos_daily_sales_history');
-            localStorage.removeItem('pos_placed_orders');
-            localStorage.removeItem('pos_daily_batch_logs');
+    async function resetAllSalesAndShiftData() {
+        const currentOutletName = getActiveOutlet();
+        if (confirm(`Clear all sales data for ${currentOutletName}?`)) {
+            localStorage.removeItem(outletKey('pos_daily_sales_history', currentOutletName));
+            localStorage.removeItem(outletKey('pos_placed_orders', currentOutletName));
+            localStorage.removeItem(outletKey('pos_daily_batch_logs', currentOutletName));
+            placedOrders = [];
+            dailyBatchLogs = [];
+            try {
+                const { data: allRows } = await supabaseClient.from('placed_orders').select('id, outlet');
+                if (Array.isArray(allRows)) {
+                    for (const row of allRows) {
+                        if (!row.outlet || normalizeOutletName(row.outlet) === currentOutletName) {
+                            await supabaseClient.from('placed_orders').delete().eq('id', String(row.id));
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Supabase outlet reset error:', e);
+            }
+            if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+            if (typeof refreshReconData === 'function') refreshReconData();
+            if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
             if (typeof renderAdminSalesRecords === 'function') {
                 renderAdminSalesRecords('daily');
             }
-            alert("Sales data reset.");
+            alert(`Sales data reset for ${currentOutletName}.`);
         }
     }
 
@@ -3515,7 +3875,8 @@
         const container = document.getElementById('adminSalesAnalyticsReportContainer');
         if (!container) return;
 
-        const sales = typeof getStoredSales === 'function' ? getStoredSales() : (JSON.parse(localStorage.getItem('pos_daily_sales_history')) || []);
+        const currentOutletName = getActiveOutlet();
+        const sales = getStoredSales(currentOutletName);
         const now = new Date();
 
         const filtered = sales.filter(x => {
@@ -3555,7 +3916,7 @@
         container.innerHTML = `
             <div style="padding: 12px; font-family: sans-serif;">
                 <h3 style="margin-top:0; margin-bottom:8px; font-size:1.1rem; color:#0f172a;">
-                    Gross ${titlePeriod} Sales Report (${currentMonthName} ${currentYear})
+                    Gross ${titlePeriod} Sales Report — ${currentOutletName} (${currentMonthName} ${currentYear})
                 </h3>
                 <div style="font-size:1.2rem; font-weight:bold; color:#16a34a; margin-bottom:6px;">
                     Total Revenue: Rs ${totalRevenue.toFixed(2)}
@@ -3583,9 +3944,10 @@
         populateLoginDropdown();
         renderBatchPrepUI();
         saveCategories(false);
-        await loadInventory();
+        await loadInventory(getActiveOutlet());
         await loadCategoriesAndProductsFromSupabase();
-        await loadOrdersFromSupabase();
+        await loadOrdersFromSupabase(getActiveOutlet());
+        await loadActiveOutletStaff();
     };
 
     document.addEventListener("click", e => {
@@ -3649,7 +4011,6 @@
                 }
             };
 
-            // 1. Categories (pos_menu_categories is an array of strings)
             const rawCats = getJSON('pos_menu_categories', []);
             const catNames = Array.isArray(rawCats)
                 ? rawCats
@@ -3670,7 +4031,6 @@
                 if (catErr) throw new Error('Categories error: ' + catErr.message);
             }
 
-            // 2. Products (pos_menu_catalog_products uses `cat`, `name`, `price`, `stock`)
             const rawProducts = getJSON('pos_menu_catalog_products', []);
             const productRows = (Array.isArray(rawProducts) ? rawProducts : [])
                 .filter(p => p && (p.name || p.id !== undefined))
@@ -3689,8 +4049,8 @@
                 if (prodErr) throw new Error('Products error: ' + prodErr.message);
             }
 
-            // 3. Orders (pos_placed_orders)
-            const rawOrders = getJSON('pos_placed_orders', []);
+            const currentOutletName = getActiveOutlet();
+            const rawOrders = getOutletJson('pos_placed_orders', [], currentOutletName);
             const orderRows = (Array.isArray(rawOrders) ? rawOrders : [])
                 .filter(o => o && o.id)
                 .map(o => ({
@@ -3702,18 +4062,24 @@
                     discount_label: o.discountLabel || null,
                     discount_amount: Number(o.discountAmount ?? 0),
                     method: o.method || o.paymentMethod || o.paymentType || null,
-                    status: o.status || 'PAID'
+                    status: o.status || 'PAID',
+                    outlet: normalizeOutletName(o.outlet || currentOutletName)
                 }));
 
             if (orderRows.length > 0) {
-                const { error: ordErr } = await sb
+                let { error: ordErr } = await sb
                     .from('placed_orders')
                     .upsert(orderRows, { onConflict: 'id' });
+                if (ordErr && String(ordErr.message || '').toLowerCase().includes('outlet')) {
+                    const fallbackOrderRows = orderRows.map(({ outlet, ...rest }) => rest);
+                    const retry = await sb.from('placed_orders').upsert(fallbackOrderRows, { onConflict: 'id' });
+                    ordErr = retry.error;
+                }
                 if (ordErr) throw new Error('Orders error: ' + ordErr.message);
             }
 
             alert(
-                `Sync Complete!\n\n` +
+                `Sync Complete (${currentOutletName})!\n\n` +
                 `• Categories uploaded: ${categoryRows.length}\n` +
                 `• Products uploaded: ${productRows.length}\n` +
                 `• Orders uploaded: ${orderRows.length}`
