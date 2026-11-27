@@ -707,14 +707,11 @@
           });
         });
 
-        // Push any local-only orders for this outlet up to Supabase so other devices see them
-        for (const loc of localCurrent) {
+        localCurrent.forEach(loc => {
           if (loc && loc.id && !mappedById.has(String(loc.id))) {
-            const normalizedLoc = { ...loc, outlet: targetOutlet };
-            mappedById.set(String(loc.id), normalizedLoc);
-            syncOrderToSupabase(normalizedLoc, targetOutlet);
+            mappedById.set(String(loc.id), { ...loc, outlet: targetOutlet });
           }
-        }
+        });
 
         const mergedOrders = Array.from(mappedById.values());
         mergedOrders.sort((a, b) => String(a.id).localeCompare(String(b.id)));
@@ -748,7 +745,6 @@
         placedOrders = localCurrent;
         if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
         if (typeof refreshReconData === 'function') refreshReconData();
-        if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
       }
     }
   }
@@ -821,13 +817,8 @@
     if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
     if (typeof loadActiveOutletStaff === 'function') loadActiveOutletStaff();
 
-    await Promise.all([
-      loadInventory(activeOutlet),
-      loadOrdersFromSupabase(activeOutlet)
-    ]);
-
-    if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
-    if (typeof refreshReconData === 'function') refreshReconData();
+    loadInventory(activeOutlet);
+    loadOrdersFromSupabase(activeOutlet);
 
     const dashPane = document.getElementById('paneDashboard');
     if (dashPane && dashPane.classList.contains('active') && typeof initSalesDonutChart === 'function') {
@@ -2149,33 +2140,6 @@
     }
 
     /* LOGIN & VIEW MANAGEMENT */
-    async function getExistingActivePresenceForStaff(staffObj) {
-        if (!staffObj || !staffObj.username || isAdminStaff(staffObj)) return null;
-        const targetKey = String(staffObj.username).toLowerCase();
-        const activeStatuses = ['LOGGED_IN', 'CLOCK IN', 'CLOCKED IN', 'BREAK IN', 'BREAK OUT'];
-
-        try {
-            const localMap = JSON.parse(localStorage.getItem('pos_local_staff_presence') || '{}');
-            const localRow = Object.values(localMap).find(r => r && String(r.username || '').toLowerCase() === targetKey);
-            if (localRow && activeStatuses.includes(String(localRow.status || '').toUpperCase()) && localRow.outlet) {
-                return { ...localRow, outlet: normalizeOutletName(localRow.outlet) };
-            }
-        } catch (e) {}
-
-        try {
-            const { data, error } = await supabaseClient.from('staff_presence').select('*');
-            if (!error && Array.isArray(data)) {
-                const cloudRow = data.find(r => r && String(r.username || r.staff_name || '').toLowerCase() === targetKey);
-                if (cloudRow && activeStatuses.includes(String(cloudRow.status || '').toUpperCase()) && cloudRow.outlet) {
-                    return { ...cloudRow, outlet: normalizeOutletName(cloudRow.outlet) };
-                }
-            }
-        } catch (err) {
-            console.error('Error checking existing active staff presence:', err);
-        }
-        return null;
-    }
-
     async function handleLogin() {
         const userSelect = document.getElementById('loginUser').value;
         const pinInput = document.getElementById('loginPin').value;
@@ -2185,34 +2149,22 @@
         }
         const found = staffList.find(s => s.username === userSelect && s.pin === pinInput);
         if (found) {
+            currentStaff = found;
+            localStorage.setItem('pos_current_staff', JSON.stringify(found));
+            localStorage.setItem('pos_active_cashier', JSON.stringify(found));
+
             const chosenOutlet = normalizeOutletName(
                 document.getElementById('loginOutlet')?.value ||
                 document.getElementById('attOutletSelect')?.value ||
                 'Mahebourge'
             );
-
-            if (!isAdminStaff(found)) {
-                const existingPresence = await getExistingActivePresenceForStaff(found);
-                if (existingPresence && normalizeOutletName(existingPresence.outlet) !== chosenOutlet) {
-                    showModal(
-                        "Outlet Lock Active",
-                        `${found.name} is already logged into ${existingPresence.outlet}.\n\nStaff cannot log into ${chosenOutlet} while active at ${existingPresence.outlet}. Please log out from ${existingPresence.outlet} first.`
-                    );
-                    return;
-                }
-            }
-
-            currentStaff = found;
-            localStorage.setItem('pos_current_staff', JSON.stringify(found));
-            localStorage.setItem('pos_active_cashier', JSON.stringify(found));
-
             activeOutlet = chosenOutlet;
             localStorage.setItem('pos_active_outlet', activeOutlet);
 
             if (!isAdminStaff(found)) {
                 await syncStaffPresence(found, chosenOutlet, 'LOGGED_IN');
             }
-            await loadActiveOutletStaff();
+            loadActiveOutletStaff();
 
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('mainApp').classList.remove('hidden');
@@ -2245,13 +2197,9 @@
             renderPlacedOrders();
             refreshReconData();
             updateDashboardMetrics();
-            await Promise.all([
-                loadInventory(activeOutlet),
-                loadCategoriesAndProductsFromSupabase(),
-                loadOrdersFromSupabase(activeOutlet)
-            ]);
-            refreshReconData();
-            updateDashboardMetrics();
+            loadInventory(activeOutlet);
+            loadCategoriesAndProductsFromSupabase();
+            loadOrdersFromSupabase(activeOutlet);
         } else {
             showModal("Login Failed", "Incorrect PIN Code.");
         }
@@ -2352,7 +2300,7 @@
         try {
             const localMap = JSON.parse(localStorage.getItem('pos_local_staff_presence') || '{}');
             Object.values(localMap).forEach(row => {
-                if (row && row.username) mergedByUser.set(String(row.username).toLowerCase(), row);
+                if (row && row.username) mergedByUser.set(String(row.username), row);
             });
         } catch (e) {}
 
@@ -2366,15 +2314,11 @@
                 data.forEach(row => {
                     const key = row.username || row.staff_name || row.name;
                     if (row && key) {
-                        const mapKey = String(key).toLowerCase();
-                        const existing = mergedByUser.get(mapKey);
-                        if (!existing || new Date(row.updated_at || 0) >= new Date(existing.updated_at || 0)) {
-                            mergedByUser.set(mapKey, {
-                                ...row,
-                                username: String(key),
-                                staff_name: row.staff_name || row.name || String(key)
-                            });
-                        }
+                        mergedByUser.set(String(key), {
+                            ...row,
+                            username: String(key),
+                            staff_name: row.staff_name || row.name || String(key)
+                        });
                     }
                 });
             }
@@ -2384,8 +2328,7 @@
 
         const activeStaff = Array.from(mergedByUser.values()).filter(row => {
             if (isAdminStaff(row.username) || isAdminStaff(row.staff_name)) return false;
-            if (!row.outlet) return false;
-            const rowOutlet = normalizeOutletName(row.outlet);
+            const rowOutlet = normalizeOutletName(row.outlet || '');
             if (rowOutlet !== currentOutletName) return false;
             const st = String(row.status || '').toUpperCase();
             return st === 'LOGGED_IN' || st === 'CLOCK IN' || st === 'CLOCKED IN' || st === 'BREAK IN' || st === 'BREAK OUT';
