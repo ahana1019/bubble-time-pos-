@@ -3597,41 +3597,44 @@
         });
     }
 
-    function approveCloseShiftAndPrintReport() {
-        const currentOutletName = getActiveOutlet();
-        let checkOrders = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
-            o => o && (!o.outlet || normalizeOutletName(o.outlet) === currentOutletName)
-        ).map(o => ({ ...o, outlet: currentOutletName }));
-        let checkPaid = checkOrders.filter(o => {
-            let s = String(o.status || o.paymentStatus || '').toUpperCase();
-            return s === 'PAID' || s === 'COMPLETED';
-        });
+function approveCloseShiftAndPrintReport() {
+    const currentOutletName = getActiveOutlet();
+    const allOutletOrders = getOutletJson('pos_placed_orders', [], currentOutletName)
+        .filter(o => o && (!o.outlet || normalizeOutletName(o.outlet) === currentOutletName))
+        .map(o => ({ ...o, outlet: currentOutletName }));
 
-        if (checkPaid.length === 0) {
-            showModal("Notice", `No paid transactions to close for this shift at ${currentOutletName}.`);
-            return;
-        }
+    const paidOrders = allOutletOrders.filter(order => {
+        const s = String(order.status || order.paymentStatus || '').toUpperCase();
+        return s === 'PAID' || s === 'COMPLETED';
+    });
 
-        showModal("Close Shift", `Are you sure you want to close the shift for ${currentOutletName}?`, true, async (confirmed) => {
+    if (paidOrders.length === 0 && allOutletOrders.length === 0) {
+        showModal("Notice", `No transactions to close for this shift at ${currentOutletName}.`);
+        return;
+    }
+
+    showModal(
+        "Approve & Close Shift",
+        `Close the entire shift for ${currentOutletName} and clear all shift data for tomorrow?`,
+        true,
+        async (confirmed) => {
             if (!confirmed) return;
 
-            let ordersList = getOutletJson('pos_placed_orders', [], currentOutletName).filter(
-                o => o && (!o.outlet || normalizeOutletName(o.outlet) === currentOutletName)
-            ).map(o => ({ ...o, outlet: currentOutletName }));
-            let paidOrders = ordersList.filter(order => {
-                let s = String(order.status || order.paymentStatus || '').toUpperCase();
-                return s === 'PAID' || s === 'COMPLETED';
-            });
-
-            let methodTotals = {
-                'Cash': 0, 'Card': 0, 'Juice': 0, 'MyT Money': 0, 'Blink': 0, 'Delivoo': 0, 'Hungry Dodo': 0
+            const methodTotals = {
+                'Cash': 0,
+                'Card': 0,
+                'Juice': 0,
+                'MyT Money': 0,
+                'Blink': 0,
+                'Delivoo': 0,
+                'Hungry Dodo': 0
             };
 
             let grandTotal = 0;
 
             paidOrders.forEach(order => {
-                let rawM = order.method || order.paymentType || order.paymentMethod || 'Cash';
-                let mStr = String(rawM).toLowerCase();
+                const rawM = order.method || order.paymentType || order.paymentMethod || 'Cash';
+                const mStr = String(rawM).toLowerCase();
                 let m = 'Cash';
 
                 if (mStr.includes("blink")) m = "Blink";
@@ -3642,18 +3645,33 @@
                 else if (mStr.includes("hungry")) m = "Hungry Dodo";
                 else m = "Cash";
 
-                let amt = parseFloat(order.total || order.subtotal || 0);
+                const amt = parseFloat(order.total || order.subtotal || order.amount || 0) || 0;
                 methodTotals[m] = (methodTotals[m] || 0) + amt;
                 grandTotal += amt;
             });
 
-            let now = new Date();
-            let dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-            let dateStr = now.toLocaleDateString('en-GB');
-            let cashierName = getActiveStaffDisplayName();
-            let morningStaff = localStorage.getItem('pos_morning_staff') || cashierName;
+            const now = new Date();
+            const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+            const dateStr = now.toLocaleDateString('en-GB');
+            const timeStr = now.toTimeString().split(' ')[0];
+            const cashierName = getActiveStaffDisplayName();
+            const morningStaff = localStorage.getItem('pos_morning_staff') || cashierName;
 
-            let sheetPayload = {
+            if (typeof closedShiftRecords !== 'undefined' && Array.isArray(closedShiftRecords)) {
+                closedShiftRecords.push({
+                    closedAt: now.toISOString(),
+                    date: dateStr,
+                    time: timeStr,
+                    outlet: currentOutletName,
+                    cashier: cashierName,
+                    transactionsCount: paidOrders.length,
+                    methodTotals,
+                    totalSales: grandTotal
+                });
+                localStorage.setItem('pos_closed_shift_records', JSON.stringify(closedShiftRecords));
+            }
+
+            const sheetPayload = {
                 day: dayName,
                 date: dateStr,
                 outlet: currentOutletName,
@@ -3672,25 +3690,64 @@
             syncShiftToGoogleSheets(sheetPayload);
             generateClosingShiftReport();
 
-            localStorage.removeItem(outletKey('pos_daily_sales_history', currentOutletName));
-            let remainingOrders = ordersList.filter(order => {
-                let s = String(order.status || order.paymentStatus || '').toUpperCase();
-                return s !== 'PAID' && s !== 'COMPLETED';
-            });
-            placedOrders = remainingOrders;
-            setOutletJson('pos_placed_orders', remainingOrders, currentOutletName);
+            // Clear all shift data for the active outlet for tomorrow
+            placedOrders = [];
+            dailyBatchLogs = [];
+            selectedPlacedOrderId = null;
 
-            for (const paidOrd of paidOrders) {
-                try {
-                    await supabaseClient.from('placed_orders').delete().eq('id', String(paidOrd.id));
-                } catch (e) {}
+            localStorage.removeItem(outletKey('pos_daily_sales_history', currentOutletName));
+            localStorage.removeItem(outletKey('pos_placed_orders', currentOutletName));
+            localStorage.removeItem(outletKey('pos_daily_batch_logs', currentOutletName));
+            localStorage.removeItem(`pos_order_seq::${currentOutletName}`);
+            localStorage.removeItem(`pos_order_date::${currentOutletName}`);
+
+            // Delete this outlet's orders from Supabase so other devices don't pull them back
+            try {
+                const { data: cloudRows, error: fetchErr } = await supabaseClient
+                    .from('placed_orders')
+                    .select('id, outlet');
+
+                if (!fetchErr && Array.isArray(cloudRows)) {
+                    const idsToDelete = cloudRows
+                        .filter(row => {
+                            if (!row || row.id === undefined || row.id === null) return false;
+                            if (!row.outlet) return currentOutletName === 'Valentina';
+                            return normalizeOutletName(row.outlet) === currentOutletName;
+                        })
+                        .map(row => row.id);
+
+                    for (const rowId of idsToDelete) {
+                        await supabaseClient.from('placed_orders').delete().eq('id', rowId);
+                    }
+                }
+            } catch (err) {
+                console.error('Error clearing outlet orders from Supabase:', err);
             }
 
-            renderPlacedOrders();
-            refreshReconData();
-        });
-    }
+            // Reset UI across all views for the active outlet
+            const headerEl = document.getElementById('selectedOrderDetailsHeader');
+            const itemsEl = document.getElementById('selectedOrderItemsTable');
+            if (headerEl) headerEl.innerHTML = '<p style="color: #94a3b8; font-size: 0.85rem;">Select an order from the left to view details and settlement status.</p>';
+            if (itemsEl) itemsEl.innerHTML = '';
 
+            if (typeof renderPlacedOrders === 'function') renderPlacedOrders();
+            if (typeof refreshReconData === 'function') refreshReconData();
+            if (typeof updateDashboardMetrics === 'function') updateDashboardMetrics();
+            if (typeof renderBatchPrepUI === 'function') renderBatchPrepUI();
+            if (typeof initSalesDonutChart === 'function') {
+                const dashPane = document.getElementById('paneDashboard');
+                if (dashPane && dashPane.classList.contains('active')) {
+                    initSalesDonutChart();
+                }
+            }
+
+            showModal(
+                "Shift Closed",
+                `Shift closed for ${currentOutletName}.\nTotal Closed: Rs ${grandTotal.toFixed(2)}\nAll shift orders, recon totals, and batch prep logs have been cleared for tomorrow.`
+            );
+        }
+    );
+  }
     /* DONUT CHART & DASHBOARD METRICS */
     function updateDashboardMetrics() {
         const currentOutletName = getActiveOutlet();
@@ -4094,6 +4151,3 @@
 </script>
 </body>
 </html>
-
-
-
